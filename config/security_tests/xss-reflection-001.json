@@ -1,0 +1,15 @@
+{
+  "test_id": "xss-reflection-001",
+  "vulnerability_class": "xss",
+  "target_id": "vulnerable-store",
+  "endpoint_id": "scenario-xss-search",
+  "method": "GET",
+  "allowed_parameter_names": [
+    "q"
+  ],
+  "request_template_id": "xss-reflection-template-001",
+  "success_evidence_rule_id": "unescaped-reflection-evidence-001",
+  "max_requests": 2,
+  "timeout_seconds": 5,
+  "description": "Registered metadata for the controlled local reflected-XSS scenario."
+}

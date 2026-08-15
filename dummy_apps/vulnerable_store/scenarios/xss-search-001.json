@@ -1,0 +1,16 @@
+{
+  "scenario_id": "xss-search-001",
+  "test_id": "xss-reflection-001",
+  "vulnerability_class": "xss",
+  "endpoint": "/scenarios/xss/search",
+  "method": "GET",
+  "input_field": "q",
+  "vulnerable_source_file": "dummy_apps/vulnerable_store/app/scenario_routes.py",
+  "vulnerable_function": "vulnerable_search",
+  "root_cause": "The q query parameter is inserted directly into an HTML response without output encoding.",
+  "expected_evidence": "A synthetic script marker supplied through q is returned unescaped inside the HTML response.",
+  "secure_behavior": "User-supplied search text must be escaped or rendered as plain text rather than executable HTML.",
+  "normal_behavior": "A normal search word is displayed on the scenario page.",
+  "baseline_ref": "milestone3-baseline",
+  "reset_operation_id": "reset-vulnerable-store"
+}

@@ -1,0 +1,40 @@
+# Version-control / development metadata
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Python local artifacts
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+*.egg-info
+build
+dist
+
+# Local runtime data and databases
+data
+*.db
+*.sqlite
+*.sqlite3
+dummy_apps/vulnerable_store/scenario_files
+
+# Secrets / local environment
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+
+# User / OS files
+.DS_Store
+Thumbs.db
+
+# Generated artifacts
+generated_patches
+experiment-results

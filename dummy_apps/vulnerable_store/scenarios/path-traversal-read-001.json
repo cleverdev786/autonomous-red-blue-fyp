@@ -1,0 +1,16 @@
+{
+  "scenario_id": "path-traversal-read-001",
+  "test_id": "path-traversal-private-file-001",
+  "vulnerability_class": "path_traversal",
+  "endpoint": "/scenarios/path-traversal/read",
+  "method": "GET",
+  "input_field": "path",
+  "vulnerable_source_file": "dummy_apps/vulnerable_store/app/scenario_routes.py",
+  "vulnerable_function": "vulnerable_file_read",
+  "root_cause": "The path query parameter is joined to the intended public directory without enforcing that the resolved file remains inside that public directory.",
+  "expected_evidence": "Using ../private/demo-secret.txt reads the synthetic private scenario file that should not be reachable from the public file route.",
+  "secure_behavior": "The resolved path must remain inside the public directory and any traversal outside that directory must be rejected.",
+  "normal_behavior": "The public file guide.txt remains readable.",
+  "baseline_ref": "milestone3-baseline",
+  "reset_operation_id": "reset-vulnerable-store"
+}

@@ -1,0 +1,15 @@
+{
+  "test_id": "path-traversal-private-file-001",
+  "vulnerability_class": "path_traversal",
+  "target_id": "vulnerable-store",
+  "endpoint_id": "scenario-path-traversal-read",
+  "method": "GET",
+  "allowed_parameter_names": [
+    "path"
+  ],
+  "request_template_id": "path-traversal-template-001",
+  "success_evidence_rule_id": "synthetic-private-file-evidence-001",
+  "max_requests": 2,
+  "timeout_seconds": 5,
+  "description": "Registered metadata for the bounded local path-traversal scenario."
+}

@@ -1,0 +1,16 @@
+{
+  "test_id": "sqli-login-bypass-001",
+  "vulnerability_class": "sql_injection",
+  "target_id": "vulnerable-store",
+  "endpoint_id": "scenario-sqli-login",
+  "method": "POST",
+  "allowed_parameter_names": [
+    "username",
+    "password"
+  ],
+  "request_template_id": "sqli-login-template-001",
+  "success_evidence_rule_id": "auth-bypass-evidence-001",
+  "max_requests": 2,
+  "timeout_seconds": 5,
+  "description": "Registered metadata for the controlled local SQL-injection authentication-bypass scenario."
+}

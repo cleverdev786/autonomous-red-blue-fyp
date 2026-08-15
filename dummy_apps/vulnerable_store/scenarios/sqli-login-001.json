@@ -1,0 +1,16 @@
+{
+  "scenario_id": "sqli-login-001",
+  "test_id": "sqli-login-bypass-001",
+  "vulnerability_class": "sql_injection",
+  "endpoint": "/scenarios/sql-injection/login",
+  "method": "POST",
+  "input_field": "username",
+  "vulnerable_source_file": "dummy_apps/vulnerable_store/app/scenario_routes.py",
+  "vulnerable_function": "vulnerable_login",
+  "root_cause": "The username is concatenated directly into a SQL statement instead of being passed as a bound parameter.",
+  "expected_evidence": "A registered local SQL-injection test can authenticate with an incorrect password by altering the WHERE clause through the username field.",
+  "secure_behavior": "Authentication must use a bound query and an incorrect password must always return HTTP 401.",
+  "normal_behavior": "The seeded synthetic account student1 authenticates with demo-pass-1.",
+  "baseline_ref": "milestone3-baseline",
+  "reset_operation_id": "reset-vulnerable-store"
+}

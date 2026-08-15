@@ -1,0 +1,4 @@
+Security Lab Rules
+1. Use only the local dummy application.
+2. Do not test external or unauthorized systems.
+3. Keep all data synthetic.

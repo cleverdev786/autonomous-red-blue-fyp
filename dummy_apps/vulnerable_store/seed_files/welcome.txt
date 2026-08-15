@@ -1,0 +1,2 @@
+Welcome to the local FYP Vulnerable Store baseline application.
+This file contains synthetic demonstration content only.

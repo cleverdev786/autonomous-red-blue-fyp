@@ -1,0 +1,108 @@
+name: fyp-red-blue-lab
+
+x-lab-image: &lab-image
+  image: fyp-red-blue-lab:local
+  build:
+    context: .
+    dockerfile: dummy_apps/vulnerable_store/Dockerfile
+
+x-runtime-hardening: &runtime-hardening
+  read_only: true
+  privileged: false
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  init: true
+
+services:
+  vulnerable-store:
+    <<:
+      - *lab-image
+      - *runtime-hardening
+    container_name: fyp-vulnerable-store
+    command:
+      - sh
+      - -c
+      - >-
+        python -m dummy_apps.vulnerable_store.app.reset &&
+        exec uvicorn dummy_apps.vulnerable_store.app.main:app
+        --host 0.0.0.0 --port 8000
+    environment:
+      VULNERABLE_STORE_DATABASE_URL: sqlite:////runtime/vulnerable_store.db
+      VULNERABLE_STORE_SEED_FILES_DIR: /runtime/seed_files
+      VULNERABLE_STORE_SCENARIO_FILES_DIR: /runtime/scenario_files
+    ports:
+      - "127.0.0.1:8000:8000"
+    expose:
+      - "8000"
+    networks:
+      security-lab:
+        aliases:
+          - vulnerable-store
+    volumes:
+      - type: volume
+        source: store-runtime
+        target: /runtime
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    mem_limit: 256m
+    cpus: 0.50
+    pids_limit: 128
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json, urllib.request;
+          r=urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2);
+          d=json.loads(r.read().decode());
+          assert r.status == 200 and d.get('status') == 'ok'
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  controlled-executor:
+    <<:
+      - *lab-image
+      - *runtime-hardening
+    container_name: fyp-controlled-executor
+    command:
+      - python
+      - -m
+      - infrastructure.executor.idle
+    depends_on:
+      vulnerable-store:
+        condition: service_healthy
+    networks:
+      security-lab:
+        aliases:
+          - controlled-executor
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -m
+        - infrastructure.executor.healthcheck
+      interval: 10s
+      timeout: 4s
+      retries: 5
+      start_period: 5s
+
+networks:
+  security-lab:
+    driver: bridge
+    internal: true
+    attachable: false
+    driver_opts:
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+
+volumes:
+  store-runtime:

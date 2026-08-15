@@ -1,0 +1,103 @@
+{
+  "target_id": "vulnerable-store",
+  "container_name": "fyp-vulnerable-store",
+  "hostname": "vulnerable-store",
+  "port": 8000,
+  "scheme": "http",
+  "endpoints": [
+    {
+      "endpoint_id": "health",
+      "path": "/health",
+      "allowed_methods": [
+        "GET"
+      ],
+      "input_fields": []
+    },
+    {
+      "endpoint_id": "baseline-login",
+      "path": "/login",
+      "allowed_methods": [
+        "POST"
+      ],
+      "input_fields": [
+        "username",
+        "password"
+      ]
+    },
+    {
+      "endpoint_id": "baseline-search",
+      "path": "/search",
+      "allowed_methods": [
+        "GET"
+      ],
+      "input_fields": [
+        "q"
+      ]
+    },
+    {
+      "endpoint_id": "baseline-documents",
+      "path": "/documents",
+      "allowed_methods": [
+        "GET"
+      ],
+      "input_fields": []
+    },
+    {
+      "endpoint_id": "baseline-file-download",
+      "path": "/files/{document_id}",
+      "allowed_methods": [
+        "GET"
+      ],
+      "input_fields": [
+        "document_id"
+      ]
+    },
+    {
+      "endpoint_id": "scenario-sqli-login",
+      "path": "/scenarios/sql-injection/login",
+      "allowed_methods": [
+        "POST"
+      ],
+      "input_fields": [
+        "username",
+        "password"
+      ]
+    },
+    {
+      "endpoint_id": "scenario-xss-search",
+      "path": "/scenarios/xss/search",
+      "allowed_methods": [
+        "GET"
+      ],
+      "input_fields": [
+        "q"
+      ]
+    },
+    {
+      "endpoint_id": "scenario-path-traversal-read",
+      "path": "/scenarios/path-traversal/read",
+      "allowed_methods": [
+        "GET"
+      ],
+      "input_fields": [
+        "path"
+      ]
+    }
+  ],
+  "allowed_test_ids": [
+    "sqli-login-bypass-001",
+    "xss-reflection-001",
+    "path-traversal-private-file-001"
+  ],
+  "source_root": "dummy_apps/vulnerable_store",
+  "writable_patch_roots": [
+    "dummy_apps/vulnerable_store/app",
+    "dummy_apps/vulnerable_store/tests/generated"
+  ],
+  "log_sources": [
+    "data/logs/vulnerable-store.jsonl"
+  ],
+  "reset_operation_id": "reset-vulnerable-store",
+  "max_requests_per_attempt": 5,
+  "max_attempt_duration_seconds": 30
+}
