@@ -29,7 +29,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["orchestrator*", "schemas*", "services*", "llm*"]
+include = ["agents*", "orchestrator*", "schemas*", "services*", "llm*"]
 exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]

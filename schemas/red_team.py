@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from schemas.common import Confidence, Identifier, NonEmptyText, VulnerabilityClass
+from schemas.common import (
+    Confidence,
+    HttpMethod,
+    Identifier,
+    NonEmptyText,
+    VulnerabilityClass,
+    WorkflowState,
+)
 
 
 class ReconnaissanceEndpoint(BaseModel):
@@ -13,8 +20,17 @@ class ReconnaissanceEndpoint(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     endpoint_id: Identifier
+    allowed_methods: tuple[HttpMethod, ...] = Field(min_length=1)
     input_fields: tuple[Identifier, ...] = ()
-    candidate_categories: tuple[VulnerabilityClass, ...] = ()
+
+
+class RestrictedReconnaissanceContext(BaseModel):
+    """Narrow attack-surface metadata visible to reconnaissance reasoning."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target_id: Identifier
+    endpoints: tuple[ReconnaissanceEndpoint, ...] = Field(min_length=1)
 
 
 class ReconnaissanceResult(BaseModel):
@@ -25,6 +41,27 @@ class ReconnaissanceResult(BaseModel):
     target_id: Identifier
     candidate_endpoints: tuple[ReconnaissanceEndpoint, ...] = ()
     rationale: NonEmptyText
+
+
+class RegisteredTestOption(BaseModel):
+    """Restricted registered-test metadata visible only to attack planning."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    test_id: Identifier
+    vulnerability_class: VulnerabilityClass
+    endpoint_id: Identifier
+    allowed_parameter_names: tuple[Identifier, ...] = ()
+    safe_description: NonEmptyText
+
+
+class AttackPlanningCatalog(BaseModel):
+    """Deterministic registered-test options for one approved target."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target_id: Identifier
+    options: tuple[RegisteredTestOption, ...] = Field(min_length=1)
 
 
 class AttackPlan(BaseModel):
@@ -94,3 +131,33 @@ class AttackVerification(BaseModel):
     confidence: Confidence
     evidence_ids: tuple[Identifier, ...] = ()
     reason: NonEmptyText
+
+
+class RedTeamRunResult(BaseModel):
+    """Aggregate result for one Milestone 8 single-attempt Red Team flow."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target_id: Identifier
+    attempt_number: int = Field(ge=1)
+    reconnaissance: ReconnaissanceResult
+    attack_plan: AttackPlan
+    execution: TestExecutionResult
+    verification: AttackVerification | None = None
+    final_state: WorkflowState
+
+    @model_validator(mode="after")
+    def validate_final_state(self) -> "RedTeamRunResult":
+        if self.final_state not in {
+            WorkflowState.BLUE_MONITORING,
+            WorkflowState.REJECTED,
+        }:
+            raise ValueError(
+                "Milestone 8 run result must stop at blue_monitoring or rejected"
+            )
+        if (
+            self.final_state == WorkflowState.BLUE_MONITORING
+            and self.verification is None
+        ):
+            raise ValueError("confirmed handoff requires an attack verification")
+        return self

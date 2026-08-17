@@ -36,11 +36,15 @@ from schemas.patches import (
 from schemas.scenarios import ScenarioGroundTruth
 from schemas.red_team import (
     AttackPlan,
+    AttackPlanningCatalog,
     AttackVerification,
     EvidenceItem,
     HttpExchangeEvidence,
     ReconnaissanceEndpoint,
     ReconnaissanceResult,
+    RedTeamRunResult,
+    RegisteredTestOption,
+    RestrictedReconnaissanceContext,
     TestExecutionResult,
 )
 from schemas.targets import EndpointDefinition, SecurityTestDefinition, TargetDefinition
@@ -49,6 +53,7 @@ from schemas.verification import PolicyDecision, VerificationResult, Verificatio
 __all__ = [
     "AgentRole",
     "AttackPlan",
+    "AttackPlanningCatalog",
     "AttackVerification",
     "BlueTeamMode",
     "ClassificationLabel",
@@ -73,6 +78,9 @@ __all__ = [
     "ProposedSecurityTest",
     "ReconnaissanceEndpoint",
     "ReconnaissanceResult",
+    "RedTeamRunResult",
+    "RegisteredTestOption",
+    "RestrictedReconnaissanceContext",
     "ResearchQuestion",
     "RetryFeedbackMode",
     "RunStatus",

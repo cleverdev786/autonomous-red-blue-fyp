@@ -6,11 +6,13 @@ Final Year Project:
 
 ## Current Status
 
-**Phase 7 — Deterministic Security-Test Harness**
+**Milestone 8 — Red Team MVP: local implementation and automated tests PASS; Docker runtime verification PENDING**
 
-This repository currently contains only the project foundation, configuration shell, documentation, and tests.
+Milestones 1–7 are complete. Docker isolation and the deterministic registered security-test harness were runtime-verified in Milestones 5 and 7.
 
-The deliberately vulnerable application, Red Team agents, Blue Team agents, security-test executor, patch automation, and dashboard are intentionally **not implemented yet**.
+Milestone 8 now adds the typed `agents/` reasoning layer, a provider-neutral `llm/` interface with deterministic `MockProvider`, bounded reconnaissance/planning inputs, and `orchestrator/red_team_flow.py` around the existing policy-controlled executor.
+
+The deliberately vulnerable application and controlled security-test executor are implemented. Blue Team agents, patch automation, experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
 
 ## Approved Scope
 
@@ -76,16 +78,18 @@ If PowerShell blocks virtual-environment activation, use an appropriate local ex
 Run:
 
 ```bash
-python -m compileall orchestrator schemas services llm
-pytest
+python -m compileall -q \
+  agents orchestrator schemas services llm dummy_apps infrastructure security_tests
+python -m pytest -q -p no:cacheprovider
 ```
 
-Expected at this milestone:
+Current automated result:
 
-- project packages import successfully;
-- configuration defaults load;
-- environment-variable overrides work;
-- the test suite passes.
+```text
+Python compilation: PASS
+Pytest: 96 passed in 0.81s
+Docker Milestone 8 runtime verification: PENDING
+```
 
 ## Configuration
 
@@ -109,40 +113,33 @@ Cloud-model credentials will be added only when a provider integration is implem
 
 ```text
 .
-├── README.md
+├── agents/              # untrusted typed Red/Blue reasoning roles
+├── config/              # trusted human-controlled registries
+├── data/                # generated/local data placeholders
+├── docs/                # architecture, research and milestone documentation
+├── dummy_apps/          # deliberately vulnerable local applications
+├── infrastructure/      # Docker/runtime entry points and probes
+├── llm/                 # provider-neutral LLM interfaces/providers
+├── orchestrator/        # workflow coordination and policy-driven flows
+├── schemas/             # cross-module Pydantic contracts/enums
+├── scripts/             # human-operated setup/reset/verification scripts
+├── security_tests/      # fixed deterministic registered security tests
+├── services/            # trusted deterministic services
+├── tests/               # repository-level automated tests
 ├── PROGRESS.md
-├── .env.example
-├── .gitignore
+├── README.md
+├── HANDOFF.md
 ├── pyproject.toml
-│
-├── docs/
-│   ├── phase-1/
-│   └── architecture/
-│
-├── orchestrator/
-│   ├── __init__.py
-│   └── config.py
-│
-├── schemas/
-│   └── __init__.py
-│
-├── services/
-│   └── __init__.py
-│
-├── llm/
-│   └── __init__.py
-│
-└── tests/
-    └── test_foundation.py
+└── compose.yaml
 ```
 
-More directories will be introduced only when their milestone begins.
+The top-level `agents/` package is the frozen Phase 1 untrusted reasoning layer. It is distinct from `llm/` provider mechanics, `orchestrator/` coordination, and deterministic `services/`.
 
 ## Development Order
 
 The immediate order is:
 
-1. Repository foundation — current milestone
+1. Repository foundation
 2. Core schemas and configuration
 3. Dummy application baseline
 4. Controlled vulnerability scenarios
@@ -287,6 +284,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Milestone 8 — Red Team MVP**
+**Close the Milestone 8 Docker/runtime verification gate.**
 
-The next milestone adds typed Red Team reconnaissance, registered-test planning, and evidence verification around the deterministic executor. Red Team agents will still have no direct network authority.
+The local implementation and full automated suite pass, but Milestone 8 remains incomplete until the development-laptop Docker verification in `docs/RED_TEAM_MVP.md` succeeds. Do not begin Blue Team implementation until that gate is closed.

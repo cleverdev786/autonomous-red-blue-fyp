@@ -1,1 +1,5 @@
-"""Replaceable LLM provider interfaces (implemented in later milestones)."""
+"""Provider-neutral structured-generation interfaces and implementations."""
+
+from llm.interface import StructuredGenerationProvider
+
+__all__ = ["StructuredGenerationProvider"]

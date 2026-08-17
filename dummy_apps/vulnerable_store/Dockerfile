@@ -11,6 +11,7 @@ RUN groupadd --gid 10001 fyp \
     && useradd --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin fyp
 
 COPY pyproject.toml README.md ./
+COPY agents ./agents
 COPY orchestrator ./orchestrator
 COPY schemas ./schemas
 COPY services ./services
