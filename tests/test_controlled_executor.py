@@ -31,6 +31,7 @@ from services.target_registry import TargetRegistry
 
 
 ROOT = Path(__file__).resolve().parents[1]
+RUN_ID = "test-run-001"
 
 
 class ClientTransportAdapter:
@@ -48,6 +49,8 @@ class ClientTransportAdapter:
         query_params: Mapping[str, str],
         json_body: Mapping[str, Any] | None,
         timeout_seconds: int,
+        run_id: str,
+        request_id: str,
     ) -> TransportResponse:
         self.calls.append((method, url))
         # Only the path/query from the registry-built URL is used by TestClient.
@@ -59,6 +62,10 @@ class ClientTransportAdapter:
             parts.path,
             params=dict(query_params),
             json=dict(json_body) if json_body is not None else None,
+            headers={
+                "X-FYP-Run-ID": run_id,
+                "X-FYP-Request-ID": request_id,
+            },
             follow_redirects=False,
         )
         return TransportResponse(
@@ -191,6 +198,7 @@ def test_registered_tests_produce_deterministic_evidence(
     result = executor.execute_registered_test(
         test_id=test_id,
         attempt_number=1,
+        run_id=RUN_ID,
     )
 
     assert result.completed is True
@@ -218,6 +226,7 @@ def test_unknown_test_is_blocked_before_transport(
         executor.execute_registered_test(
             test_id="unregistered-test",
             attempt_number=1,
+            run_id=RUN_ID,
         )
 
     assert exc.value.decision.reason_code == PolicyReasonCode.UNKNOWN_TEST
@@ -240,6 +249,7 @@ def test_http_budget_blocks_before_any_request_when_too_small(
         executor.execute_registered_test(
             test_id="xss-reflection-001",
             attempt_number=1,
+            run_id=RUN_ID,
         )
 
     assert exc.value.decision.reason_code == PolicyReasonCode.REQUEST_LIMIT_REACHED
@@ -255,6 +265,7 @@ def test_external_redirect_is_never_followed(
     result = executor.execute_registered_test(
         test_id="xss-reflection-001",
         attempt_number=1,
+        run_id=RUN_ID,
     )
 
     assert result.completed is False
@@ -275,6 +286,7 @@ def test_timeout_returns_structured_failure(
     result = executor.execute_registered_test(
         test_id="xss-reflection-001",
         attempt_number=1,
+        run_id=RUN_ID,
     )
 
     assert result.completed is False
@@ -307,6 +319,7 @@ def test_test_implementation_cannot_add_unregistered_parameter(
         executor.execute_registered_test(
             test_id="xss-reflection-001",
             attempt_number=1,
+            run_id=RUN_ID,
         )
 
     assert exc.value.decision.reason_code == PolicyReasonCode.PROHIBITED_OPERATION

@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 import time
 from typing import Any, Mapping, Protocol
 from urllib.parse import urljoin
 
 import httpx
+from pydantic import TypeAdapter
 
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
-from schemas.common import PolicyReasonCode
+from schemas.common import Identifier, PolicyReasonCode
 from schemas.red_team import HttpExchangeEvidence, TestExecutionResult
 from schemas.verification import PolicyDecision
 from security_tests.base import RequestStep
 from security_tests.registry import SecurityTestRegistry
 from services.target_registry import TargetRegistry, TargetRegistryError
+
+
+_IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
 
 
 class ControlledExecutionBlocked(RuntimeError):
@@ -55,6 +60,8 @@ class HttpTransport(Protocol):
         query_params: Mapping[str, str],
         json_body: Mapping[str, Any] | None,
         timeout_seconds: int,
+        run_id: str,
+        request_id: str,
     ) -> TransportResponse:
         """Send one already-authorized request without following redirects."""
 
@@ -70,6 +77,8 @@ class HttpxTransport:
         query_params: Mapping[str, str],
         json_body: Mapping[str, Any] | None,
         timeout_seconds: int,
+        run_id: str,
+        request_id: str,
     ) -> TransportResponse:
         try:
             with httpx.Client(
@@ -81,6 +90,10 @@ class HttpxTransport:
                     url=url,
                     params=dict(query_params),
                     json=dict(json_body) if json_body is not None else None,
+                    headers={
+                        "X-FYP-Run-ID": run_id,
+                        "X-FYP-Request-ID": request_id,
+                    },
                 )
         except httpx.TimeoutException as exc:
             raise TransportTimeoutError("controlled request timed out") from exc
@@ -123,15 +136,17 @@ class ControlledExecutor:
         *,
         test_id: str,
         attempt_number: int,
+        run_id: str,
     ) -> TestExecutionResult:
-        """Execute one fixed local test sequence.
+        """Execute one fixed local test sequence with trusted correlation metadata.
 
-        The caller supplies only a registered test ID and attempt number.
-        Destination, endpoint, method, and payload are derived from trusted
-        configuration/code.
+        The caller supplies a registered test ID, attempt number, and opaque run
+        correlation ID. Destination, endpoint, method, payload, and request IDs
+        remain derived by trusted deterministic code.
         """
         if attempt_number < 1:
             raise ValueError("attempt_number must be >= 1")
+        run_id = _IDENTIFIER_ADAPTER.validate_python(run_id)
 
         try:
             metadata = self.target_registry.get_security_test(test_id)
@@ -200,6 +215,11 @@ class ControlledExecutor:
             )
             base_url = f"{target.scheme}://{target.hostname}:{target.port}"
             url = urljoin(base_url, endpoint.path)
+            request_id = self._request_id(
+                run_id=run_id,
+                attempt_number=attempt_number,
+                request_index=index,
+            )
 
             request_started = self.clock()
             try:
@@ -209,9 +229,12 @@ class ControlledExecutor:
                     query_params=step.query_params,
                     json_body=step.json_body,
                     timeout_seconds=metadata.timeout_seconds,
+                    run_id=run_id,
+                    request_id=request_id,
                 )
             except TransportTimeoutError:
                 return TestExecutionResult(
+                    run_id=run_id,
                     target_id=metadata.target_id,
                     test_id=test_id,
                     attempt_number=attempt_number,
@@ -226,6 +249,7 @@ class ControlledExecutor:
                 )
             except TransportRequestError:
                 return TestExecutionResult(
+                    run_id=run_id,
                     target_id=metadata.target_id,
                     test_id=test_id,
                     attempt_number=attempt_number,
@@ -243,6 +267,7 @@ class ControlledExecutor:
             redirect_location = response.headers.get("location")
             exchange = HttpExchangeEvidence(
                 exchange_id=f"exchange-{index:02d}",
+                request_id=request_id,
                 step_id=step.step_id,
                 endpoint_id=step.endpoint_id,
                 method=step.method.value,
@@ -257,6 +282,7 @@ class ControlledExecutor:
             # This is stricter than revalidation and prevents redirect escape.
             if 300 <= response.status_code <= 399:
                 return TestExecutionResult(
+                    run_id=run_id,
                     target_id=metadata.target_id,
                     test_id=test_id,
                     attempt_number=attempt_number,
@@ -273,6 +299,7 @@ class ControlledExecutor:
         evidence = test.evaluate(tuple(exchanges))
 
         return TestExecutionResult(
+            run_id=run_id,
             target_id=metadata.target_id,
             test_id=test_id,
             attempt_number=attempt_number,
@@ -285,6 +312,12 @@ class ControlledExecutor:
             duration_ms=self._elapsed_ms(started),
             error_code=None if evidence else "evidence-not-observed",
         )
+
+    @staticmethod
+    def _request_id(*, run_id: str, attempt_number: int, request_index: int) -> str:
+        """Create a deterministic opaque request ID from trusted run correlation."""
+        material = f"{run_id}:{attempt_number}:{request_index}".encode("utf-8")
+        return f"req-{sha256(material).hexdigest()[:24]}"
 
     def _validate_step(self, *, metadata, step: RequestStep) -> None:
         self._require(

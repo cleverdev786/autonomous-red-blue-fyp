@@ -7,7 +7,8 @@ providers. MockProvider performs no external communication.
 
 The CLI accepts only:
 - a registered test ID used to configure MockProvider's planner fixture;
-- a positive attempt number.
+- a positive attempt number;
+- an opaque run ID used only for Milestone 9 correlation.
 
 The CLI never passes its --test-id directly to ControlledExecutor. Execution is
 reached only through MockProvider -> AttackPlanningAgent -> AttackPlan ->
@@ -27,6 +28,7 @@ from schemas.common import WorkflowState
 from schemas.experiments import ExperimentLimits
 from schemas.red_team import RedTeamRunResult
 from security_tests.registry import SecurityTestRegistry
+from services.audit_service import AuditService
 from services.controlled_executor import ControlledExecutor, HttpTransport, HttpxTransport
 from services.target_registry import TargetRegistry
 
@@ -50,6 +52,11 @@ def build_parser(allowed_test_ids: tuple[str, ...]) -> argparse.ArgumentParser:
         default=1,
         help="Positive experiment attempt number.",
     )
+    parser.add_argument(
+        "--run-id",
+        required=True,
+        help="Opaque run correlation ID; it cannot change the selected test or request.",
+    )
     return parser
 
 
@@ -59,7 +66,9 @@ def run_red_team_mvp(
     target_registry: TargetRegistry,
     planned_test_id: str,
     attempt_number: int,
+    run_id: str,
     transport: HttpTransport,
+    audit_service: AuditService,
 ) -> RedTeamRunResult:
     """Build trusted runtime components and execute one full mock Red Team flow."""
     metadata = target_registry.get_security_test(planned_test_id)
@@ -93,9 +102,11 @@ def run_red_team_mvp(
         limits=limits,
         executor=executor,
         provider=provider,
+        audit_service=audit_service,
     )
 
     result = flow.run(
+        run_id=run_id,
         target_id=metadata.target_id,
         attempt_number=attempt_number,
     )
@@ -125,7 +136,9 @@ def main() -> None:
         target_registry=target_registry,
         planned_test_id=args.test_id,
         attempt_number=args.attempt_number,
+        run_id=args.run_id,
         transport=HttpxTransport(),
+        audit_service=AuditService(project_root=Path("/tmp/fyp-m9-runtime")),
     )
     print(result.model_dump_json(indent=2))
 

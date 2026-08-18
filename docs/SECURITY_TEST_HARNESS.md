@@ -39,12 +39,15 @@ The code registry must match the trusted JSON registry exactly.
 
 ## Agent Boundary
 
-The controlled executor accepts only:
+The controlled executor accepts only actionable registered-test selection plus bounded correlation metadata:
 
 ```text
 test_id
 attempt_number
+run_id          # opaque correlation only
 ```
+
+Milestone 9 added `run_id` only to correlate deterministic execution with structured application logs. The executor generates each `request_id` internally. Neither value can change destination, method, payload, or registered test behavior.
 
 It does **not** accept:
 
@@ -52,7 +55,7 @@ It does **not** accept:
 - hostname;
 - port;
 - HTTP method;
-- arbitrary header;
+- arbitrary header mapping;
 - raw payload;
 - arbitrary file path;
 - shell command.
@@ -60,10 +63,12 @@ It does **not** accept:
 Destination and request contents are derived from trusted registry/configuration
 and fixed code-defined templates.
 
+The legacy `run_registered_test.py` verification CLI still exposes only `test_id` and `attempt_number`; it generates an opaque correlation `run_id` internally.
+
 ## Execution Flow
 
 ```text
-registered test_id
+registered test_id + opaque run_id
       ↓
 trusted metadata lookup
       ↓
@@ -78,9 +83,11 @@ Policy Engine:
       ↓
 construct local URL from registry
       ↓
-controlled transport
+executor-generated request_id
       ↓
-structured exchange evidence
+controlled transport with fixed correlation headers
+      ↓
+structured exchange evidence with request_id
       ↓
 deterministic evidence rule
       ↓
@@ -146,6 +153,7 @@ error_code = request-timeout
 Each exchange records only bounded/sanitized fields:
 
 - exchange ID;
+- request ID;
 - step ID;
 - endpoint ID;
 - method;

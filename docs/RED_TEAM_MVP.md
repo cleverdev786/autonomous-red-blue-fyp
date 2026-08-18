@@ -121,11 +121,12 @@ The flow passes only:
 ```text
 AttackPlan.test_id
 attempt_number
+run_id          # opaque correlation only
 ```
 
 to `ControlledExecutor.execute_registered_test()`.
 
-The existing target registry, policy engine, run-limit tracker, controlled executor, security-test registry/configuration, registered security-test implementations, and Compose isolation remain unchanged.
+Milestone 9 later extended the executor with this non-actionable `run_id` and executor-generated per-request correlation. It did not add arbitrary headers, URLs, methods, payloads, or agent execution authority. Target registry, policy engine, run-limit tracker, registered security tests/configuration, and Compose isolation remain unchanged.
 
 ## Verification Integrity
 
@@ -165,12 +166,12 @@ A denied call is not invoked and does not consume another model-call unit.
 
 `MockProvider` is deterministic and performs no external communication. It exists so Milestone 8 can verify the complete agent/orchestration architecture without adding a cloud-model dependency or credentials.
 
-The runtime fixture `--test-id` configures the MockProvider's expected planning choice. It is not passed directly from the CLI to `ControlledExecutor`.
+The runtime fixture `--test-id` configures the MockProvider's expected planning choice. It is not passed directly from the CLI to `ControlledExecutor`. Milestone 9 also requires an opaque `--run-id` used only for structured-log/audit correlation.
 
 The runtime path is:
 
 ```text
-CLI --test-id fixture
+CLI --test-id fixture + opaque --run-id correlation
   ↓
 MockProvider configuration
   ↓

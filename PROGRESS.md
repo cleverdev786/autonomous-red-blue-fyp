@@ -4,10 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 8 — Red Team MVP**
+**Milestone 9 — Structured Logging and Audit System**
 
 ## Status
-**IN PROGRESS — local implementation and automated verification passed; Docker runtime verification PENDING**
+
+**IN PROGRESS — implementation, automated verification, and Docker/runtime verification passed; final Git review and commit PENDING.**
+
+Milestone 9 is runtime-verified. It is not yet considered fully complete until the final staged Git review is clean and the milestone commit is created.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -19,13 +22,13 @@
 - [x] Milestone 5 — Docker Isolation and Reset — runtime verified
 - [x] Milestone 6 — Target Registry and Policy Engine
 - [x] Milestone 7 — Deterministic Security-Test Harness — runtime verified
-- [ ] Milestone 8 — Red Team MVP — Docker runtime verification pending
+- [x] Milestone 8 — Red Team MVP — runtime verified and committed (`aee2213`)
 
 ## Milestone 7 Verified Baseline
 
 Milestone 7 remains closed. The existing controlled executor:
 
-- accepts registered test ID plus attempt number only;
+- at Milestone 7 closure, accepted registered test ID plus attempt number only;
 - derives target, destination, endpoint, method, parameters, timeout, and evidence rules from trusted code/configuration;
 - blocks arbitrary URL/hostname/port/method/payload/file/command authority;
 - does not follow redirects;
@@ -151,6 +154,8 @@ attempt_number
 ```
 
 reach `ControlledExecutor.execute_registered_test()`.
+
+Milestone 9 subsequently adds only opaque `run_id` correlation and executor-generated `request_id` evidence. This does not add arbitrary HTTP/header authority or change registered security-test behavior.
 
 ### Verification Integrity
 
@@ -288,8 +293,120 @@ The single pytest warning is an upstream Starlette/FastAPI TestClient deprecatio
 - [x] Full Red Team runtime flow for SQL Injection
 - [x] Full Red Team runtime flow for XSS
 - [x] Full Red Team runtime flow for Path Traversal
-- [ ] Final Git diff/status review after runtime verification
-- [ ] Milestone 8 commit
+- [x] Final Git diff/status review after runtime verification
+- [x] Milestone 8 commit — `aee2213 Complete Milestone 8 Red Team MVP`
+
+## Milestone 9 Implemented Locally
+
+### Structured Application Evidence
+
+The vulnerable store now emits Pydantic-validated JSON-line application events for:
+
+- HTTP requests;
+- validation observations;
+- database observations;
+- file-access observations;
+- application errors.
+
+Every structured application event includes opaque `run_id` and `request_id` correlation. Structural fields are generated separately from the bounded `attributes` mapping, and caller-supplied attributes cannot overwrite `schema_version`, IDs, timestamp, event type, component, route, method, or status. Sensitive attribute names such as password/token/authorization/cookie/secret/environment values are discarded.
+
+Blue-facing events use neutral route names (`login`, `search`, `file_read`, etc.) and do not expose registered `test_id`, vulnerability class, registry endpoint IDs, raw scenario paths, request/evidence-rule IDs, source ground truth, or scenario ground truth.
+
+### Correlation Boundary
+
+`ControlledExecutor.execute_registered_test()` now additionally accepts an opaque `run_id`. It deterministically generates each `request_id` and passes only those fixed correlation values through `HttpTransport`. `HttpxTransport` constructs the two fixed internal correlation headers. No arbitrary header mapping was introduced.
+
+Deterministic execution evidence now carries:
+
+```text
+RedTeamRunResult.run_id
+TestExecutionResult.run_id
+HttpExchangeEvidence.request_id
+```
+
+This creates a traceable run → execution → exchange → application-event chain without changing registered test selection, destinations, methods, payloads, or evidence rules.
+
+### LogReader
+
+`services/log_reader.py` reads only registry-approved `TargetDefinition.log_sources`. It has no Docker/subprocess capability. It validates application events, ignores ordinary runtime noise, safely counts malformed claimed structured events, de-duplicates event IDs, and returns only the exact requested run.
+
+Docker stdout acquisition remains a human/runtime verification responsibility for Milestone 9. No Compose bind mount or Docker socket capability was added.
+
+### Audit Service
+
+`services/audit_service.py` writes append-oriented typed audit records under the fixed project-local runtime path `data/audit/audit.jsonl`. `RedTeamFlow` records current policy-sensitive actions, model-call authorization/results, workflow transitions, registered-test authorization, and controlled-execution outcomes. Blocked and successful actions are retained. Agents cannot create audit records directly.
+
+Audit records remain separate from Blue/RQ2 application-classification input.
+
+## Milestone 9 Automated Verification Result
+
+Commands run against the Milestone 8 committed baseline plus the Milestone 9 implementation:
+
+```bash
+python3 -m compileall -q \
+  agents orchestrator schemas services llm dummy_apps infrastructure security_tests
+
+python3 -m pytest -q -p no:cacheprovider
+
+git diff --check
+```
+
+Observed results:
+
+```text
+Python compilation: PASS
+Pytest: 108 passed
+git diff --check: PASS
+```
+
+Automated coverage includes the structural-field overwrite invariant, sensitive-field filtering, JSON-line integrity, neutral route names, all required application event categories, error logging, executor/application request correlation, exact run isolation, duplicate/malformed handling, absence of Docker authority in `LogReader`, append-oriented audit filtering, successful sensitive-operation auditing, blocked model-call auditing, and all Milestone 1–8 regressions.
+
+## Milestone 9 Runtime Gate
+
+**PASS — development-laptop runtime verification completed on 2026-08-18.**
+
+Observed results:
+
+```text
+Python compile check: PASS (exit code 0)
+Pytest: 108 passed, 1 warning in 3.00s
+git diff --check: PASS
+
+Docker clean reset/rebuild: PASS
+Docker isolation verification: PASS
+Public internet blocked from controlled-executor: PASS
+Milestone 7 registered-test regression: PASS
+
+m9-run-001 / SQL Injection correlated Red Team flow: PASS
+m9-run-002 / XSS correlated Red Team flow: PASS
+m9-run-003 / Path Traversal correlated Red Team flow: PASS
+Final workflow state for all three runs: blue_monitoring
+
+LogReader exact run isolation: PASS
+Executor/application request-ID correlation: PASS
+Required Milestone 9 runtime event categories: PASS
+Forbidden registry/ground-truth structural metadata check: PASS
+
+Audit runtime verification: PASS
+14 audit records per run
+3 successful model calls per run
+registered-test authorization recorded
+successful controlled execution recorded
+
+Final Docker isolation re-check: PASS
+```
+
+Runtime evidence also confirmed:
+
+- each execution carried the expected opaque `run_id`;
+- each deterministic HTTP exchange carried a distinct executor-generated `request_id`;
+- application logs contained the matching request IDs for the exact run;
+- all three executions completed without timeout and retained deterministic evidence;
+- structured application logs used neutral route names and did not expose scenario paths or registry/ground-truth structural fields;
+- audit history was separated from Blue-facing application evidence;
+- the controlled executor remained unable to access the public internet.
+
+The single pytest warning is an upstream Starlette/FastAPI TestClient deprecation warning from the virtual environment and did not fail the test suite.
 
 ## Still Locked
 
@@ -312,9 +429,12 @@ Do not implement until the appropriate later milestone:
 
 ## Next Gate
 
-**Final Milestone 8 Git diff/status review and commit.**
+**Final Milestone 9 staged Git review and commit.**
 
-Implementation, automated verification, and Docker/runtime verification are complete. Do not begin the next milestone until the final Git review is clean and the Milestone 8 commit is created.
+Implementation, automated verification, Docker/runtime verification, run/request correlation, structured-log isolation, audit verification, and Docker isolation re-verification have all passed.
+
+Do not begin Milestone 10 until the final staged diff is reviewed and the Milestone 9 commit is created.
 
 ## Last Updated
-2026-08-17
+
+2026-08-18

@@ -27,6 +27,14 @@ from schemas.experiments import (
     ModelConfiguration,
     RetryFeedbackMode,
 )
+from schemas.logging import (
+    ApplicationEventType,
+    ApplicationLogEvent,
+    AuditEvent,
+    AuditExecutionStatus,
+    AuditPolicyDecision,
+    LogReadResult,
+)
 from schemas.patches import (
     PatchProposal,
     PatchRetryFeedback,
@@ -52,9 +60,14 @@ from schemas.verification import PolicyDecision, VerificationResult, Verificatio
 
 __all__ = [
     "AgentRole",
+    "ApplicationEventType",
+    "ApplicationLogEvent",
     "AttackPlan",
     "AttackPlanningCatalog",
     "AttackVerification",
+    "AuditEvent",
+    "AuditExecutionStatus",
+    "AuditPolicyDecision",
     "BlueTeamMode",
     "ClassificationLabel",
     "ClassificationMode",
@@ -67,6 +80,7 @@ __all__ = [
     "ExperimentLimits",
     "ExperimentRunSummary",
     "HttpMethod",
+    "LogReadResult",
     "ModelConfiguration",
     "MonitoringResult",
     "PatchDecision",

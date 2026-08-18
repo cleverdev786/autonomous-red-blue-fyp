@@ -93,6 +93,7 @@ class HttpExchangeEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     exchange_id: Identifier
+    request_id: Identifier
     step_id: Identifier
     endpoint_id: Identifier
     method: str
@@ -107,6 +108,7 @@ class TestExecutionResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    run_id: Identifier
     target_id: Identifier
     test_id: Identifier
     attempt_number: int = Field(ge=1)
@@ -138,6 +140,7 @@ class RedTeamRunResult(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    run_id: Identifier
     target_id: Identifier
     attempt_number: int = Field(ge=1)
     reconnaissance: ReconnaissanceResult

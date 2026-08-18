@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -27,6 +28,7 @@ from schemas.red_team import (
     TestExecutionResult as ExecutionResult,
 )
 from security_tests.registry import SecurityTestRegistry
+from services.audit_service import AuditService
 from services.controlled_executor import ControlledExecutor, HttpTransport
 from services.reconnaissance_service import ReconnaissanceService
 from services.target_registry import TargetRegistry
@@ -35,6 +37,7 @@ from tests.test_controlled_executor import ClientTransportAdapter
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGET_ID = "vulnerable-store"
+RUN_ID = "m8-test-run-001"
 
 
 @pytest.fixture
@@ -104,15 +107,16 @@ class StaticExecutor:
 
     def __init__(self, result: ExecutionResult) -> None:
         self.result = result
-        self.calls: list[tuple[str, int]] = []
+        self.calls: list[tuple[str, int, str]] = []
 
     def execute_registered_test(
         self,
         *,
         test_id: str,
         attempt_number: int,
+        run_id: str,
     ) -> ExecutionResult:
-        self.calls.append((test_id, attempt_number))
+        self.calls.append((test_id, attempt_number, run_id))
         return self.result
 
 
@@ -166,12 +170,16 @@ def build_flow(
         limits=limits,
         executor=executor,
         provider=provider,
+        audit_service=AuditService(
+            project_root=Path(tempfile.mkdtemp(prefix="fyp-red-audit-"))
+        ),
     )
     return flow, limits
 
 
 def successful_execution(test_id: str) -> ExecutionResult:
     return ExecutionResult(
+        run_id=RUN_ID,
         target_id=TARGET_ID,
         test_id=test_id,
         attempt_number=1,
@@ -272,7 +280,7 @@ def test_full_red_team_flow_reaches_blue_handoff_for_registered_scenarios(
         policy_engine=policy,
     )
 
-    result = flow.run(target_id=TARGET_ID, attempt_number=1)
+    result = flow.run(run_id=RUN_ID, target_id=TARGET_ID, attempt_number=1)
 
     assert result.final_state == WorkflowState.BLUE_MONITORING
     assert result.attack_plan.test_id == test_id
@@ -328,7 +336,7 @@ def test_attack_plan_outside_catalog_fails_before_executor(
     )
 
     with pytest.raises(RedTeamFlowError, match="outside the restricted catalog"):
-        flow.run(target_id=TARGET_ID)
+        flow.run(run_id=RUN_ID, target_id=TARGET_ID)
 
     assert executor.calls == []
 
@@ -377,7 +385,7 @@ def test_attack_plan_metadata_mismatch_fails_closed(
     )
 
     with pytest.raises(RedTeamFlowError, match=expected_message):
-        flow.run(target_id=TARGET_ID)
+        flow.run(run_id=RUN_ID, target_id=TARGET_ID)
 
     assert executor.calls == []
 
@@ -404,7 +412,7 @@ def test_malformed_agent_output_is_rejected_by_pydantic(
     )
 
     with pytest.raises(ValidationError):
-        flow.run(target_id=TARGET_ID)
+        flow.run(run_id=RUN_ID, target_id=TARGET_ID)
 
     assert limits.snapshot().model_calls == 1
     assert executor.calls == []
@@ -423,7 +431,7 @@ def test_model_call_budget_blocks_before_provider_invocation_and_consumption(
     )
 
     with pytest.raises(RedTeamPolicyBlocked) as exc:
-        flow.run(target_id=TARGET_ID)
+        flow.run(run_id=RUN_ID, target_id=TARGET_ID)
 
     assert exc.value.decision.reason_code.value == "model_call_limit_reached"
     assert limits.snapshot().model_calls == 2
@@ -431,7 +439,7 @@ def test_model_call_budget_blocks_before_provider_invocation_and_consumption(
         AgentRole.RED_RECONNAISSANCE,
         AgentRole.RED_ATTACK_PLANNER,
     )
-    assert executor.calls == [("xss-reflection-001", 1)]
+    assert executor.calls == [("xss-reflection-001", 1, RUN_ID)]
 
 
 @pytest.mark.parametrize("mismatch_kind", ["target", "test"])
@@ -456,7 +464,7 @@ def test_execution_identity_mismatch_transitions_to_rejected_without_verifier(
         policy_engine=policy,
     )
 
-    result = flow.run(target_id=TARGET_ID)
+    result = flow.run(run_id=RUN_ID, target_id=TARGET_ID)
 
     assert result.final_state == WorkflowState.REJECTED
     assert result.verification is None
@@ -476,6 +484,7 @@ def test_execution_identity_mismatch_transitions_to_rejected_without_verifier(
     [
         (
             ExecutionResult(
+                run_id=RUN_ID,
                 target_id=TARGET_ID,
                 test_id="xss-reflection-001",
                 attempt_number=1,
@@ -499,6 +508,7 @@ def test_execution_identity_mismatch_transitions_to_rejected_without_verifier(
         ),
         (
             ExecutionResult(
+                run_id=RUN_ID,
                 target_id=TARGET_ID,
                 test_id="xss-reflection-001",
                 attempt_number=1,
@@ -577,7 +587,7 @@ def test_verification_integrity_forces_rejection(
         executor=executor,
     )
 
-    result = flow.run(target_id=TARGET_ID)
+    result = flow.run(run_id=RUN_ID, target_id=TARGET_ID)
 
     assert result.final_state == WorkflowState.REJECTED
     assert result.verification is not None
@@ -596,7 +606,11 @@ def test_runtime_helper_uses_planner_path_not_direct_cli_to_executor(
         target_registry=registry,
         planned_test_id="xss-reflection-001",
         attempt_number=1,
+        run_id=RUN_ID,
         transport=ClientTransportAdapter(client),
+        audit_service=AuditService(
+            project_root=Path(tempfile.mkdtemp(prefix="fyp-runtime-audit-"))
+        ),
     )
 
     assert result.attack_plan.test_id == "xss-reflection-001"

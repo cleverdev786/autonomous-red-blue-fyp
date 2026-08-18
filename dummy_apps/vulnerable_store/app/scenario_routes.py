@@ -19,8 +19,11 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from schemas.logging import ApplicationEventType
+
 from .api_schemas import LoginRequest, LoginResponse
 from .security import hash_demo_password
+from .structured_logging import emit_structured_event
 
 
 def build_scenario_router(*, get_session, scenario_files_dir: Path) -> APIRouter:
@@ -36,12 +39,7 @@ def build_scenario_router(*, get_session, scenario_files_dir: Path) -> APIRouter
         payload: LoginRequest,
         session: Session = Depends(get_session),
     ) -> LoginResponse:
-        """Intentionally vulnerable SQL login for synthetic local data only.
-
-        The username is concatenated into SQL to create one reproducible SQL
-        injection scenario. This is deliberately bad code and must not be copied
-        into real applications.
-        """
+        """Intentionally vulnerable SQL login for synthetic local data only."""
         password_hash = hash_demo_password(payload.password)
 
         # DELIBERATE VULNERABILITY: string concatenation into a SQL statement.
@@ -53,6 +51,15 @@ def build_scenario_router(*, get_session, scenario_files_dir: Path) -> APIRouter
         )
 
         row = session.execute(text(query)).mappings().first()
+        emit_structured_event(
+            event_type=ApplicationEventType.DATABASE_EVENT,
+            attributes={
+                "operation": "login_lookup",
+                "username": payload.username,
+                "matched": row is not None,
+                "authenticated": row is not None,
+            },
+        )
         if row is None:
             raise HTTPException(status_code=401, detail="Invalid username or password")
 
@@ -65,6 +72,11 @@ def build_scenario_router(*, get_session, scenario_files_dir: Path) -> APIRouter
     @local_router.get("/xss/search", response_class=HTMLResponse)
     def vulnerable_search(q: str = Query(default="", max_length=200)) -> HTMLResponse:
         """Intentionally reflect query text into HTML without escaping."""
+        emit_structured_event(
+            event_type=ApplicationEventType.VALIDATION_EVENT,
+            attributes={"field": "q", "value": q, "accepted": True},
+        )
+
         # DELIBERATE VULNERABILITY: q is inserted directly into HTML.
         body = (
             "<!doctype html><html><body>"
@@ -91,11 +103,28 @@ def build_scenario_router(*, get_session, scenario_files_dir: Path) -> APIRouter
         try:
             candidate.relative_to(scenario_root)
         except ValueError as exc:
-            raise HTTPException(status_code=403, detail="Scenario sandbox escape blocked") from exc
+            emit_structured_event(
+                event_type=ApplicationEventType.FILE_ACCESS_EVENT,
+                attributes={"requested_path": path, "outcome": "sandbox_blocked"},
+                status_code=403,
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Scenario sandbox escape blocked",
+            ) from exc
 
         if not candidate.is_file():
+            emit_structured_event(
+                event_type=ApplicationEventType.FILE_ACCESS_EVENT,
+                attributes={"requested_path": path, "outcome": "not_found"},
+                status_code=404,
+            )
             raise HTTPException(status_code=404, detail="Scenario file not found")
 
+        emit_structured_event(
+            event_type=ApplicationEventType.FILE_ACCESS_EVENT,
+            attributes={"requested_path": path, "outcome": "allowed"},
+        )
         return PlainTextResponse(candidate.read_text(encoding="utf-8"))
 
     return local_router

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from uuid import uuid4
 
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
@@ -77,9 +78,11 @@ def main() -> None:
         transport=HttpxTransport(),
     )
 
+    run_id = f"registered-{uuid4().hex[:16]}"
     result = executor.execute_registered_test(
         test_id=args.test_id,
         attempt_number=args.attempt_number,
+        run_id=run_id,
     )
     print(result.model_dump_json(indent=2))
 

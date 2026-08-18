@@ -6,13 +6,25 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 8 — Red Team MVP: local implementation and automated tests PASS; Docker runtime verification PENDING**
+**Milestone 9 — Structured Logging and Audit System: implementation, automated verification, and Docker/runtime verification PASS; final Git review/commit pending.**
 
-Milestones 1–7 are complete. Docker isolation and the deterministic registered security-test harness were runtime-verified in Milestones 5 and 7.
+Milestones 1–8 remain complete. Milestone 9 now provides typed structured application events, trusted registered-source log reading, append-oriented audit records, and explicit run/request correlation through the existing controlled execution boundary.
 
-Milestone 8 now adds the typed `agents/` reasoning layer, a provider-neutral `llm/` interface with deterministic `MockProvider`, bounded reconnaissance/planning inputs, and `orchestrator/red_team_flow.py` around the existing policy-controlled executor.
+Verified Milestone 9 results:
 
-The deliberately vulnerable application and controlled security-test executor are implemented. Blue Team agents, patch automation, experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
+```text
+Python compilation: PASS
+Pytest: 108 passed, 1 warning
+Docker clean reset/rebuild: PASS
+Docker isolation: PASS
+Milestone 7 registered-test regression: PASS
+Three correlated Red Team runtime flows: PASS
+LogReader run isolation/request correlation: PASS
+Audit runtime verification: PASS
+Final Docker isolation re-check: PASS
+```
+
+Blue Team monitoring/triage, rule/LLM/hybrid classification experiments, patch generation, experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
 
 ## Approved Scope
 
@@ -87,8 +99,8 @@ Current automated result:
 
 ```text
 Python compilation: PASS
-Pytest: 96 passed in 0.81s
-Docker Milestone 8 runtime verification: PENDING
+Pytest: 108 passed
+Milestone 9 Docker/runtime verification: PENDING
 ```
 
 ## Configuration
@@ -284,6 +296,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Close the Milestone 8 Docker/runtime verification gate.**
+**Finalize Milestone 9 Git review and commit.**
 
-The local implementation and full automated suite pass, but Milestone 8 remains incomplete until the development-laptop Docker verification in `docs/RED_TEAM_MVP.md` succeeds. Do not begin Blue Team implementation until that gate is closed.
+All Milestone 9 technical verification gates have passed. Review the staged diff, commit the verified milestone, and do not begin Milestone 10 until that permanent baseline exists.
