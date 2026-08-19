@@ -166,7 +166,7 @@ file_read
 other
 ```
 
-The logger records observations rather than vulnerability classifications. Rule-derived features and labels remain a later milestone responsibility.
+The logger records observations rather than vulnerability classifications. Milestone 10 now performs rule-derived classification separately in `services/rule_engine.py`; the logger itself remains classification-free.
 
 ## LogReader
 

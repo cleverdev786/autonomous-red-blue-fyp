@@ -6,25 +6,22 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 9 — Structured Logging and Audit System: implementation, automated verification, and Docker/runtime verification PASS; final Git review/commit pending.**
+**Milestone 10 — Rule-Based Detection Baseline: implementation, automated verification, and Docker/runtime verification PASS; final Git review/commit PENDING.**
 
-Milestones 1–8 remain complete. Milestone 9 now provides typed structured application events, trusted registered-source log reading, append-oriented audit records, and explicit run/request correlation through the existing controlled execution boundary.
+Milestones 1–9 are complete. Milestone 9 is permanently committed at `4058143` and provides the normalized Blue-facing structured evidence consumed by the Milestone 10 deterministic rule-only RQ2 baseline.
 
-Verified Milestone 9 results:
+Current Milestone 10 automated results:
 
 ```text
-Python compilation: PASS
-Pytest: 108 passed, 1 warning
-Docker clean reset/rebuild: PASS
-Docker isolation: PASS
-Milestone 7 registered-test regression: PASS
-Three correlated Red Team runtime flows: PASS
-LogReader run isolation/request correlation: PASS
-Audit runtime verification: PASS
-Final Docker isolation re-check: PASS
+Python compilation: PASS (exit code 0)
+Pytest: 133 passed, 1 warning in 3.17s
+git diff --check: PASS
+Docker/runtime verification: PASS
 ```
 
-Blue Team monitoring/triage, rule/LLM/hybrid classification experiments, patch generation, experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
+The rule baseline reuses `ApplicationLogEvent`, `LogReadResult`, `ClassificationLabel`, and `TriageResult`; it adds no LLM/agent/execution authority and does not classify from scenario/test IDs, ground truth, Red evidence, audit records, or neutral route names alone. Runtime verification classified all three approved attack classes correctly, kept three representative baseline runs benign, retained six local classification JSON artifacts, and proved that the rule-only path loaded no LLM/agent modules.
+
+Blue Team agents, LLM-only/hybrid classification, source analysis, persistent experiment storage, patch generation, experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
 
 ## Approved Scope
 
@@ -296,6 +293,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Finalize Milestone 9 Git review and commit.**
+**Complete the final Milestone 10 Git review and commit.**
 
-All Milestone 9 technical verification gates have passed. Review the staged diff, commit the verified milestone, and do not begin Milestone 10 until that permanent baseline exists.
+The deterministic rule-only baseline, all automated gates, real attack/benign runtime classification, result retention, no-LLM/agent check, and Docker isolation have passed. A Docker Engine/runtime host-port publication issue was encountered on the internal lab network; no Docker/network security control was weakened, and benign verification was completed from inside `vulnerable-store` against its own loopback interface. Milestone 11 remains locked until the Milestone 10 commit is created and verified.

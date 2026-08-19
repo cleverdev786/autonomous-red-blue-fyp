@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 9 — Structured Logging and Audit System**
+**Milestone 10 — Rule-Based Detection Baseline**
 
 ## Status
 
-**IN PROGRESS — implementation, automated verification, and Docker/runtime verification passed; final Git review and commit PENDING.**
+**IN PROGRESS — implementation and automated verification PASS; Docker/runtime verification PENDING.**
 
-Milestone 9 is runtime-verified. It is not yet considered fully complete until the final staged Git review is clean and the milestone commit is created.
+Milestone 9 is complete and permanently committed at `4058143`. Milestone 10 now has a deterministic rule-only RQ2 baseline implemented locally, but it must not be marked complete until development-laptop runtime verification, documentation finalization, final Git review, and commit are complete.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -23,6 +23,7 @@ Milestone 9 is runtime-verified. It is not yet considered fully complete until t
 - [x] Milestone 6 — Target Registry and Policy Engine
 - [x] Milestone 7 — Deterministic Security-Test Harness — runtime verified
 - [x] Milestone 8 — Red Team MVP — runtime verified and committed (`aee2213`)
+- [x] Milestone 9 — Structured Logging and Audit System — runtime verified and committed (`4058143`)
 
 ## Milestone 7 Verified Baseline
 
@@ -408,6 +409,94 @@ Runtime evidence also confirmed:
 
 The single pytest warning is an upstream Starlette/FastAPI TestClient deprecation warning from the virtual environment and did not fail the test suite.
 
+## Milestone 10 Implemented Locally
+
+### Deterministic Rule-Only RQ2 Baseline
+
+`services/rule_engine.py` now implements the deterministic Rule Only classification condition for RQ2 using only the existing Milestone 9 normalized evidence contract:
+
+```text
+LogReadResult
+→ RuleEngine
+→ TriageResult
+```
+
+No new event/classification schema was introduced. The implementation reuses `ApplicationLogEvent`, `LogReadResult`, `ClassificationLabel`, and `TriageResult` exactly as frozen by earlier milestones.
+
+The engine supports the fixed labels `sql_injection`, `xss`, `path_traversal`, `benign`, and `unknown`. It uses generic observable signatures rather than exact registered-test IDs/payload equality, does not use neutral route names as vulnerability labels, returns `unknown` for conflicting signatures rather than applying arbitrary class precedence, and fails closed on mixed-run normalized input.
+
+The service imports no LLM, agent, Red Team, audit, orchestrator, scenario-ground-truth, or registered-security-test module. It has no network, Docker, shell, filesystem, Git, model, or execution authority.
+
+### Research-Validity Boundary
+
+Milestone 10 classification input excludes scenario/test IDs, vulnerability ground truth, Red execution evidence, audit records, raw scenario routes, and source ground truth. Neutral route names cannot determine classification. This keeps the rule-only condition compatible with the same normalized evidence contract that later LLM-only and hybrid RQ2 conditions must receive.
+
+Formal experiment persistence remains locked for its later milestone. Milestone 10 produces the existing JSON-serializable `TriageResult`; development runtime outputs may be retained only as local ignored artifacts.
+
+## Milestone 10 Automated Verification Result
+
+Commands executed against permanent Milestone 9 baseline `4058143` plus the Milestone 10 implementation:
+
+```bash
+python3 -m compileall -q \
+  agents orchestrator schemas services llm dummy_apps infrastructure security_tests
+
+python3 -m pytest -q -p no:cacheprovider
+
+git diff --check
+```
+
+Observed results:
+
+```text
+Python compilation: PASS (exit code 0)
+Pytest: 133 passed, 1 warning in 3.17s
+git diff --check: PASS
+```
+
+Focused Milestone 10 tests cover all three supported vulnerability labels, generalized signatures, benign false-positive cases, route-name non-leakage, empty/conflicting `unknown` behavior, mixed-run rejection, deterministic event-order handling, evidence-ID integrity, and forbidden dependency/import boundaries.
+
+## Milestone 10 Runtime Gate
+
+**PASS — development-laptop runtime verification completed on 2026-08-19.**
+
+Observed results:
+
+```text
+Python compile check: PASS (exit code 0)
+Pytest: 133 passed, 1 warning in 3.17s
+git diff --check: PASS
+
+Docker clean reset/rebuild: PASS
+Docker isolation verification: PASS
+Public internet blocked from controlled-executor: PASS
+
+m10-attack-001: sql_injection PASS
+m10-attack-002: xss PASS
+m10-attack-003: path_traversal PASS
+
+m10-benign-001: benign PASS
+m10-benign-002: benign PASS
+m10-benign-003: benign PASS
+
+Six classification JSON artifacts retained: PASS
+Rule-only runtime loaded no LLM/agent modules: PASS
+Final Docker isolation re-check: PASS
+Final git diff --check: PASS
+```
+
+Runtime evidence confirmed that all three approved attack classes were classified correctly from Milestone 9 structured application events, all three representative normal baseline runs remained `benign`, supporting attack evidence IDs referenced actual normalized application events, and the rule-only path completed without loading LLM or agent modules. Six development classification artifacts were retained under ignored `data/m10-results/` paths.
+
+### Docker host-port environment note
+
+During benign runtime generation, the current Docker Engine/runtime accepted the Compose-requested binding in `HostConfig.PortBindings` but did not establish the live host mapping on the lab's `internal: true` bridge (`NetworkSettings.Ports` reported `8000/tcp: null`). The application remained healthy and reachable inside the isolated lab.
+
+This was treated as a development-environment Docker runtime/networking issue, not a Milestone 10 code failure. No repository Docker configuration, network topology, or isolation control was weakened. Human-operated benign verification requests were issued from inside `vulnerable-store` to its own loopback interface, preserving the approved architecture and safety boundary.
+
+The existing Starlette/FastAPI TestClient deprecation warning remained non-failing and did not affect the 133-test result.
+
+Milestone 10 runtime verification is closed. Documentation has been finalized from actual observed results; only final Git review and commit remain before Milestone 10 is complete. Milestone 11 remains locked until that commit is created and verified.
+
 ## Still Locked
 
 Do not implement until the appropriate later milestone:
@@ -429,12 +518,12 @@ Do not implement until the appropriate later milestone:
 
 ## Next Gate
 
-**Final Milestone 9 staged Git review and commit.**
+**Milestone 10 final Git review and commit.**
 
-Implementation, automated verification, Docker/runtime verification, run/request correlation, structured-log isolation, audit verification, and Docker isolation re-verification have all passed.
+Implementation, full compile, the complete 133-test suite, `git diff --check`, Docker isolation, attack/benign runtime classification, result retention, and the no-LLM/agent runtime boundary have all passed. Documentation now records the actual verified results.
 
-Do not begin Milestone 10 until the final staged diff is reviewed and the Milestone 9 commit is created.
+Do not begin Milestone 11 until the final Milestone 10 Git review passes and the Milestone 10 commit is created and verified.
 
 ## Last Updated
 
-2026-08-18
+2026-08-19
