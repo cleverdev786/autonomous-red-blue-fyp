@@ -8,9 +8,9 @@
 
 ## Status
 
-**IN PROGRESS — implementation and automated verification PASS; Docker/runtime verification PENDING.**
+**COMPLETE — implementation, automated verification, Docker/runtime verification, documentation, final Git review, and commit all passed.**
 
-Milestone 9 is complete and permanently committed at `4058143`. Milestone 10 now has a deterministic rule-only RQ2 baseline implemented locally, but it must not be marked complete until development-laptop runtime verification, documentation finalization, final Git review, and commit are complete.
+Milestones 1–10 are complete. Milestone 9 is permanently committed at `4058143`, and Milestone 10 is permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`). Milestone 11 is the next planned milestone; its design and implementation remain locked until this post-Milestone-10 documentation consistency cleanup is reviewed and committed.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -24,6 +24,7 @@ Milestone 9 is complete and permanently committed at `4058143`. Milestone 10 now
 - [x] Milestone 7 — Deterministic Security-Test Harness — runtime verified
 - [x] Milestone 8 — Red Team MVP — runtime verified and committed (`aee2213`)
 - [x] Milestone 9 — Structured Logging and Audit System — runtime verified and committed (`4058143`)
+- [x] Milestone 10 — Rule-Based Detection Baseline — runtime verified and committed (`5c494ba`)
 
 ## Milestone 7 Verified Baseline
 
@@ -409,7 +410,7 @@ Runtime evidence also confirmed:
 
 The single pytest warning is an upstream Starlette/FastAPI TestClient deprecation warning from the virtual environment and did not fail the test suite.
 
-## Milestone 10 Implemented Locally
+## Milestone 10 Completed
 
 ### Deterministic Rule-Only RQ2 Baseline
 
@@ -495,7 +496,7 @@ This was treated as a development-environment Docker runtime/networking issue, n
 
 The existing Starlette/FastAPI TestClient deprecation warning remained non-failing and did not affect the 133-test result.
 
-Milestone 10 runtime verification is closed. Documentation has been finalized from actual observed results; only final Git review and commit remain before Milestone 10 is complete. Milestone 11 remains locked until that commit is created and verified.
+Milestone 10 runtime verification is closed. The milestone was finalized and permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`) after the final Git review. Milestone 11 is next, but remains locked until the post-Milestone-10 documentation consistency cleanup is reviewed and committed.
 
 ## Still Locked
 
@@ -518,12 +519,12 @@ Do not implement until the appropriate later milestone:
 
 ## Next Gate
 
-**Milestone 10 final Git review and commit.**
+**Post-Milestone-10 documentation consistency Git review and commit.**
 
-Implementation, full compile, the complete 133-test suite, `git diff --check`, Docker isolation, attack/benign runtime classification, result retention, and the no-LLM/agent runtime boundary have all passed. Documentation now records the actual verified results.
+Milestone 10 implementation, full compile, the complete 133-test suite, `git diff --check`, Docker isolation, attack/benign runtime classification, result retention, the no-LLM/agent runtime boundary, and the milestone commit at `5c494ba` have all passed. This documentation-only cleanup aligns the repository status text with that already-verified state.
 
-Do not begin Milestone 11 until the final Milestone 10 Git review passes and the Milestone 10 commit is created and verified.
+Do not begin Milestone 11 design or implementation until this documentation-only cleanup is reviewed and committed.
 
 ## Last Updated
 
-2026-08-19
+2026-08-25

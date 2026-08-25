@@ -1,5 +1,9 @@
 # Milestone 10 — Rule-Based Detection Baseline
 
+## Status
+
+**COMPLETE — automated verification and development-laptop Docker/runtime verification passed, and the milestone is permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`).**
+
 ## Purpose
 
 Milestone 10 implements the deterministic **rule-only** classification condition required by RQ2.
@@ -226,7 +230,7 @@ so host-side requests to `127.0.0.1:8000` were refused even though the applicati
 
 No Compose file, Docker network, isolation setting, or repository implementation was changed to bypass it. The benign verification traffic was instead generated from inside `vulnerable-store` to its own loopback interface, preserving the existing `internal: true` lab boundary.
 
-The final automated/runtime evidence therefore closes the Milestone 10 verification gate. Only final Git review and commit remain before the milestone is complete.
+The final automated/runtime evidence closed the Milestone 10 verification gate. Final Git review also passed, and the completed milestone was permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`).
 
 ## Locked Follow-On Work
 

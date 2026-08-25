@@ -6,11 +6,11 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 10 — Rule-Based Detection Baseline: implementation, automated verification, and Docker/runtime verification PASS; final Git review/commit PENDING.**
+**Milestone 10 — Rule-Based Detection Baseline: COMPLETE, runtime verified, and permanently committed at `5c494ba`.**
 
-Milestones 1–9 are complete. Milestone 9 is permanently committed at `4058143` and provides the normalized Blue-facing structured evidence consumed by the Milestone 10 deterministic rule-only RQ2 baseline.
+Milestones 1–10 are complete. Milestone 9 is permanently committed at `4058143` and provides the normalized Blue-facing structured evidence consumed by the Milestone 10 deterministic rule-only RQ2 baseline. Milestone 10 is permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`).
 
-Current Milestone 10 automated results:
+Current Milestone 10 verified results:
 
 ```text
 Python compilation: PASS (exit code 0)
@@ -92,12 +92,13 @@ python -m compileall -q \
 python -m pytest -q -p no:cacheprovider
 ```
 
-Current automated result:
+Current verified baseline:
 
 ```text
-Python compilation: PASS
-Pytest: 108 passed
-Milestone 9 Docker/runtime verification: PENDING
+Python compilation: PASS (exit code 0)
+Pytest: 133 passed, 1 warning in 3.17s
+Milestone 10 Docker/runtime verification: PASS (2026-08-19)
+Milestone 10 Git commit: PASS (`5c494ba`)
 ```
 
 ## Configuration
@@ -293,6 +294,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the final Milestone 10 Git review and commit.**
+**Complete the post-Milestone-10 documentation consistency Git review and commit, then begin Milestone 11 design.**
 
-The deterministic rule-only baseline, all automated gates, real attack/benign runtime classification, result retention, no-LLM/agent check, and Docker isolation have passed. A Docker Engine/runtime host-port publication issue was encountered on the internal lab network; no Docker/network security control was weakened, and benign verification was completed from inside `vulnerable-store` against its own loopback interface. Milestone 11 remains locked until the Milestone 10 commit is created and verified.
+The deterministic rule-only baseline, all automated gates, real attack/benign runtime classification, result retention, no-LLM/agent check, Docker isolation, and the Milestone 10 commit at `5c494ba` have passed. A Docker Engine/runtime host-port publication issue was encountered on the internal lab network; no Docker/network security control was weakened, and benign verification was completed from inside `vulnerable-store` against its own loopback interface. Milestone 11 design and implementation remain locked until this documentation-only cleanup is reviewed and committed.

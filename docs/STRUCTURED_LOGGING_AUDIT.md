@@ -6,9 +6,9 @@
 
 ## Status
 
-**Implementation, automated verification, and Docker/runtime verification have passed.**
+**COMPLETE — implementation, automated verification, Docker/runtime verification, final Git review, and commit have passed.**
 
-Milestone 9 is technically verified. The remaining workflow step is the final staged Git review and commit.
+Milestone 9 is permanently committed at `4058143`.
 
 Verified results:
 
@@ -243,12 +243,12 @@ Milestone 9 tests verify:
 
 ## Runtime Gate
 
-**PENDING.**
+**PASS — development-laptop runtime verification completed successfully on 2026-08-18.**
 
-The development laptop must still verify:
+The required runtime gate verified:
 
 - clean Docker reset/rebuild;
-- Docker isolation remains intact;
+- Docker isolation remained intact;
 - Milestone 7 registered-test regression;
 - three Red Team runs with opaque run IDs;
 - Docker stdout collection into the registered log source;
@@ -259,7 +259,7 @@ The development laptop must still verify:
 - append-oriented audit history for each run;
 - final `git diff --check` and Git review.
 
-No Blue Team behavior is implemented by Milestone 9.
+The final Git review/commit step also completed, and Milestone 9 is permanently committed at `4058143`. No Blue Team behavior was implemented by Milestone 9.
 
 ## Docker/Laptop Verification
 
