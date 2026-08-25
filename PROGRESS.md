@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 10 — Rule-Based Detection Baseline**
+**Milestone 11 — Blue Team Triage and Code Analysis**
 
 ## Status
 
-**COMPLETE — implementation, automated verification, Docker/runtime verification, documentation, final Git review, and commit all passed.**
+**TECHNICALLY VERIFIED — implementation, automated verification, and development-laptop runtime verification PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–10 are complete. Milestone 9 is permanently committed at `4058143`, and Milestone 10 is permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`). Milestone 11 is the next planned milestone; its design and implementation remain locked until this post-Milestone-10 documentation consistency cleanup is reviewed and committed.
+Milestones 1–10 are complete. The post-Milestone-10 documentation cleanup is permanently committed at `2da2048`. Milestone 11 implementation, automated verification, and development-laptop runtime verification now pass in the current working tree. Final staged Git review and the milestone commit remain pending; Milestone 12 stays locked.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -496,14 +496,125 @@ This was treated as a development-environment Docker runtime/networking issue, n
 
 The existing Starlette/FastAPI TestClient deprecation warning remained non-failing and did not affect the 133-test result.
 
-Milestone 10 runtime verification is closed. The milestone was finalized and permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`) after the final Git review. Milestone 11 is next, but remains locked until the post-Milestone-10 documentation consistency cleanup is reviewed and committed.
+Milestone 10 runtime verification is closed. The milestone was finalized and permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`) after the final Git review. The post-Milestone-10 documentation consistency cleanup was then committed at `2da2048`, which closed that gate and unlocked Milestone 11.
+
+## Milestone 11 Implemented and Runtime-Verified Locally
+
+Implemented components:
+
+```text
+agents/blue/__init__.py
+agents/blue/monitoring.py
+agents/blue/triage.py
+agents/blue/code_analysis.py
+orchestrator/blue_team_flow.py
+services/source_reader.py
+tests/test_blue_team_mvp.py
+docs/BLUE_TEAM_TRIAGE_CODE_ANALYSIS.md
+```
+
+Extended existing components:
+
+```text
+schemas/blue_team.py
+schemas/__init__.py
+llm/mock_provider.py
+README.md
+PROGRESS.md
+```
+
+Milestone 11 preserves one comparable RQ2 input/output boundary:
+
+```text
+LogReadResult + ClassificationMode -> TriageResult
+```
+
+The three classification modes are now operational in code:
+
+```text
+rule_only -> existing RuleEngine -> TriageResult
+llm_only  -> TriageAgent -> TriageResult
+hybrid    -> RuleEngine evidence + TriageAgent -> TriageResult
+```
+
+`rule_only` classification still makes zero model/provider calls. `MonitoringAgent` exists for the specialized Blue Team architecture but is deliberately kept outside the RQ2 classification path so it cannot add a hidden reasoning stage to LLM-only/hybrid comparisons.
+
+The new deterministic `SourceReader` is policy-controlled and further restricts Blue-visible source to bounded Python snippets under:
+
+```text
+dummy_apps/vulnerable_store/app/
+```
+
+Scenario ground-truth files, tests, secret-like files, out-of-root paths, and non-Python source are not exposed. Source selection uses only neutral route names from normalized logs. `CodeFinding` outputs are deterministically checked against the exact supplied snippets and line ranges.
+
+### Milestone 11 Automated Verification Result
+
+Implementation-workspace commands:
+
+```bash
+python -m compileall -q \
+  agents orchestrator schemas services llm dummy_apps infrastructure security_tests
+
+python -m pytest -q -p no:cacheprovider
+```
+
+Observed results:
+
+```text
+Python compilation: PASS
+Pytest: 153 passed
+Focused Milestone 11 tests: 20 passed
+```
+
+The optional Ruff check was unavailable in the implementation workspace because the Ruff module was not installed there. No dependency or project configuration was changed to work around that environment limitation.
+
+Permanent-repository pre-runtime verification was then repeated on the development laptop:
+
+```text
+Python compilation: PASS
+Full pytest suite: 153 passed, 1 warning in 3.29s
+Focused Milestone 11 suite: 20 passed in 0.44s
+git diff --check: PASS
+```
+
+The single warning remained the existing non-failing Starlette/FastAPI TestClient deprecation warning.
+
+### Milestone 11 Runtime Gate
+
+**PASS — development-laptop runtime verification completed successfully on 2026-08-25.**
+
+Observed runtime evidence:
+
+```text
+Clean Docker reset/rebuild: PASS
+Initial Docker isolation verification: PASS
+Registered security-test regression: PASS
+Correlated SQLi Red run: confirmed; final_state=blue_monitoring
+Correlated XSS Red run: confirmed; final_state=blue_monitoring
+Correlated Path Traversal Red run: confirmed; final_state=blue_monitoring
+Structured-log correlation: 4 matching events for each opaque runtime run ID
+Normalized Blue log read: 4 events per run; malformed=0; duplicates=0
+rule_only classifications: SQLi / XSS / Path Traversal PASS
+hybrid classifications: SQLi / XSS / Path Traversal PASS
+llm_only deterministic mock classifications: SQLi / XSS / Path Traversal PASS
+SQLi localization: scenario_routes.py :: vulnerable_login
+XSS localization: scenario_routes.py :: vulnerable_search
+Path Traversal localization: scenario_routes.py :: vulnerable_file_read
+Standalone MonitoringAgent smoke verification: PASS
+Scenario ground-truth source read blocked and audited: PASS
+Final Docker isolation re-check: PASS
+Public internet remained blocked from controlled-executor: PASS
+git diff --check after runtime verification: PASS
+```
+
+The runtime verification used the existing isolated local lab and deterministic mock provider. It did not add a cloud provider, weaken Docker/network controls, expose scenario ground truth, or grant agents new execution/filesystem authority.
+
+Milestone 11 is technically verified. Do not mark it formally complete until the complete staged Git review passes and the milestone commit is created and verified.
 
 ## Still Locked
 
 Do not implement until the appropriate later milestone:
 
-- Blue Team agents/monitoring/triage;
-- code-analysis agents;
 - patch generation/retry;
 - Git patch branches/automation;
 - patch application and verification pipeline;
@@ -519,11 +630,11 @@ Do not implement until the appropriate later milestone:
 
 ## Next Gate
 
-**Post-Milestone-10 documentation consistency Git review and commit.**
+**Milestone 11 final staged Git review and commit.**
 
-Milestone 10 implementation, full compile, the complete 133-test suite, `git diff --check`, Docker isolation, attack/benign runtime classification, result retention, the no-LLM/agent runtime boundary, and the milestone commit at `5c494ba` have all passed. This documentation-only cleanup aligns the repository status text with that already-verified state.
+Implementation, the 153-test regression suite, the 20-test focused Milestone 11 suite, development-laptop runtime verification, registered-test regression, source-ground-truth blocking, and final Docker isolation verification have passed. The remaining gate is a complete staged review of all Milestone 11 tracked and newly added files.
 
-Do not begin Milestone 11 design or implementation until this documentation-only cleanup is reviewed and committed.
+Do not begin Milestone 12 until that staged review passes and the Milestone 11 commit is created and verified.
 
 ## Last Updated
 

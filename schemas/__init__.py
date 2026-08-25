@@ -4,7 +4,15 @@ Milestone 2 centralizes imports here for ergonomic use without hiding the
 individual schema modules.
 """
 
-from schemas.blue_team import CodeFinding, MonitoringResult, SourceLineRange, TriageResult
+from schemas.blue_team import (
+    BlueTeamAnalysisResult,
+    CodeFinding,
+    MonitoringResult,
+    SourceLineRange,
+    SourceReadResult,
+    SourceSnippet,
+    TriageResult,
+)
 from schemas.common import (
     AgentRole,
     ClassificationLabel,
@@ -68,6 +76,7 @@ __all__ = [
     "AuditEvent",
     "AuditExecutionStatus",
     "AuditPolicyDecision",
+    "BlueTeamAnalysisResult",
     "BlueTeamMode",
     "ClassificationLabel",
     "ClassificationMode",
@@ -102,6 +111,8 @@ __all__ = [
     "ScenarioGroundTruth",
     "SecurityTestDefinition",
     "SourceLineRange",
+    "SourceReadResult",
+    "SourceSnippet",
     "TargetDefinition",
     "TestExecutionResult",
     "TriageResult",

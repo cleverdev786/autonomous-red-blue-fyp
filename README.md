@@ -6,22 +6,24 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 10 — Rule-Based Detection Baseline: COMPLETE, runtime verified, and permanently committed at `5c494ba`.**
+**Milestone 11 — Blue Team Triage and Code Analysis: TECHNICALLY VERIFIED; implementation, automated verification, and development-laptop runtime verification PASS; final Git review/commit PENDING.**
 
-Milestones 1–10 are complete. Milestone 9 is permanently committed at `4058143` and provides the normalized Blue-facing structured evidence consumed by the Milestone 10 deterministic rule-only RQ2 baseline. Milestone 10 is permanently committed at `5c494ba` (`5c494bab1ffe579cc22eab092764c5dc4101e8d8`).
+Milestones 1–10 are complete. Milestone 10 is permanently committed at `5c494ba`, and its documentation cleanup is committed at `2da2048`. Milestone 11 now adds typed Blue monitoring/triage/code-analysis roles, comparable `rule_only`/`llm_only`/`hybrid` classification paths, and a deterministic bounded source reader.
 
-Current Milestone 10 verified results:
+Current Milestone 11 verified results:
 
 ```text
-Python compilation: PASS (exit code 0)
-Pytest: 133 passed, 1 warning in 3.17s
-git diff --check: PASS
-Docker/runtime verification: PASS
+Python compilation: PASS
+Pytest: 153 passed, 1 warning in 3.29s
+Focused Milestone 11 tests: 20 passed in 0.44s
+Development-laptop runtime verification: PASS (2026-08-25)
+Docker isolation before/after Blue verification: PASS
+Registered security-test regression: PASS
 ```
 
-The rule baseline reuses `ApplicationLogEvent`, `LogReadResult`, `ClassificationLabel`, and `TriageResult`; it adds no LLM/agent/execution authority and does not classify from scenario/test IDs, ground truth, Red evidence, audit records, or neutral route names alone. Runtime verification classified all three approved attack classes correctly, kept three representative baseline runs benign, retained six local classification JSON artifacts, and proved that the rule-only path loaded no LLM/agent modules.
+The Milestone 10 `RuleEngine` remains unchanged and is reused directly for `rule_only`. Milestone 11 keeps the same normalized `LogReadResult` classification input across all RQ2 modes. LLM-only receives normalized logs; hybrid receives the same logs plus the deterministic rule result. Source code is excluded from classification and is exposed only afterward through a policy-controlled, bounded `SourceReader` restricted to approved application Python source. Scenario ground truth is excluded.
 
-Blue Team agents, LLM-only/hybrid classification, source analysis, persistent experiment storage, patch generation, experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
+Patch generation, Git patch automation, persistent experiment storage, final experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
 
 ## Approved Scope
 
@@ -95,10 +97,11 @@ python -m pytest -q -p no:cacheprovider
 Current verified baseline:
 
 ```text
-Python compilation: PASS (exit code 0)
-Pytest: 133 passed, 1 warning in 3.17s
+Python compilation: PASS
+Pytest: 153 passed
 Milestone 10 Docker/runtime verification: PASS (2026-08-19)
 Milestone 10 Git commit: PASS (`5c494ba`)
+Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
 ```
 
 ## Configuration
@@ -294,6 +297,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the post-Milestone-10 documentation consistency Git review and commit, then begin Milestone 11 design.**
+**Complete the final staged Git review for Milestone 11; do not begin Milestone 12.**
 
-The deterministic rule-only baseline, all automated gates, real attack/benign runtime classification, result retention, no-LLM/agent check, Docker isolation, and the Milestone 10 commit at `5c494ba` have passed. A Docker Engine/runtime host-port publication issue was encountered on the internal lab network; no Docker/network security control was weakened, and benign verification was completed from inside `vulnerable-store` against its own loopback interface. Milestone 11 design and implementation remain locked until this documentation-only cleanup is reviewed and committed.
+Milestone 11 implementation, automated verification, development-laptop isolated-lab runtime verification, source-ground-truth blocking, and final Docker isolation verification pass. The remaining gate is the complete staged Git review and milestone commit. Milestone 12 remains locked until that commit is created and verified.
