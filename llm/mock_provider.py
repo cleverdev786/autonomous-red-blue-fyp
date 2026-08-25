@@ -16,6 +16,7 @@ from schemas.blue_team import (
     TriageResult,
 )
 from schemas.common import AgentRole, ClassificationLabel
+from schemas.patches import PatchProposal
 from schemas.logging import LogReadResult
 from schemas.red_team import (
     AttackPlan,
@@ -40,10 +41,12 @@ class MockProvider:
         planned_test_id: str | None = None,
         blue_classification: ClassificationLabel | None = None,
         blue_confidence: float = 1.0,
+        include_generated_patch_test: bool = False,
     ) -> None:
         self.planned_test_id = planned_test_id
         self.blue_classification = blue_classification
         self.blue_confidence = blue_confidence
+        self.include_generated_patch_test = include_generated_patch_test
         self._call_roles: list[AgentRole] = []
 
     @property
@@ -89,6 +92,11 @@ class MockProvider:
             if response_model is not CodeFinding:
                 raise MockProviderError("unexpected code-analysis response model")
             return self._code_analysis(input_data)
+
+        if role == AgentRole.BLUE_PATCH_GENERATION:
+            if response_model is not PatchProposal:
+                raise MockProviderError("unexpected patch-generation response model")
+            return self._patch_generation(input_data)
 
         raise MockProviderError(f"unsupported mock agent role: {role.value}")
 
@@ -316,3 +324,140 @@ class MockProvider:
             if any(anchor in line for anchor in anchors):
                 return snippet.start_line + offset, function_name
         return None
+
+    def _patch_generation(self, input_data: Mapping[str, Any]) -> Mapping[str, Any]:
+        triage = TriageResult.model_validate(input_data.get("triage"))
+        finding = CodeFinding.model_validate(input_data.get("code_finding"))
+        source_context = SourceReadResult.model_validate(input_data.get("source_context"))
+        attempt_number = int(input_data.get("attempt_number"))
+        constraints = input_data.get("patch_constraints")
+        if not isinstance(constraints, Mapping):
+            raise MockProviderError("patch generation requires deterministic patch constraints")
+        if constraints.get("allowed_source_file") != finding.file_path:
+            raise MockProviderError("patch constraint does not match supplied CodeFinding")
+
+        supplied = "\n".join(snippet.content for snippet in source_context.snippets)
+        changes: list[dict[str, Any]] = []
+
+        if triage.classification == ClassificationLabel.SQL_INJECTION:
+            original = '''        query = (
+            "SELECT username, display_name FROM users "
+            f"WHERE username = '{payload.username}' "
+            f"AND password_hash = '{password_hash}' "
+            "LIMIT 1"
+        )
+
+        row = session.execute(text(query)).mappings().first()'''
+            replacement = '''        query = text(
+            "SELECT username, display_name FROM users "
+            "WHERE username = :username "
+            "AND password_hash = :password_hash "
+            "LIMIT 1"
+        )
+
+        row = session.execute(
+            query,
+            {"username": payload.username, "password_hash": password_hash},
+        ).mappings().first()'''
+            changes.append(
+                self._grounded_change(
+                    supplied=supplied,
+                    file_path=finding.file_path,
+                    original=original,
+                    replacement=replacement,
+                    rationale="Use bound SQL parameters instead of interpolating caller-controlled input.",
+                )
+            )
+        elif triage.classification == ClassificationLabel.XSS:
+            changes.extend(
+                [
+                    self._grounded_change(
+                        supplied=supplied,
+                        file_path=finding.file_path,
+                        original="from pathlib import Path",
+                        replacement="from html import escape\nfrom pathlib import Path",
+                        rationale="Import the standard-library HTML escaping helper.",
+                    ),
+                    self._grounded_change(
+                        supplied=supplied,
+                        file_path=finding.file_path,
+                        original='            f"<p id=\\"result\\">Search term: {q}</p>"',
+                        replacement='            f"<p id=\\"result\\">Search term: {escape(q)}</p>"',
+                        rationale="Escape reflected caller-controlled text before inserting it into HTML.",
+                    ),
+                ]
+            )
+        elif triage.classification == ClassificationLabel.PATH_TRAVERSAL:
+            original = '''        candidate = (intended_public_root / path).resolve(strict=False)
+
+        # SAFETY BOUNDARY: the educational traversal cannot escape the isolated'''
+            replacement = '''        candidate = (intended_public_root / path).resolve(strict=False)
+        try:
+            candidate.relative_to(intended_public_root)
+        except ValueError as exc:
+            emit_structured_event(
+                event_type=ApplicationEventType.FILE_ACCESS_EVENT,
+                attributes={"requested_path": path, "outcome": "public_root_blocked"},
+                status_code=403,
+            )
+            raise HTTPException(status_code=403, detail="Path traversal blocked") from exc
+
+        # SAFETY BOUNDARY: the educational traversal cannot escape the isolated'''
+            changes.append(
+                self._grounded_change(
+                    supplied=supplied,
+                    file_path=finding.file_path,
+                    original=original,
+                    replacement=replacement,
+                    rationale="Enforce containment within the intended public directory before file access.",
+                )
+            )
+        else:
+            raise MockProviderError("patch mock requires a supported vulnerability classification")
+
+        proposed_test = None
+        if self.include_generated_patch_test:
+            test_name = {
+                ClassificationLabel.SQL_INJECTION: "test_generated_sqli_remediation",
+                ClassificationLabel.XSS: "test_generated_xss_remediation",
+                ClassificationLabel.PATH_TRAVERSAL: "test_generated_path_traversal_remediation",
+            }[triage.classification]
+            proposed_test = {
+                "test_name": test_name,
+                "target_file": finding.file_path,
+                "purpose": "Record a bounded generated security-test proposal for later verification milestones.",
+                "proposed_test_content": (
+                    '\"\"\"Generated security-test proposal; execution belongs to a later milestone.\"\"\"\n\n'
+                    f'def {test_name}():\n'
+                    '    assert True\n'
+                ),
+            }
+
+        return {
+            "run_id": triage.run_id,
+            "target_id": source_context.target_id,
+            "attempt_number": attempt_number,
+            "changes": changes,
+            "security_rationale": "Apply a minimal grounded remediation to the localized vulnerable source.",
+            "expected_effect": "The localized vulnerability should be removed without broad source changes.",
+            "regression_risks": ["Behavior must be verified in the later deterministic verification pipeline."],
+            "proposed_security_test": proposed_test,
+        }
+
+    @staticmethod
+    def _grounded_change(
+        *,
+        supplied: str,
+        file_path: str,
+        original: str,
+        replacement: str,
+        rationale: str,
+    ) -> dict[str, Any]:
+        if original not in supplied:
+            raise MockProviderError("required patch anchor was absent from supplied source context")
+        return {
+            "file_path": file_path,
+            "original_content": original,
+            "replacement_content": replacement,
+            "rationale": rationale,
+        }

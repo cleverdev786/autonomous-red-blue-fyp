@@ -6,24 +6,23 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 11 — Blue Team Triage and Code Analysis: TECHNICALLY VERIFIED; implementation, automated verification, and development-laptop runtime verification PASS; final Git review/commit PENDING.**
+**Milestone 12 — Patch Generation and Patch Policy: TECHNICALLY VERIFIED; final staged Git review and commit PENDING.**
 
-Milestones 1–10 are complete. Milestone 10 is permanently committed at `5c494ba`, and its documentation cleanup is committed at `2da2048`. Milestone 11 now adds typed Blue monitoring/triage/code-analysis roles, comparable `rule_only`/`llm_only`/`hybrid` classification paths, and a deterministic bounded source reader.
+Milestones 1–11 are complete. Milestone 11 is permanently committed at `a3421a2`. Milestone 12 now has a typed Patch Generation Agent, grounded exact-text patch proposals, trusted configurable patch-size limits, deterministic in-memory unified-diff preparation, service-derived optional generated-test paths, and patch-generation audit records implemented and host-side runtime verified. Final staged Git review and the Milestone 12 commit remain pending.
 
-Current Milestone 11 verified results:
+Current automated baseline:
 
 ```text
 Python compilation: PASS
-Pytest: 153 passed, 1 warning in 3.29s
-Focused Milestone 11 tests: 20 passed in 0.44s
-Development-laptop runtime verification: PASS (2026-08-25)
-Docker isolation before/after Blue verification: PASS
-Registered security-test regression: PASS
+Full pytest suite: 180 passed
+Focused Milestone 12 tests: 20 passed
+Milestone 12 host-side runtime verification: PASS (2026-08-25)
+Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
 ```
 
-The Milestone 10 `RuleEngine` remains unchanged and is reused directly for `rule_only`. Milestone 11 keeps the same normalized `LogReadResult` classification input across all RQ2 modes. LLM-only receives normalized logs; hybrid receives the same logs plus the deterministic rule result. Source code is excluded from classification and is exposed only afterward through a policy-controlled, bounded `SourceReader` restricted to approved application Python source. Scenario ground truth is excluded.
+The Milestone 12 agent never writes directly to disk. Source edits are restricted to the validated Milestone 11 `CodeFinding` file; proposed exact-text anchors must be grounded in the bounded source context; generated-test paths are derived by the trusted service; and final prepared patches remain in memory only.
 
-Patch generation, Git patch automation, persistent experiment storage, final experiment execution, real cloud LLM providers, and the dashboard remain intentionally locked for later milestones.
+Git patch branches, patch application, patched-application verification, deterministic acceptance/rejection, persistent experiment execution, real cloud LLM providers, and the dashboard remain locked for later milestones.
 
 ## Approved Scope
 
@@ -94,14 +93,16 @@ python -m compileall -q \
 python -m pytest -q -p no:cacheprovider
 ```
 
-Current verified baseline:
+Current implementation baseline:
 
 ```text
 Python compilation: PASS
-Pytest: 153 passed
-Milestone 10 Docker/runtime verification: PASS (2026-08-19)
-Milestone 10 Git commit: PASS (`5c494ba`)
+Pytest: 180 passed
+Focused Milestone 12 tests: 20 passed
+Milestone 12 host-side runtime verification: PASS (2026-08-25)
 Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
+Milestone 11 Git commit: PASS (`a3421a2`)
+Milestone 12 final staged Git review/commit: PENDING
 ```
 
 ## Configuration
@@ -297,6 +298,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the final staged Git review for Milestone 11; do not begin Milestone 12.**
+**Finalize Milestone 12 documentation, perform the final staged Git review, and commit the verified 16-file change set.**
 
-Milestone 11 implementation, automated verification, development-laptop isolated-lab runtime verification, source-ground-truth blocking, and final Docker isolation verification pass. The remaining gate is the complete staged Git review and milestone commit. Milestone 12 remains locked until that commit is created and verified.
+Compilation, automated tests, and the bounded host-side in-memory patch-preparation runtime gate have passed. Do not create Git branches, apply generated patches, execute patched verification, or begin Milestone 13/14 until Milestone 12 is committed and the working tree is confirmed clean.

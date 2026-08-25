@@ -336,3 +336,50 @@ def test_runtime_expiry_blocks_future_budget(policy: PolicyEngine) -> None:
 
     assert decision.allowed is False
     assert decision.reason_code == PolicyReasonCode.TIME_LIMIT_REACHED
+
+
+def test_patch_path_blocks_non_python_file_inside_writable_root(policy: PolicyEngine) -> None:
+    decision = policy.validate_patch_path(
+        target_id="vulnerable-store",
+        relative_path="dummy_apps/vulnerable_store/app/generated.sh",
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == PolicyReasonCode.PATCH_PATH_NOT_ALLOWED
+
+
+def test_patch_size_within_configured_limits_is_allowed(policy: PolicyEngine) -> None:
+    decision = policy.validate_patch_size(
+        target_id="vulnerable-store",
+        files_changed=2,
+        inserted_lines=100,
+        deleted_lines=80,
+        total_diff_bytes=15_000,
+    )
+    assert decision.allowed is True
+
+
+@pytest.mark.parametrize(
+    ("files_changed", "inserted", "deleted", "diff_bytes"),
+    [
+        (3, 1, 1, 100),
+        (1, 121, 1, 100),
+        (1, 1, 121, 100),
+        (1, 1, 1, 20_001),
+    ],
+)
+def test_patch_size_exceeding_any_configured_limit_is_blocked(
+    policy: PolicyEngine,
+    files_changed: int,
+    inserted: int,
+    deleted: int,
+    diff_bytes: int,
+) -> None:
+    decision = policy.validate_patch_size(
+        target_id="vulnerable-store",
+        files_changed=files_changed,
+        inserted_lines=inserted,
+        deleted_lines=deleted,
+        total_diff_bytes=diff_bytes,
+    )
+    assert decision.allowed is False
+    assert decision.reason_code == PolicyReasonCode.PATCH_TOO_LARGE

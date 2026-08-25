@@ -44,8 +44,11 @@ from schemas.logging import (
     LogReadResult,
 )
 from schemas.patches import (
+    PatchGenerationResult,
     PatchProposal,
     PatchRetryFeedback,
+    PreparedFileChange,
+    PreparedPatch,
     ProposedFileChange,
     ProposedSecurityTest,
 )
@@ -63,7 +66,7 @@ from schemas.red_team import (
     RestrictedReconnaissanceContext,
     TestExecutionResult,
 )
-from schemas.targets import EndpointDefinition, SecurityTestDefinition, TargetDefinition
+from schemas.targets import EndpointDefinition, PatchLimits, SecurityTestDefinition, TargetDefinition
 from schemas.verification import PolicyDecision, VerificationResult, VerificationStageResult
 
 __all__ = [
@@ -93,8 +96,12 @@ __all__ = [
     "ModelConfiguration",
     "MonitoringResult",
     "PatchDecision",
+    "PatchGenerationResult",
+    "PatchLimits",
     "PatchProposal",
     "PatchRetryFeedback",
+    "PreparedFileChange",
+    "PreparedPatch",
     "PolicyDecision",
     "PolicyReasonCode",
     "ProposedFileChange",

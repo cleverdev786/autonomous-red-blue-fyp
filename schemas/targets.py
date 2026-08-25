@@ -33,6 +33,17 @@ class EndpointDefinition(BaseModel):
         return value
 
 
+class PatchLimits(BaseModel):
+    """Human-controlled deterministic limits for generated patch preparation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    max_files_changed: int = Field(default=2, ge=1, le=10)
+    max_inserted_lines: int = Field(default=120, ge=1, le=1000)
+    max_deleted_lines: int = Field(default=120, ge=1, le=1000)
+    max_total_diff_bytes: int = Field(default=20_000, ge=100, le=200_000)
+
+
 class TargetDefinition(BaseModel):
     """Human-controlled registry entry for one approved dummy target."""
 
@@ -51,6 +62,7 @@ class TargetDefinition(BaseModel):
     reset_operation_id: Identifier
     max_requests_per_attempt: int = Field(default=5, ge=1, le=100)
     max_attempt_duration_seconds: int = Field(default=30, ge=1, le=600)
+    patch_limits: PatchLimits = Field(default_factory=PatchLimits)
 
     @field_validator("scheme")
     @classmethod

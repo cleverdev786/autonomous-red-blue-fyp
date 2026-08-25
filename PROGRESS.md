@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 11 — Blue Team Triage and Code Analysis**
+**Milestone 12 — Patch Generation and Patch Policy**
 
 ## Status
 
-**TECHNICALLY VERIFIED — implementation, automated verification, and development-laptop runtime verification PASS; final staged Git review and commit PENDING.**
+**TECHNICALLY VERIFIED — implementation, automated verification, and host-side development-laptop runtime verification PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–10 are complete. The post-Milestone-10 documentation cleanup is permanently committed at `2da2048`. Milestone 11 implementation, automated verification, and development-laptop runtime verification now pass in the current working tree. Final staged Git review and the milestone commit remain pending; Milestone 12 stays locked.
+Milestones 1–11 are complete. Milestone 11 is permanently committed at `a3421a2` (`a3421a29ad5c8bcc70cdc53cc3f4dd6890792235`). Milestone 12 implementation, automated verification, and host-side development-laptop runtime verification now pass in the current working tree. No generated patch or test was written or applied, no Git branch was created, and Milestones 13–14 remain locked. Final staged Git review and the Milestone 12 commit remain pending.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -25,6 +25,7 @@ Milestones 1–10 are complete. The post-Milestone-10 documentation cleanup is p
 - [x] Milestone 8 — Red Team MVP — runtime verified and committed (`aee2213`)
 - [x] Milestone 9 — Structured Logging and Audit System — runtime verified and committed (`4058143`)
 - [x] Milestone 10 — Rule-Based Detection Baseline — runtime verified and committed (`5c494ba`)
+- [x] Milestone 11 — Blue Team Triage and Code Analysis — runtime verified and committed (`a3421a2`)
 
 ## Milestone 7 Verified Baseline
 
@@ -609,13 +610,134 @@ git diff --check after runtime verification: PASS
 
 The runtime verification used the existing isolated local lab and deterministic mock provider. It did not add a cloud provider, weaken Docker/network controls, expose scenario ground truth, or grant agents new execution/filesystem authority.
 
-Milestone 11 is technically verified. Do not mark it formally complete until the complete staged Git review passes and the milestone commit is created and verified.
+Milestone 11 is permanently complete and committed at `a3421a2` (`a3421a29ad5c8bcc70cdc53cc3f4dd6890792235`). The repository was clean after commit verification, which unlocked Milestone 12.
+
+## Milestone 12 Implemented Locally
+
+Implemented components:
+
+```text
+agents/blue/patch_generation.py
+orchestrator/patch_generation_flow.py
+services/patch_service.py
+tests/test_patch_generation.py
+docs/PATCH_GENERATION_POLICY.md
+```
+
+Extended trusted schemas/config/policy and deterministic mock support:
+
+```text
+schemas/patches.py
+schemas/targets.py
+schemas/__init__.py
+orchestrator/policy_engine.py
+llm/mock_provider.py
+config/targets/vulnerable-store.json
+tests/test_schemas.py
+tests/test_policy_engine.py
+README.md
+PROGRESS.md
+```
+
+Milestone 12 now implements:
+
+```text
+BlueTeamAnalysisResult
+→ grounded bounded patch context
+→ PatchGenerationAgent
+→ PatchProposal
+→ deterministic path/grounding/size validation
+→ in-memory PreparedPatch + unified diff
+→ PATCH_VALIDATING
+```
+
+Important boundaries remain enforced:
+
+- source edits are restricted to the exact validated `CodeFinding.file_path`;
+- proposed edits use exact `original_content` → `replacement_content` grounding;
+- original anchors must be supplied to the model, unique in the current file, and non-overlapping;
+- generated-test destinations are derived by the trusted Patch Service, not selected by the LLM;
+- patch paths are restricted to approved writable roots and `.py` files;
+- human-controlled target configuration limits files, insertions, deletions, and total diff bytes;
+- the Patch Service creates only an in-memory unified diff and hashes;
+- no source/test patch is written to disk;
+- no Git branch, patch application, patched test execution, or patch acceptance is implemented.
+
+### Milestone 12 Automated Verification Result
+
+Implementation-workspace commands:
+
+```bash
+python -m compileall -q \
+  agents orchestrator schemas services llm dummy_apps infrastructure security_tests
+
+python -m pytest -q -p no:cacheprovider
+
+python -m pytest -q -p no:cacheprovider tests/test_patch_generation.py
+```
+
+Observed results:
+
+```text
+Python compilation: PASS
+Full pytest suite: 180 passed
+Focused Milestone 12 tests: 20 passed
+```
+
+Automated coverage confirms grounded in-memory patch preparation for SQL Injection, XSS, and Path Traversal; no-disk-write behavior; service-derived optional generated-test paths; patch/model budget enforcement before provider invocation; protected-path and non-Python blocking; patch-size enforcement; retry-feedback input separation; and audit evidence for successful/blocked preparation.
+
+### Milestone 12 Host-Side Runtime Verification
+
+Development-laptop runtime verification completed successfully on 2026-08-25 against the permanent repository while `main` remained at Milestone 11 commit `a3421a2`. The verification exercised the real Milestone 12 orchestration and deterministic patch service without applying generated patches.
+
+Observed pre-runtime state:
+
+```text
+Branch: main
+HEAD: a3421a2
+Generated-test destination absent: PASS
+Milestone 12 Git-visible implementation scope: unchanged
+```
+
+Observed prepared-patch results:
+
+```text
+m12-runtime-sqli: files=1, inserted=7, deleted=4, bytes=958
+diff_sha256=66269f75a26c4350d79b2dac654c47285e1d6a42f967ee4af9cbd9a88af3bfb5
+
+m12-runtime-xss: files=1, inserted=2, deleted=1, bytes=606
+diff_sha256=a86c1f805bd497e2610f5c65088a32d3387af0ad407ac8eeb57e9b93410483c0
+
+m12-runtime-path: files=1, inserted=9, deleted=0, bytes=964
+diff_sha256=c0c0e531670dd9bfcf1fb7db5c759d649e8b2aee25685f147629a0008d88fa6c
+```
+
+Additional runtime safety/policy checks:
+
+```text
+Optional generated security test remained in memory only: PASS
+orchestrator/policy_engine.py patch path blocked: PASS
+.env patch path blocked: PASS
+mandatory baseline test patch path blocked: PASS
+oversized patch blocked by configured policy: PASS
+ungrounded exact-text proposal blocked and audited: PASS
+scenario_routes.py SHA-256 unchanged after runtime checks: PASS
+generated security test not written: PASS
+branch remained main: PASS
+HEAD remained a3421a2: PASS
+git diff --check after runtime verification: PASS
+final changed/untracked scope remained exactly the 16 Milestone 12 paths: PASS
+```
+
+The runtime gate therefore confirms that Milestone 12 prepares policy-approved patches strictly in memory and fails closed for protected, oversized, or ungrounded proposals without modifying the vulnerable source tree or beginning Git automation/patch verification.
+
+Milestone 12 is technically verified but must not be marked permanently complete until documentation finalization, final staged Git review, and the milestone commit are complete.
 
 ## Still Locked
 
 Do not implement until the appropriate later milestone:
 
-- patch generation/retry;
+- patch retry execution / verification feedback loop;
 - Git patch branches/automation;
 - patch application and verification pipeline;
 - experiment runner;
@@ -630,11 +752,9 @@ Do not implement until the appropriate later milestone:
 
 ## Next Gate
 
-**Milestone 11 final staged Git review and commit.**
+**Milestone 12 documentation finalization, final staged Git review, and commit.**
 
-Implementation, the 153-test regression suite, the 20-test focused Milestone 11 suite, development-laptop runtime verification, registered-test regression, source-ground-truth blocking, and final Docker isolation verification have passed. The remaining gate is a complete staged review of all Milestone 11 tracked and newly added files.
-
-Do not begin Milestone 12 until that staged review passes and the Milestone 11 commit is created and verified.
+The automated and host-side runtime gates are closed. Do not create Git patch branches, apply generated patches, run patched verification, or begin Milestone 13/14 until the 16-file Milestone 12 change set is reviewed, committed, and the working tree is confirmed clean.
 
 ## Last Updated
 

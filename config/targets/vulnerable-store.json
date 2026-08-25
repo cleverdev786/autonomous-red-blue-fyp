@@ -99,5 +99,11 @@
   ],
   "reset_operation_id": "reset-vulnerable-store",
   "max_requests_per_attempt": 5,
-  "max_attempt_duration_seconds": 30
+  "max_attempt_duration_seconds": 30,
+  "patch_limits": {
+    "max_files_changed": 2,
+    "max_inserted_lines": 120,
+    "max_deleted_lines": 120,
+    "max_total_diff_bytes": 20000
+  }
 }

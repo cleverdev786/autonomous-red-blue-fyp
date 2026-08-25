@@ -305,6 +305,12 @@ class PolicyEngine:
         if not candidate_decision.allowed:
             return candidate_decision
 
+        if Path(relative_path).suffix.lower() != ".py":
+            return self._deny(
+                PolicyReasonCode.PATCH_PATH_NOT_ALLOWED,
+                "Generated patches are restricted to Python source/test files in the MVP.",
+            )
+
         protected = self._protected_patch_path(relative_path)
         if protected is not None:
             return self._deny(
@@ -315,6 +321,50 @@ class PolicyEngine:
         return self._allow(
             f"Patch path {relative_path!r} is inside an approved writable root."
         )
+
+    def validate_patch_size(
+        self,
+        *,
+        target_id: str,
+        files_changed: int,
+        inserted_lines: int,
+        deleted_lines: int,
+        total_diff_bytes: int,
+    ) -> PolicyDecision:
+        try:
+            target = self.registry.get_target(target_id)
+        except UnknownTargetError:
+            return self._deny(
+                PolicyReasonCode.UNKNOWN_TARGET,
+                f"Target {target_id!r} is not registered.",
+            )
+
+        limits = target.patch_limits
+        exceeded: list[str] = []
+        if files_changed > limits.max_files_changed:
+            exceeded.append(
+                f"files_changed={files_changed} > {limits.max_files_changed}"
+            )
+        if inserted_lines > limits.max_inserted_lines:
+            exceeded.append(
+                f"inserted_lines={inserted_lines} > {limits.max_inserted_lines}"
+            )
+        if deleted_lines > limits.max_deleted_lines:
+            exceeded.append(
+                f"deleted_lines={deleted_lines} > {limits.max_deleted_lines}"
+            )
+        if total_diff_bytes > limits.max_total_diff_bytes:
+            exceeded.append(
+                f"total_diff_bytes={total_diff_bytes} > {limits.max_total_diff_bytes}"
+            )
+
+        if exceeded:
+            return self._deny(
+                PolicyReasonCode.PATCH_TOO_LARGE,
+                "Generated patch exceeds configured limits: " + "; ".join(exceeded),
+            )
+
+        return self._allow("Generated patch is within configured size limits.")
 
     def _resolve_candidate(
         self,

@@ -162,16 +162,28 @@ def test_patch_proposal_rejects_obvious_path_escape() -> None:
     with pytest.raises(ValidationError):
         PatchProposal(
             run_id="run-001",
+            target_id="vulnerable-store",
             attempt_number=1,
             changes=(
                 ProposedFileChange(
                     file_path="../../orchestrator/policy_engine.py",
+                    original_content="safe",
                     replacement_content="unsafe",
                     rationale="This must never pass schema validation.",
                 ),
             ),
             security_rationale="Unsafe test case.",
             expected_effect="None.",
+        )
+
+
+def test_patch_file_change_requires_a_real_grounded_edit() -> None:
+    with pytest.raises(ValidationError):
+        ProposedFileChange(
+            file_path="dummy_apps/vulnerable_store/app/main.py",
+            original_content="unchanged",
+            replacement_content="unchanged",
+            rationale="No-op edits are not valid patch proposals.",
         )
 
 
