@@ -6,23 +6,26 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 12 — Patch Generation and Patch Policy: TECHNICALLY VERIFIED; final staged Git review and commit PENDING.**
+**Milestone 13 — Git Automation and Patch Branch Isolation: TECHNICALLY VERIFIED; final staged Git review and commit PENDING.**
 
-Milestones 1–11 are complete. Milestone 11 is permanently committed at `a3421a2`. Milestone 12 now has a typed Patch Generation Agent, grounded exact-text patch proposals, trusted configurable patch-size limits, deterministic in-memory unified-diff preparation, service-derived optional generated-test paths, and patch-generation audit records implemented and host-side runtime verified. Final staged Git review and the Milestone 12 commit remain pending.
+Milestones 1–12 are complete. Milestone 12 is permanently committed at `ff17026`. Milestone 13 now has trusted Git policy configuration, typed branch-attempt evidence, deterministic branch-per-attempt isolation, PreparedPatch freshness/hash validation, exact-path materialization/rollback, bounded native Git diff evidence, safe baseline restoration, and an explicit accepted-only local commit capability. Authoritative automated verification with GitPython 3.1.59 and controlled disposable-clone runtime verification both pass. Final staged Git review and the Milestone 13 commit remain pending; Milestone 14 verification remains locked.
 
 Current automated baseline:
 
 ```text
 Python compilation: PASS
-Full pytest suite: 180 passed
-Focused Milestone 12 tests: 20 passed
-Milestone 12 host-side runtime verification: PASS (2026-08-25)
+Full pytest suite: 203 passed, 1 warning in 11.06s
+Focused Milestone 13 Git tests: 19 passed in 4.53s
+Schema tests: 17 passed in 0.21s
+GitPython: 3.1.59
+Milestone 13 controlled host-side Git runtime verification: PASS (2026-08-26)
+Milestone 12 commit: PASS (`ff17026`)
 Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
 ```
 
 The Milestone 12 agent never writes directly to disk. Source edits are restricted to the validated Milestone 11 `CodeFinding` file; proposed exact-text anchors must be grounded in the bounded source context; generated-test paths are derived by the trusted service; and final prepared patches remain in memory only.
 
-Git patch branches, patch application, patched-application verification, deterministic acceptance/rejection, persistent experiment execution, real cloud LLM providers, and the dashboard remain locked for later milestones.
+Milestone 13 now materializes `PreparedPatch` artifacts only on deterministic isolated local branches. Patched-application verification, deterministic acceptance/rejection orchestration, automatic merge, remote publication, persistent experiment execution, real cloud LLM providers, and the dashboard remain locked for later milestones.
 
 ## Approved Scope
 
@@ -102,7 +105,9 @@ Focused Milestone 12 tests: 20 passed
 Milestone 12 host-side runtime verification: PASS (2026-08-25)
 Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
 Milestone 11 Git commit: PASS (`a3421a2`)
-Milestone 12 final staged Git review/commit: PENDING
+Milestone 12 commit: PASS (`ff17026`)
+Milestone 13 GitPython automated verification: PASS — 203 passed, 1 warning
+Milestone 13 controlled host-side Git runtime verification: PASS (2026-08-26)
 ```
 
 ## Configuration
@@ -298,6 +303,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Finalize Milestone 12 documentation, perform the final staged Git review, and commit the verified 16-file change set.**
+**Complete the final staged Git review and commit for Milestone 13.**
 
-Compilation, automated tests, and the bounded host-side in-memory patch-preparation runtime gate have passed. Do not create Git branches, apply generated patches, execute patched verification, or begin Milestone 13/14 until Milestone 12 is committed and the working tree is confirmed clean.
+Stage exactly the verified 10-file Milestone 13 scope, inspect the staged implementation/documentation diff, and commit only after `git diff --cached --check` and the exact staged-path comparison pass. Do not merge or push any generated patch branch and do not begin Milestone 14 until the Milestone 13 commit is confirmed.

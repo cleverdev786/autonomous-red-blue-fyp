@@ -1,0 +1,4 @@
+{
+  "baseline_branch": "main",
+  "patch_branch_prefix": "agent-patch"
+}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -266,3 +268,67 @@ def test_schema_serialization_round_trip(target: TargetDefinition) -> None:
     serialized = target.model_dump_json()
     restored = TargetDefinition.model_validate_json(serialized)
     assert restored == target
+
+
+def test_git_policy_config_generates_deterministic_patch_branch() -> None:
+    from schemas.git import GitPolicyConfig
+
+    config = GitPolicyConfig(
+        baseline_branch="main",
+        patch_branch_prefix="agent-patch",
+    )
+
+    assert config.branch_name(run_id="run-123", attempt_number=2) == (
+        "agent-patch/run-123/attempt-2"
+    )
+
+
+def test_git_policy_config_rejects_unsafe_or_overlapping_names() -> None:
+    from pydantic import ValidationError
+    from schemas.git import GitPolicyConfig
+
+    with pytest.raises(ValidationError):
+        GitPolicyConfig(
+            baseline_branch="main",
+            patch_branch_prefix="../agent-patch",
+        )
+
+    with pytest.raises(ValidationError):
+        GitPolicyConfig(
+            baseline_branch="agent-patch/main",
+            patch_branch_prefix="agent-patch",
+        )
+
+
+def test_patch_branch_result_rejects_baseline_branch_as_patch_branch() -> None:
+    from pydantic import ValidationError
+    from schemas.common import WorkflowState
+    from schemas.git import PatchBranchResult
+
+    with pytest.raises(ValidationError):
+        PatchBranchResult(
+            run_id="git-schema-run",
+            target_id="vulnerable-store",
+            attempt_number=1,
+            baseline_branch="main",
+            base_commit="a" * 40,
+            branch_name="main",
+            prepared_diff_sha256="b" * 64,
+            git_diff="diff --git a/a.py b/a.py\n",
+            git_diff_sha256="c" * 64,
+            changed_paths=("dummy_apps/vulnerable_store/app/a.py",),
+            final_state=WorkflowState.PATCH_APPLYING,
+        )
+
+
+def test_repository_git_policy_file_is_valid() -> None:
+    from schemas.git import GitPolicyConfig
+
+    config = GitPolicyConfig.model_validate_json(
+        (Path(__file__).resolve().parents[1] / "config" / "git-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert config.baseline_branch == "main"
+    assert config.patch_branch_prefix == "agent-patch"

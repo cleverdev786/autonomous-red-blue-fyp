@@ -35,6 +35,7 @@ from schemas.experiments import (
     ModelConfiguration,
     RetryFeedbackMode,
 )
+from schemas.git import GitPolicyConfig, PatchBranchResult
 from schemas.logging import (
     ApplicationEventType,
     ApplicationLogEvent,
@@ -88,6 +89,7 @@ __all__ = [
     "EvidenceItem",
     "HttpExchangeEvidence",
     "ExperienceMode",
+    "GitPolicyConfig",
     "ExperimentConfiguration",
     "ExperimentLimits",
     "ExperimentRunSummary",
@@ -96,6 +98,7 @@ __all__ = [
     "ModelConfiguration",
     "MonitoringResult",
     "PatchDecision",
+    "PatchBranchResult",
     "PatchGenerationResult",
     "PatchLimits",
     "PatchProposal",

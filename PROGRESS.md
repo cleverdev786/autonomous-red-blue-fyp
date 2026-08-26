@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 12 — Patch Generation and Patch Policy**
+**Milestone 13 — Git Automation and Patch Branch Isolation**
 
 ## Status
 
-**TECHNICALLY VERIFIED — implementation, automated verification, and host-side development-laptop runtime verification PASS; final staged Git review and commit PENDING.**
+**TECHNICALLY VERIFIED — implementation, authoritative automated verification with real GitPython, and controlled host-side Git runtime verification PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–11 are complete. Milestone 11 is permanently committed at `a3421a2` (`a3421a29ad5c8bcc70cdc53cc3f4dd6890792235`). Milestone 12 implementation, automated verification, and host-side development-laptop runtime verification now pass in the current working tree. No generated patch or test was written or applied, no Git branch was created, and Milestones 13–14 remain locked. Final staged Git review and the Milestone 12 commit remain pending.
+Milestones 1–12 are complete. Milestone 12 is permanently committed at `ff17026` (`ff17026216e7f8cb4bfb7cbed2da6047414ef522`). Milestone 13 implementation, authoritative automated verification with GitPython 3.1.59, and controlled host-side Git runtime verification now pass in the permanent development repository. Deterministic branch-per-attempt isolation, PreparedPatch freshness checks, exact-path materialization/rollback, bounded Git diff evidence, safe baseline restoration, and explicit accepted-only local commit capability are verified. Final staged Git review and the Milestone 13 commit remain pending; Milestone 14 stays locked.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -26,6 +26,7 @@ Milestones 1–11 are complete. Milestone 11 is permanently committed at `a3421a
 - [x] Milestone 9 — Structured Logging and Audit System — runtime verified and committed (`4058143`)
 - [x] Milestone 10 — Rule-Based Detection Baseline — runtime verified and committed (`5c494ba`)
 - [x] Milestone 11 — Blue Team Triage and Code Analysis — runtime verified and committed (`a3421a2`)
+- [x] Milestone 12 — Patch Generation and Patch Policy — runtime verified and committed (`ff17026`)
 
 ## Milestone 7 Verified Baseline
 
@@ -731,31 +732,133 @@ final changed/untracked scope remained exactly the 16 Milestone 12 paths: PASS
 
 The runtime gate therefore confirms that Milestone 12 prepares policy-approved patches strictly in memory and fails closed for protected, oversized, or ungrounded proposals without modifying the vulnerable source tree or beginning Git automation/patch verification.
 
-Milestone 12 is technically verified but must not be marked permanently complete until documentation finalization, final staged Git review, and the milestone commit are complete.
+Milestone 12 is permanently complete and committed at `ff17026` (`ff17026216e7f8cb4bfb7cbed2da6047414ef522`). The repository was clean after post-commit verification, which unlocked Milestone 13.
+
+## Milestone 13 Technically Verified
+
+Implemented components:
+
+```text
+config/git-policy.json
+schemas/git.py
+services/git_service.py
+orchestrator/patch_branch_flow.py
+tests/test_git_service.py
+docs/GIT_PATCH_BRANCH_ISOLATION.md
+```
+
+Extended schema exports and project status/test coverage:
+
+```text
+schemas/__init__.py
+tests/test_schemas.py
+README.md
+PROGRESS.md
+```
+
+Milestone 13 now implements:
+
+```text
+PatchGenerationResult / PreparedPatch
+→ clean configured baseline validation
+→ deterministic agent-patch/<run_id>/attempt-<n> branch
+→ PreparedPatch integrity/freshness/path preflight
+→ exact-path write + replacement hash verification
+→ bounded staged Git diff evidence
+→ PATCH_APPLYING
+```
+
+Important boundaries:
+
+- the baseline branch is validated clean before branch creation;
+- branch creation is completed before the first generated file write;
+- the service consumes only `PreparedPatch`, never raw LLM patch output;
+- source/replacement/diff hashes are revalidated before application;
+- patch paths are rechecked through the deterministic Patch Policy;
+- only prepared paths are written/staged;
+- application failures roll back only known prepared paths;
+- baseline restoration refuses to erase unrelated dirty files;
+- patch branches are retained rather than automatically deleted;
+- local patch commits require an explicit trusted `PatchDecision.ACCEPTED`;
+- no push, force-push, merge, pull, fetch, or arbitrary Git-command interface exists;
+- the normal Milestone 13 flow does not commit, merge, verify, or accept a patch.
+
+### Milestone 13 Authoritative Automated Verification
+
+Permanent development-laptop verification with the project's installed GitPython dependency observed:
+
+```text
+GitPython: 3.1.59
+Python compilation: PASS
+Full pytest suite: 203 passed, 1 warning in 11.06s
+Focused Milestone 13 Git tests: 19 passed in 4.53s
+Schema tests: 17 passed in 0.21s
+git diff --check: PASS
+Prohibited Git API grep: PASS (no matches)
+Destructive reset/clean grep: PASS (no matches)
+Final branch: main
+Final HEAD: ff17026
+Final changed/untracked scope: exactly the 10 Milestone 13 paths
+```
+
+The single pytest warning is the existing Starlette/FastAPI TestClient deprecation warning and did not fail the suite. The authoritative laptop result supersedes the implementation-workspace GitPython compatibility-shim result for milestone closure.
+
+### Milestone 13 Controlled Host-Side Git Runtime Verification
+
+Controlled runtime verification was performed on 2026-08-26 using disposable `/tmp` clones of the clean Milestone 12 baseline while the permanent repository supplied the current Milestone 13 Python implementation. No generated patch branch or patch write was created in the permanent repository.
+
+Observed runtime results:
+
+```text
+permanent baseline before runtime: main @ ff17026216e7f8cb4bfb7cbed2da6047414ef522
+disposable clones started clean on main @ ff17026: PASS
+PreparedPatch materialized only on agent-patch/m13-runtime-xss/attempt-1: PASS
+baseline main remained ff17026: PASS
+native Git diff SHA-256 generated: f767123700a56fd9320174e35f0b5624ba283675a21b792538429f07c9396035
+exact-path restoration returned the disposable repository to clean main: PASS
+patch-attempt branch retained for evidence: PASS
+generated security test existed only on the disposable patch branch: PASS
+generated security test removed by exact-path restoration: PASS
+dirty baseline blocked: PASS
+wrong expected baseline SHA blocked: PASS
+deterministic branch collision blocked: PASS
+direct PreparedPatch materialization on main blocked: PASS
+PatchDecision.REJECTED could not create a commit: PASS
+explicit PatchDecision.ACCEPTED created local patch-branch commit 3d149c001c02df1dccae9bc38961adf3ad041499: PASS
+accepted commit did not move main: PASS
+permanent scenario_routes.py SHA-256 unchanged: PASS
+permanent branch refs unchanged: PASS
+permanent repository stayed main @ ff17026: PASS
+final permanent changed/untracked scope remained exactly the 10 Milestone 13 paths: PASS
+git diff --check after runtime verification: PASS
+```
+
+The disposable accepted-commit clone retained a local `origin` pointing to the permanent repository because it was created with `git clone`; no push or remote mutation was performed. Milestone 13 runtime verification therefore confirms branch-per-attempt isolation, baseline protection, exact-path restoration, fail-closed Git preconditions, and accepted-only local commit capability without modifying the permanent baseline.
 
 ## Still Locked
 
 Do not implement until the appropriate later milestone:
 
-- patch retry execution / verification feedback loop;
-- Git patch branches/automation;
-- patch application and verification pipeline;
+- patch syntax/startup/functional/security verification;
+- generated security-test execution;
+- original attack replay against patched code;
+- regression verification and deterministic acceptance/rejection;
+- automatic patch retry execution / verification feedback loop;
+- automatic merge or remote Git publication;
 - experiment runner;
 - RQ1/RQ2/RQ3 execution framework;
 - research dashboard/React UI;
 - experience/reward-guided selection;
 - real external/cloud LLM provider integration;
 - new vulnerability classes;
-- new registered security-test payloads;
-- crawler/scanner behavior;
-- generic HTTP executor.
+- generic HTTP or Git command execution.
 
 ## Next Gate
 
-**Milestone 12 documentation finalization, final staged Git review, and commit.**
+**Milestone 13 final staged Git review and commit.**
 
-The automated and host-side runtime gates are closed. Do not create Git patch branches, apply generated patches, run patched verification, or begin Milestone 13/14 until the 16-file Milestone 12 change set is reviewed, committed, and the working tree is confirmed clean.
+Stage exactly the 10 Milestone 13 implementation/documentation paths, confirm the staged path set and diff are clean, then create the Milestone 13 commit only after that review passes. Do not merge or push any patch-attempt branch and do not begin Milestone 14 before the milestone commit is confirmed.
 
 ## Last Updated
 
-2026-08-25
+2026-08-26
