@@ -1,0 +1,18 @@
+{
+  "target_id": "vulnerable-store",
+  "fixed_import_module": "dummy_apps.vulnerable_store.app.main",
+  "security_test_by_vulnerability": {
+    "sql_injection": "sqli-login-bypass-001",
+    "xss": "xss-reflection-001",
+    "path_traversal": "path-traversal-private-file-001"
+  },
+  "required_regression_tests": [
+    "dummy_apps/vulnerable_store/tests/test_baseline.py",
+    "dummy_apps/vulnerable_store/tests/test_vulnerability_scenarios.py::test_sql_injection_scenario_keeps_normal_login_behavior",
+    "dummy_apps/vulnerable_store/tests/test_vulnerability_scenarios.py::test_xss_scenario_keeps_normal_display_behavior",
+    "dummy_apps/vulnerable_store/tests/test_vulnerability_scenarios.py::test_path_traversal_scenario_keeps_public_file_behavior",
+    "dummy_apps/vulnerable_store/tests/test_vulnerability_scenarios.py::test_path_traversal_sandbox_blocks_escape_to_host"
+  ],
+  "stage_output_limit_chars": 4000,
+  "health_timeout_seconds": 60
+}

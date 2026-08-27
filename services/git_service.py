@@ -557,6 +557,96 @@ class GitService:
         )
         return git_diff, git_diff_sha256, changed_paths
 
+    def verify_materialized_patch(
+        self,
+        *,
+        prepared_patch: PreparedPatch,
+        branch_result: PatchBranchResult,
+    ) -> str:
+        """Revalidate the exact staged patch branch before executing patched code."""
+        started = time.monotonic()
+        try:
+            if (
+                prepared_patch.run_id != branch_result.run_id
+                or prepared_patch.target_id != branch_result.target_id
+                or prepared_patch.attempt_number != branch_result.attempt_number
+            ):
+                raise GitServiceBlocked(
+                    "PreparedPatch identity does not match PatchBranchResult",
+                    error_code="git-verification-identity-mismatch",
+                )
+            if prepared_patch.diff_sha256 != branch_result.prepared_diff_sha256:
+                raise GitServiceBlocked(
+                    "PreparedPatch diff hash does not match recorded branch evidence",
+                    error_code="git-verification-prepared-diff-drift",
+                )
+            expected_paths = tuple(sorted(item.file_path for item in prepared_patch.files))
+            if expected_paths != tuple(sorted(branch_result.changed_paths)):
+                raise GitServiceBlocked(
+                    "PreparedPatch paths do not match recorded branch evidence",
+                    error_code="git-verification-path-drift",
+                )
+
+            repo = self._repo()
+            self._require_commit_state(repo=repo, branch_result=branch_result)
+            current_diff = _staged_git_diff(repo, branch_result.changed_paths)
+            current_hash = hashlib.sha256(current_diff.encode("utf-8")).hexdigest()
+            if current_hash != branch_result.git_diff_sha256:
+                raise GitServiceBlocked(
+                    "staged Git diff changed before patch verification",
+                    error_code="git-verification-diff-drift",
+                )
+
+            for item in prepared_patch.files:
+                path = self.repository_root / item.file_path
+                if path.is_symlink() or not path.is_file():
+                    raise GitServiceBlocked(
+                        f"materialized verification path {item.file_path!r} is not a regular file",
+                        error_code="git-verification-file-missing",
+                    )
+                actual = hashlib.sha256(path.read_bytes()).hexdigest()
+                if actual != item.replacement_sha256:
+                    raise GitServiceBlocked(
+                        f"materialized replacement hash drifted for {item.file_path!r}",
+                        error_code="git-verification-file-hash-drift",
+                    )
+        except GitServiceBlocked as exc:
+            self._audit.blocked(
+                run_id=branch_result.run_id,
+                operation="git_materialized_patch_verification",
+                target=branch_result.branch_name,
+                error_code=exc.error_code,
+                started=started,
+            )
+            raise
+        except Exception as exc:
+            error_code = (
+                exc.error_code if isinstance(exc, GitServiceError)
+                else "git-verification-inspection-failed"
+            )
+            self._audit.failed(
+                run_id=branch_result.run_id,
+                operation="git_materialized_patch_verification",
+                target=branch_result.branch_name,
+                error_code=error_code,
+                started=started,
+            )
+            if isinstance(exc, GitServiceError):
+                raise
+            raise GitServiceError(
+                "failed to verify materialized patch branch",
+                error_code="git-verification-inspection-failed",
+            ) from exc
+
+        self._audit.success(
+            run_id=branch_result.run_id,
+            operation="git_materialized_patch_verification",
+            target=branch_result.branch_name,
+            evidence_reference=current_hash,
+            started=started,
+        )
+        return current_hash
+
     def restore_baseline(
         self,
         *,

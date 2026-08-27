@@ -19,11 +19,12 @@ COPY llm ./llm
 COPY dummy_apps ./dummy_apps
 COPY infrastructure ./infrastructure
 COPY security_tests ./security_tests
+COPY verification ./verification
 COPY config ./config
 
 # Dependency installation occurs while building the trusted image.
 # Runtime security-test containers are isolated by Compose networking.
-RUN python -m pip install --no-cache-dir . \
+RUN python -m pip install --no-cache-dir ".[verification]" \
     && mkdir -p /runtime \
     && chown -R 10001:10001 /runtime
 

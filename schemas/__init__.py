@@ -68,7 +68,13 @@ from schemas.red_team import (
     TestExecutionResult,
 )
 from schemas.targets import EndpointDefinition, PatchLimits, SecurityTestDefinition, TargetDefinition
-from schemas.verification import PolicyDecision, VerificationResult, VerificationStageResult
+from schemas.verification import (
+    PatchVerificationResult,
+    PolicyDecision,
+    VerificationPolicyConfig,
+    VerificationResult,
+    VerificationStageResult,
+)
 
 __all__ = [
     "AgentRole",
@@ -103,6 +109,7 @@ __all__ = [
     "PatchLimits",
     "PatchProposal",
     "PatchRetryFeedback",
+    "PatchVerificationResult",
     "PreparedFileChange",
     "PreparedPatch",
     "PolicyDecision",
@@ -126,6 +133,7 @@ __all__ = [
     "TargetDefinition",
     "TestExecutionResult",
     "TriageResult",
+    "VerificationPolicyConfig",
     "VerificationResult",
     "VerificationStageResult",
     "VulnerabilityClass",

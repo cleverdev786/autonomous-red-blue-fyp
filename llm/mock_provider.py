@@ -390,8 +390,39 @@ class MockProvider:
         elif triage.classification == ClassificationLabel.PATH_TRAVERSAL:
             original = '''        candidate = (intended_public_root / path).resolve(strict=False)
 
-        # SAFETY BOUNDARY: the educational traversal cannot escape the isolated'''
+        # SAFETY BOUNDARY: the educational traversal cannot escape the isolated
+        # synthetic scenario directory into the project or host filesystem.
+        try:
+            candidate.relative_to(scenario_root)
+        except ValueError as exc:
+            emit_structured_event(
+                event_type=ApplicationEventType.FILE_ACCESS_EVENT,
+                attributes={"requested_path": path, "outcome": "sandbox_blocked"},
+                status_code=403,
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Scenario sandbox escape blocked",
+            ) from exc
+
+        if not candidate.is_file():'''
             replacement = '''        candidate = (intended_public_root / path).resolve(strict=False)
+
+        # SAFETY BOUNDARY: the educational traversal cannot escape the isolated
+        # synthetic scenario directory into the project or host filesystem.
+        try:
+            candidate.relative_to(scenario_root)
+        except ValueError as exc:
+            emit_structured_event(
+                event_type=ApplicationEventType.FILE_ACCESS_EVENT,
+                attributes={"requested_path": path, "outcome": "sandbox_blocked"},
+                status_code=403,
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Scenario sandbox escape blocked",
+            ) from exc
+
         try:
             candidate.relative_to(intended_public_root)
         except ValueError as exc:
@@ -402,7 +433,7 @@ class MockProvider:
             )
             raise HTTPException(status_code=403, detail="Path traversal blocked") from exc
 
-        # SAFETY BOUNDARY: the educational traversal cannot escape the isolated'''
+        if not candidate.is_file():'''
             changes.append(
                 self._grounded_change(
                     supplied=supplied,

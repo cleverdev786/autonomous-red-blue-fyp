@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 13 — Git Automation and Patch Branch Isolation**
+**Milestone 14 — Patch Verification Pipeline**
 
 ## Status
 
-**TECHNICALLY VERIFIED — implementation, authoritative automated verification with real GitPython, and controlled host-side Git runtime verification PASS; final staged Git review and commit PENDING.**
+**TECHNICALLY VERIFIED — implementation, authoritative automated verification with real GitPython, the Path Traversal fixture correction, and complete controlled host-side Docker/Git runtime verification PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–12 are complete. Milestone 12 is permanently committed at `ff17026` (`ff17026216e7f8cb4bfb7cbed2da6047414ef522`). Milestone 13 implementation, authoritative automated verification with GitPython 3.1.59, and controlled host-side Git runtime verification now pass in the permanent development repository. Deterministic branch-per-attempt isolation, PreparedPatch freshness checks, exact-path materialization/rollback, bounded Git diff evidence, safe baseline restoration, and explicit accepted-only local commit capability are verified. Final staged Git review and the Milestone 13 commit remain pending; Milestone 14 stays locked.
+Milestones 1–13 are complete. Milestone 13 is permanently committed at `7d883b8` (`7d883b80639a3cc12d354cd6fcee29c1dbf6e174`). Milestone 14 now implements policy/Git-integrity revalidation, isolated syntax/import and patched-app startup checks, controlled-executor-only functional/security/replay verification, a frozen regression allowlist, deterministic accept/reject decisions, accepted-only local patch-branch commits, and safe baseline restoration. Raw generated tests are syntax-checked only and never executed or used for acceptance. Authoritative development-laptop automated verification and the complete disposable-repository Docker/Git runtime gate pass after the two-file Path Traversal fixture correction; final staged Git review and the Milestone 14 commit remain pending, and Milestone 15 stays locked.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -27,6 +27,7 @@ Milestones 1–12 are complete. Milestone 12 is permanently committed at `ff1702
 - [x] Milestone 10 — Rule-Based Detection Baseline — runtime verified and committed (`5c494ba`)
 - [x] Milestone 11 — Blue Team Triage and Code Analysis — runtime verified and committed (`a3421a2`)
 - [x] Milestone 12 — Patch Generation and Patch Policy — runtime verified and committed (`ff17026`)
+- [x] Milestone 13 — Git Automation and Patch Branch Isolation — runtime verified and committed (`7d883b8`)
 
 ## Milestone 7 Verified Baseline
 
@@ -835,30 +836,114 @@ git diff --check after runtime verification: PASS
 
 The disposable accepted-commit clone retained a local `origin` pointing to the permanent repository because it was created with `git clone`; no push or remote mutation was performed. Milestone 13 runtime verification therefore confirms branch-per-attempt isolation, baseline protection, exact-path restoration, fail-closed Git preconditions, and accepted-only local commit capability without modifying the permanent baseline.
 
+## Milestone 14 Implemented Locally
+
+Milestone 14 now follows the frozen deterministic order:
+
+```text
+patch policy → path/Git integrity → syntax/import → startup/isolation
+→ functional → relevant registered security test → original Red replay
+→ trusted regression allowlist → deterministic ACCEPTED/REJECTED
+```
+
+Safety boundaries implemented in the working tree:
+
+- no LLM participates in verification;
+- live HTTP verification originates only inside `controlled-executor`;
+- `EnvironmentService` exposes fixed Docker lifecycle/isolation operations only;
+- `TestRunner` exposes named deterministic checks only;
+- raw generated tests are compiled for syntax but never imported/executed and never influence acceptance;
+- policy/Git-integrity failures map to `POLICY_BLOCKED`;
+- trusted infrastructure/runner failures map to `FAILED`;
+- syntax/startup/functional/security/replay/regression patch failures map to `REJECTED`;
+- accepted patches use the existing accepted-only local Git commit capability;
+- Docker cleanup and exact-path baseline restoration are always attempted;
+- automatic retry, merge and push do not exist in the Milestone 14 flow.
+
+Implementation and authoritative automated evidence:
+
+```text
+Implementation-workspace compilation: PASS
+Implementation-workspace full suite after Path Traversal fixture correction: 209 passed, 1 GitPython-only skip
+Authoritative development-laptop GitPython: 3.1.59
+Authoritative development-laptop compilation: PASS
+Authoritative development-laptop full suite after correction: 230 passed, 1 warning in 5.67s
+Focused patch-generation tests after correction: 21 passed in 0.55s
+Focused Milestone 14 verification tests after correction: 21 passed
+Earlier authoritative M14 pre-runtime schema tests: 20 passed
+Earlier authoritative M14 pre-runtime GitService tests: 21 passed
+Earlier authoritative M14 verification + schema tests: 41 passed
+git diff --check: PASS
+```
+
+The warning is the existing non-failing Starlette/FastAPI TestClient deprecation warning. The two-file correction is restricted to `llm/mock_provider.py` and `tests/test_patch_generation.py`; it preserves the existing `scenario_root` sandbox-escape guard before the new `intended_public_root` containment guard and does not weaken the Milestone 14 regression policy.
+
+### Milestone 14 Controlled Host-Side Docker/Git Runtime Verification
+
+**PASS — complete corrected runtime verification completed successfully on 2026-08-27.**
+
+The first runtime attempt correctly rejected the deterministic Path Traversal patch because it changed the trusted sandbox-escape response from `"Scenario sandbox escape blocked"` to `"Path traversal blocked"`. The regression suite therefore caught a real compatibility regression. The deterministic fixture was corrected without changing the verifier or regression allowlist, all automated gates were rerun, and the complete runtime gate was then repeated from scratch.
+
+The corrected disposable runtime baseline was:
+
+```text
+ee535c199907556c6797d375c42f3ec458dfae3e
+```
+
+Observed corrected runtime results:
+
+```text
+Vulnerable baseline SQL Injection evidence confirmed: PASS
+Vulnerable baseline XSS evidence confirmed: PASS
+Vulnerable baseline Path Traversal evidence confirmed: PASS
+SQLi remediation ACCEPTED on isolated branch: a8e0d1a93ede0e2dd0270cc55c82774291ed717a
+XSS remediation with hostile generated-test guard ACCEPTED: 3961b3035683e6dd06b38c4db5087f7d0674a612
+Path Traversal remediation ACCEPTED after fixture correction: de2ad5647b903646e0c576d123cda3e7169b10d3
+Raw generated test compiled but was never executed or collected: PASS
+Policy-valid insecure XSS patch rejected by security + original replay: PASS
+Security-fixing but behavior-breaking XSS patch rejected by functional/regression: PASS
+Invalid Python patch rejected at syntax/import before application startup: PASS
+Staged Git drift POLICY_BLOCKED before Docker verification stages: PASS
+All seven disposable case repositories restored to clean main at ee535c1: PASS
+Accepted commits retained only on local agent-patch branches: PASS
+Rejected/POLICY_BLOCKED attempts created no accepted remediation commit: PASS
+Docker lab fully cleaned after runtime verification: PASS
+Permanent scenario_routes.py SHA-256 unchanged: PASS
+All 24 permanent Milestone 14/correction files byte-identical before/after: PASS (24/24)
+Permanent branch refs unchanged: PASS
+Permanent porcelain status before/after identical: PASS
+Permanent generated XSS test absent: PASS
+Permanent repository remained main @ 7d883b8 with no agent-patch branch: PASS
+git diff --check after runtime verification: PASS
+Final Git-visible scope remained exactly 24 Milestone 14/correction paths: PASS
+```
+
+No merge or push was performed. Milestone 14 is technically verified; documentation finalization, exact staged-scope review, and the milestone commit remain pending.
+
+See `docs/PATCH_VERIFICATION_PIPELINE.md`.
+
 ## Still Locked
 
 Do not implement until the appropriate later milestone:
 
-- patch syntax/startup/functional/security verification;
-- generated security-test execution;
-- original attack replay against patched code;
-- regression verification and deterministic acceptance/rejection;
-- automatic patch retry execution / verification feedback loop;
-- automatic merge or remote Git publication;
-- experiment runner;
-- RQ1/RQ2/RQ3 execution framework;
+- automatic patch retry execution / structured verification-feedback loop;
+- experiment storage and metrics aggregation;
+- experiment runner and RQ1/RQ2/RQ3 execution framework;
 - research dashboard/React UI;
 - experience/reward-guided selection;
+- automatic merge or remote Git publication;
 - real external/cloud LLM provider integration;
 - new vulnerability classes;
-- generic HTTP or Git command execution.
+- generic HTTP, Docker, shell, or Git command execution.
+
+Raw LLM-generated verification tests are intentionally non-authoritative and are not directly executed by Milestone 14.
 
 ## Next Gate
 
-**Milestone 13 final staged Git review and commit.**
+**Finalize Milestone 14 documentation and perform the exact final staged Git review.**
 
-Stage exactly the 10 Milestone 13 implementation/documentation paths, confirm the staged path set and diff are clean, then create the Milestone 13 commit only after that review passes. Do not merge or push any patch-attempt branch and do not begin Milestone 14 before the milestone commit is confirmed.
+Stage only the verified 24-file Milestone 14 scope, run the exact staged-path comparison and `git diff --cached --check`, review implementation and documentation diffs, and commit only after every staged Git gate passes. Do not merge or push any generated patch branch and do not begin Milestone 15.
 
 ## Last Updated
 
-2026-08-26
+2026-08-27

@@ -168,6 +168,39 @@ def test_mock_flow_prepares_grounded_patch_for_each_supported_class(
     assert _sha(source_path) == before
 
 
+def test_mock_path_traversal_patch_preserves_sandbox_guard_before_public_root_guard(
+    registry: TargetRegistry,
+    tmp_path: Path,
+) -> None:
+    result = _flow(
+        registry=registry,
+        tmp_path=tmp_path,
+        provider=MockProvider(),
+    ).run(
+        analysis=_analysis(ClassificationLabel.PATH_TRAVERSAL),
+        attempt_number=1,
+    )
+
+    replacement = result.prepared_patch.files[0].replacement_content
+
+    sandbox_guard = "candidate.relative_to(scenario_root)"
+    sandbox_detail = 'detail="Scenario sandbox escape blocked"'
+    public_guard = "candidate.relative_to(intended_public_root)"
+    public_detail = 'detail="Path traversal blocked"'
+    file_check = "if not candidate.is_file():"
+
+    assert sandbox_guard in replacement
+    assert sandbox_detail in replacement
+    assert '"outcome": "sandbox_blocked"' in replacement
+
+    assert public_guard in replacement
+    assert public_detail in replacement
+    assert '"outcome": "public_root_blocked"' in replacement
+
+    assert replacement.index(sandbox_guard) < replacement.index(public_guard)
+    assert replacement.index(public_guard) < replacement.index(file_check)
+
+
 def test_patch_agent_input_is_bounded_and_excludes_ground_truth_and_red_artifacts(
     registry: TargetRegistry,
     tmp_path: Path,

@@ -332,3 +332,65 @@ def test_repository_git_policy_file_is_valid() -> None:
 
     assert config.baseline_branch == "main"
     assert config.patch_branch_prefix == "agent-patch"
+
+
+def test_verification_policy_file_is_valid_and_excludes_vulnerability_proof_tests() -> None:
+    from schemas.verification import VerificationPolicyConfig
+
+    policy = VerificationPolicyConfig.model_validate_json(
+        (Path(__file__).resolve().parents[1] / "config" / "verification-policy.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert set(policy.security_test_by_vulnerability) == set(VulnerabilityClass)
+    joined = "\n".join(policy.required_regression_tests)
+    assert "reproducibly_vulnerable" not in joined
+    assert "reproducibly_reflects" not in joined
+    assert "reaches_synthetic_private_file" not in joined
+
+
+def test_verification_policy_requires_exact_frozen_vulnerability_mapping() -> None:
+    from schemas.verification import VerificationPolicyConfig
+
+    with pytest.raises(ValidationError):
+        VerificationPolicyConfig(
+            target_id="vulnerable-store",
+            fixed_import_module="dummy_apps.vulnerable_store.app.main",
+            security_test_by_vulnerability={
+                VulnerabilityClass.XSS: "xss-reflection-001",
+            },
+            required_regression_tests=(
+                "dummy_apps/vulnerable_store/tests/test_baseline.py",
+            ),
+        )
+
+
+def test_patch_verification_result_cannot_accept_without_commit_and_restored_baseline() -> None:
+    from schemas.verification import PatchVerificationResult
+
+    verification = VerificationResult(
+        run_id="verify-schema",
+        patch_attempt_number=1,
+        stages=(
+            VerificationStageResult(
+                stage_id="regression",
+                passed=True,
+                duration_ms=1,
+                details="passed",
+            ),
+        ),
+        decision=PatchDecision.ACCEPTED,
+        total_duration_ms=1,
+    )
+    with pytest.raises(ValidationError):
+        PatchVerificationResult(
+            run_id="verify-schema",
+            target_id="vulnerable-store",
+            attempt_number=1,
+            branch_name="agent-patch/verify-schema/attempt-1",
+            base_commit="a" * 40,
+            git_diff_sha256="b" * 64,
+            verification=verification,
+            baseline_restored=False,
+            final_state="accepted",
+        )

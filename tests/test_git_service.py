@@ -531,3 +531,43 @@ def test_git_service_has_no_remote_merge_or_arbitrary_command_interface() -> Non
         "execute_command",
     }
     assert prohibited.isdisjoint(set(dir(GitService)))
+
+
+def test_verify_materialized_patch_accepts_exact_recorded_staged_state(tmp_path: Path) -> None:
+    repo, repo_root, base_commit, before = _init_repo(tmp_path)
+    service = _service(repo_root, tmp_path / "audit")
+    patch = _prepared_patch(before=before)
+    result = _flow(service, tmp_path / "audit").run(
+        generation_result=_generation_result(patch),
+        expected_base_commit=base_commit,
+    )
+
+    assert service.verify_materialized_patch(
+        prepared_patch=patch,
+        branch_result=result,
+    ) == result.git_diff_sha256
+    assert repo.active_branch.name == result.branch_name
+    assert repo.heads.main.commit.hexsha == base_commit
+
+
+def test_verify_materialized_patch_blocks_unstaged_or_hash_drift(tmp_path: Path) -> None:
+    repo, repo_root, base_commit, before = _init_repo(tmp_path)
+    service = _service(repo_root, tmp_path / "audit")
+    patch = _prepared_patch(before=before)
+    result = _flow(service, tmp_path / "audit").run(
+        generation_result=_generation_result(patch),
+        expected_base_commit=base_commit,
+    )
+    path = repo_root / SOURCE_FILE
+    path.write_text(path.read_text(encoding="utf-8") + "# unexpected\n", encoding="utf-8")
+
+    with pytest.raises(GitServiceBlocked) as exc_info:
+        service.verify_materialized_patch(
+            prepared_patch=patch,
+            branch_result=result,
+        )
+    assert exc_info.value.error_code in {
+        "git-commit-unstaged-changes",
+        "git-verification-file-hash-drift",
+    }
+    assert repo.heads.main.commit.hexsha == base_commit

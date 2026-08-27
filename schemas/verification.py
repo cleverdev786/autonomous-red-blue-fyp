@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from schemas.common import (
     Identifier,
     NonEmptyText,
     PatchDecision,
     PolicyReasonCode,
+    VulnerabilityClass,
+    WorkflowState,
 )
+
+
+_MODULE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
 
 
 class PolicyDecision(BaseModel):
@@ -31,7 +38,7 @@ class PolicyDecision(BaseModel):
 
 
 class VerificationStageResult(BaseModel):
-    """One mandatory verification stage result."""
+    """One deterministic verification stage result."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -69,5 +76,108 @@ class VerificationResult(BaseModel):
 
         if self.decision == PatchDecision.ACCEPTED and self.rejection_reason is not None:
             raise ValueError("accepted patch must not include a rejection_reason")
+
+        return self
+
+
+class VerificationPolicyConfig(BaseModel):
+    """Human-controlled common verification policy used for every Blue condition."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    target_id: Identifier
+    fixed_import_module: str = Field(min_length=1, max_length=200)
+    security_test_by_vulnerability: dict[VulnerabilityClass, Identifier]
+    required_regression_tests: tuple[str, ...] = Field(min_length=1, max_length=50)
+    stage_output_limit_chars: int = Field(default=4000, ge=500, le=20_000)
+    health_timeout_seconds: int = Field(default=60, ge=5, le=300)
+
+    @field_validator("fixed_import_module")
+    @classmethod
+    def validate_module_name(cls, value: str) -> str:
+        if _MODULE_PATTERN.fullmatch(value) is None:
+            raise ValueError("fixed_import_module must be a dotted Python module name")
+        return value
+
+    @field_validator("required_regression_tests")
+    @classmethod
+    def validate_regression_allowlist(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if len(value) != len(set(value)):
+            raise ValueError("required_regression_tests must be unique")
+        for node_id in value:
+            if not node_id.startswith("dummy_apps/vulnerable_store/tests/"):
+                raise ValueError("regression tests must stay inside vulnerable_store tests")
+            if "::" not in node_id and not node_id.endswith("test_baseline.py"):
+                raise ValueError("non-baseline regression entries must be exact pytest node IDs")
+            lowered = node_id.lower()
+            if any(
+                marker in lowered
+                for marker in (
+                    "reproducibly_vulnerable",
+                    "reproducibly_reflects",
+                    "reaches_synthetic_private_file",
+                )
+            ):
+                raise ValueError("vulnerability-proving tests cannot be mandatory regressions")
+        return value
+
+    @model_validator(mode="after")
+    def require_all_vulnerability_classes(self) -> "VerificationPolicyConfig":
+        if set(self.security_test_by_vulnerability) != set(VulnerabilityClass):
+            raise ValueError("security_test_by_vulnerability must cover exactly the frozen classes")
+        if len(set(self.security_test_by_vulnerability.values())) != len(VulnerabilityClass):
+            raise ValueError("each frozen vulnerability class must map to a distinct registered test")
+        return self
+
+
+class PatchVerificationResult(BaseModel):
+    """Aggregate Milestone 14 result including workflow, Git and cleanup evidence."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    run_id: Identifier
+    target_id: Identifier
+    attempt_number: int = Field(ge=1)
+    branch_name: str = Field(min_length=1, max_length=240)
+    base_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    git_diff_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    verification: VerificationResult | None = None
+    accepted_commit_sha: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
+    baseline_restored: bool
+    final_state: WorkflowState
+    failure_reason: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_result_state(self) -> "PatchVerificationResult":
+        allowed = {
+            WorkflowState.ACCEPTED,
+            WorkflowState.REJECTED,
+            WorkflowState.FAILED,
+            WorkflowState.POLICY_BLOCKED,
+        }
+        if self.final_state not in allowed:
+            raise ValueError("PatchVerificationResult must end in accepted/rejected/failed/policy_blocked")
+
+        if self.final_state == WorkflowState.ACCEPTED:
+            if self.verification is None or self.verification.decision != PatchDecision.ACCEPTED:
+                raise ValueError("accepted workflow result requires accepted verification")
+            if self.accepted_commit_sha is None:
+                raise ValueError("accepted workflow result requires local accepted commit SHA")
+            if not self.baseline_restored:
+                raise ValueError("accepted workflow result requires restored baseline")
+            if self.failure_reason is not None:
+                raise ValueError("accepted workflow result cannot include failure_reason")
+
+        if self.final_state == WorkflowState.REJECTED:
+            if self.verification is None or self.verification.decision != PatchDecision.REJECTED:
+                raise ValueError("rejected workflow result requires rejected verification")
+            if self.accepted_commit_sha is not None:
+                raise ValueError("rejected patch cannot claim an accepted commit")
+            if not self.baseline_restored:
+                raise ValueError("rejected workflow result requires restored baseline")
+
+        if self.final_state in {WorkflowState.FAILED, WorkflowState.POLICY_BLOCKED}:
+            if self.failure_reason is None:
+                raise ValueError("failed/policy-blocked workflow result requires failure_reason")
 
         return self

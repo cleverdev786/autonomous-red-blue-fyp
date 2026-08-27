@@ -6,26 +6,30 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 13 — Git Automation and Patch Branch Isolation: TECHNICALLY VERIFIED; final staged Git review and commit PENDING.**
+**Milestone 14 — Patch Verification Pipeline: TECHNICALLY VERIFIED; authoritative automated and controlled Docker/Git runtime verification PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–12 are complete. Milestone 12 is permanently committed at `ff17026`. Milestone 13 now has trusted Git policy configuration, typed branch-attempt evidence, deterministic branch-per-attempt isolation, PreparedPatch freshness/hash validation, exact-path materialization/rollback, bounded native Git diff evidence, safe baseline restoration, and an explicit accepted-only local commit capability. Authoritative automated verification with GitPython 3.1.59 and controlled disposable-clone runtime verification both pass. Final staged Git review and the Milestone 13 commit remain pending; Milestone 14 verification remains locked.
+Milestones 1–13 are complete. Milestone 13 is permanently committed at `7d883b8`. Milestone 14 provides deterministic patch-policy/Git-integrity revalidation, isolated syntax/import and startup checks, controlled-executor-only functional/security/original-replay verification, a frozen trusted regression allowlist, deterministic accept/reject decisions, accepted-only local patch-branch commits, and safe baseline restoration. Raw generated tests are syntax-checked only and never executed or used for acceptance. The complete development-laptop automated and Docker/Git runtime gates now pass after a two-file deterministic Path Traversal fixture correction that preserved the existing sandbox-escape safety response without weakening verification. No automatic retry, merge, push, experiment storage, or Milestone 15 work is included.
 
-Current automated baseline:
+Current Milestone 14 verification baseline:
 
 ```text
 Python compilation: PASS
-Full pytest suite: 203 passed, 1 warning in 11.06s
-Focused Milestone 13 Git tests: 19 passed in 4.53s
-Schema tests: 17 passed in 0.21s
-GitPython: 3.1.59
-Milestone 13 controlled host-side Git runtime verification: PASS (2026-08-26)
-Milestone 12 commit: PASS (`ff17026`)
-Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
+Authoritative full suite after Path Traversal fixture correction: 230 passed, 1 warning
+Focused patch-generation tests after correction: 21 passed
+Focused Milestone 14 verification tests after correction: 21 passed
+Trusted verification policy: PASS
+Controlled Docker/Git runtime verification: PASS (2026-08-27)
+SQLi / XSS / Path Traversal accepted-remediation cases: PASS
+Insecure / functional-regression / syntax rejection cases: PASS
+Git-drift POLICY_BLOCKED case: PASS
+Raw generated-test non-execution: PASS
+Permanent repository stayed main @ 7d883b8; 24/24 scope checksums unchanged: PASS
+Milestone 13 commit: PASS (`7d883b8`)
 ```
 
 The Milestone 12 agent never writes directly to disk. Source edits are restricted to the validated Milestone 11 `CodeFinding` file; proposed exact-text anchors must be grounded in the bounded source context; generated-test paths are derived by the trusted service; and final prepared patches remain in memory only.
 
-Milestone 13 now materializes `PreparedPatch` artifacts only on deterministic isolated local branches. Patched-application verification, deterministic acceptance/rejection orchestration, automatic merge, remote publication, persistent experiment execution, real cloud LLM providers, and the dashboard remain locked for later milestones.
+Milestone 13 materializes `PreparedPatch` artifacts only on deterministic isolated local branches. Milestone 14 verifies those branches through deterministic services and the isolated Docker lab. Automatic retries, merge, remote publication, persistent experiment execution, real cloud LLM providers, and the dashboard remain locked for later milestones.
 
 ## Approved Scope
 
@@ -100,15 +104,15 @@ Current implementation baseline:
 
 ```text
 Python compilation: PASS
-Pytest: 180 passed
-Focused Milestone 12 tests: 20 passed
-Milestone 12 host-side runtime verification: PASS (2026-08-25)
-Milestone 11 development-laptop runtime verification: PASS (2026-08-25)
-Milestone 11 Git commit: PASS (`a3421a2`)
+Milestone 14 authoritative pytest after correction: 230 passed, 1 warning
+Milestone 14 focused verification tests: 21 passed
+Milestone 14 controlled Docker/Git runtime verification: PASS (2026-08-27)
+Milestone 14 permanent repository integrity: PASS — main @ 7d883b8, 24/24 scope checksums unchanged
+Milestone 13 commit: PASS (`7d883b8`)
 Milestone 12 commit: PASS (`ff17026`)
-Milestone 13 GitPython automated verification: PASS — 203 passed, 1 warning
-Milestone 13 controlled host-side Git runtime verification: PASS (2026-08-26)
 ```
+
+Milestone 14 is technically verified. Final documentation/staged Git review and the Milestone 14 commit remain pending.
 
 ## Configuration
 
@@ -303,6 +307,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the final staged Git review and commit for Milestone 13.**
+**Complete the Milestone 14 documentation finalization and final staged Git review.**
 
-Stage exactly the verified 10-file Milestone 13 scope, inspect the staged implementation/documentation diff, and commit only after `git diff --cached --check` and the exact staged-path comparison pass. Do not merge or push any generated patch branch and do not begin Milestone 14 until the Milestone 13 commit is confirmed.
+Stage exactly the verified 24-file Milestone 14 scope, inspect the staged implementation/correction/documentation diffs, and commit only after `git diff --cached --check` and the exact staged-path comparison pass. Do not merge or push any generated patch branch and do not begin Milestone 15 until the Milestone 14 commit is confirmed.
