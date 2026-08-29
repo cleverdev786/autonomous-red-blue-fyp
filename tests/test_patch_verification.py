@@ -563,3 +563,39 @@ def test_cleanup_failure_surfaces_failed_even_after_accepted_verification(tmp_pa
     assert result.accepted_commit_sha == "b" * 40
     assert result.final_state == WorkflowState.FAILED
     assert "environment cleanup failed" in (result.failure_reason or "")
+
+
+def test_test_runner_preserves_typed_functional_check_observations(tmp_path: Path) -> None:
+    payload = (
+        '{"passed": false, "details": "functional verification failed", "duration_ms": 3, '
+        '"checks": ['
+        '{"check_id": "health", "status": "passed", "duration_ms": 1, "details": "passed"},'
+        '{"check_id": "normal_login", "status": "failed", "duration_ms": 2, "details": "failed"},'
+        '{"check_id": "normal_search", "status": "not_run", "duration_ms": 0, "details": "not run"}'
+        ']}\n'
+    )
+    service = VerificationTestRunner(
+        repository_root=tmp_path,
+        policy=_policy(),
+        runner=lambda args, cwd: RunnerProcessResult(2, payload, ""),
+    )
+    stage = service.run_functional_checks()
+    assert stage.passed is False
+    assert [check.status.value for check in stage.checks] == ["passed", "failed", "not_run"]
+
+
+def test_security_stage_keeps_structured_execution_as_observational_evidence() -> None:
+    execution = ExecutionResult(
+        run_id="verify-evidence",
+        target_id=TARGET_ID,
+        test_id="xss-reflection-001",
+        attempt_number=1,
+        request_count=1,
+        completed=True,
+        status_code=200,
+        evidence=(),
+        duration_ms=7,
+    )
+    stage = security_stage_result(stage_id="security", execution=execution)
+    assert stage.passed is True
+    assert stage.test_execution == execution

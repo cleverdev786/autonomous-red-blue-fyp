@@ -32,7 +32,7 @@ verification = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*", "orchestrator*", "schemas*", "services*", "llm*", "verification*"]
+include = ["agents*", "orchestrator*", "schemas*", "services*", "llm*", "verification*", "storage*", "experiments*"]
 exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]

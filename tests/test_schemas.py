@@ -394,3 +394,90 @@ def test_patch_verification_result_cannot_accept_without_commit_and_restored_bas
             baseline_restored=False,
             final_state="accepted",
         )
+
+
+def test_rq2_experiment_configuration_requires_dataset_not_scenario() -> None:
+    from schemas.experiments import ClassificationMode
+
+    config = ExperimentConfiguration(
+        config_id="rq2-dataset-config",
+        run_type=RunType.DEVELOPMENT,
+        research_question=ResearchQuestion.RQ2,
+        dataset_id="frozen-events-v1",
+        classification_mode=ClassificationMode.RULE_ONLY,
+        model=ModelConfiguration(provider="mock", model_name="fixture"),
+    )
+    assert config.dataset_id == "frozen-events-v1"
+    assert config.scenario_ids == ()
+
+    with pytest.raises(ValidationError):
+        ExperimentConfiguration(
+            config_id="rq2-fake-scenario",
+            run_type=RunType.DEVELOPMENT,
+            research_question=ResearchQuestion.RQ2,
+            scenario_ids=("scenario-xss",),
+            model=ModelConfiguration(provider="mock", model_name="fixture"),
+        )
+
+
+def test_rq1_and_rq3_experiment_configuration_require_scenarios() -> None:
+    with pytest.raises(ValidationError):
+        ExperimentConfiguration(
+            config_id="rq1-no-scenario",
+            run_type=RunType.DEVELOPMENT,
+            research_question=ResearchQuestion.RQ1,
+            model=ModelConfiguration(provider="mock", model_name="fixture"),
+        )
+
+
+def test_verification_check_status_is_observational_and_serializable() -> None:
+    from schemas.verification import VerificationCheckResult, VerificationCheckStatus
+
+    stage = VerificationStageResult(
+        stage_id="functional",
+        passed=False,
+        duration_ms=3,
+        details="one fixed check failed",
+        checks=(
+            VerificationCheckResult(
+                check_id="health",
+                status=VerificationCheckStatus.PASSED,
+                duration_ms=1,
+                details="passed",
+            ),
+            VerificationCheckResult(
+                check_id="normal_login",
+                status=VerificationCheckStatus.FAILED,
+                duration_ms=2,
+                details="failed",
+            ),
+            VerificationCheckResult(
+                check_id="normal_search",
+                status=VerificationCheckStatus.NOT_RUN,
+                duration_ms=0,
+                details="not run because earlier check failed",
+            ),
+        ),
+    )
+    restored = VerificationStageResult.model_validate_json(stage.model_dump_json())
+    assert restored == stage
+    assert [check.status.value for check in restored.checks] == ["passed", "failed", "not_run"]
+
+
+def test_experiment_run_summary_requires_exactly_one_subject() -> None:
+    from schemas.experiments import ExperimentRunSummary
+    from schemas.common import RunStatus
+
+    scenario = ExperimentRunSummary(
+        run_id="summary-run",
+        config_id="summary-config",
+        scenario_id="scenario-xss",
+        status=RunStatus.COMPLETED,
+    )
+    assert scenario.dataset_id is None
+    with pytest.raises(ValidationError):
+        ExperimentRunSummary(
+            run_id="bad-summary",
+            config_id="summary-config",
+            status=RunStatus.COMPLETED,
+        )

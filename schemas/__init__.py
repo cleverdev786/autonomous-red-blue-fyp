@@ -36,6 +36,14 @@ from schemas.experiments import (
     RetryFeedbackMode,
 )
 from schemas.git import GitPolicyConfig, PatchBranchResult
+from schemas.experiment_results import (
+    AgentCallRecord,
+    ArtifactType,
+    CostUsageStatus,
+    RunProvenance,
+    StageTimingRecord,
+    TokenUsageStatus,
+)
 from schemas.logging import (
     ApplicationEventType,
     ApplicationLogEvent,
@@ -70,6 +78,8 @@ from schemas.red_team import (
 from schemas.targets import EndpointDefinition, PatchLimits, SecurityTestDefinition, TargetDefinition
 from schemas.verification import (
     PatchVerificationResult,
+    VerificationCheckResult,
+    VerificationCheckStatus,
     PolicyDecision,
     VerificationPolicyConfig,
     VerificationResult,
@@ -78,6 +88,8 @@ from schemas.verification import (
 
 __all__ = [
     "AgentRole",
+    "AgentCallRecord",
+    "ArtifactType",
     "ApplicationEventType",
     "ApplicationLogEvent",
     "AttackPlan",
@@ -90,6 +102,7 @@ __all__ = [
     "BlueTeamMode",
     "ClassificationLabel",
     "ClassificationMode",
+    "CostUsageStatus",
     "CodeFinding",
     "EndpointDefinition",
     "EvidenceItem",
@@ -123,6 +136,7 @@ __all__ = [
     "RestrictedReconnaissanceContext",
     "ResearchQuestion",
     "RetryFeedbackMode",
+    "RunProvenance",
     "RunStatus",
     "RunType",
     "ScenarioGroundTruth",
@@ -130,9 +144,13 @@ __all__ = [
     "SourceLineRange",
     "SourceReadResult",
     "SourceSnippet",
+    "StageTimingRecord",
     "TargetDefinition",
+    "TokenUsageStatus",
     "TestExecutionResult",
     "TriageResult",
+    "VerificationCheckResult",
+    "VerificationCheckStatus",
     "VerificationPolicyConfig",
     "VerificationResult",
     "VerificationStageResult",

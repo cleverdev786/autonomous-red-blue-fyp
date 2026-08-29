@@ -14,7 +14,11 @@ import time
 from typing import Callable, Sequence
 
 from schemas.red_team import TestExecutionResult
-from schemas.verification import VerificationPolicyConfig, VerificationStageResult
+from schemas.verification import (
+    VerificationCheckResult,
+    VerificationPolicyConfig,
+    VerificationStageResult,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +163,7 @@ class TestRunner:
             passed = bool(data["passed"])
             details = self._bounded(str(data["details"]))
             duration_ms = max(0, int(data["duration_ms"]))
+            checks = tuple(VerificationCheckResult.model_validate(item) for item in data.get("checks", ()))
         except Exception as exc:
             raise TestRunnerError(
                 f"{stage_id} returned invalid structured output",
@@ -175,6 +180,7 @@ class TestRunner:
             passed=passed,
             duration_ms=duration_ms,
             details=details,
+            checks=checks,
         )
 
     def _bounded(self, value: str) -> str:

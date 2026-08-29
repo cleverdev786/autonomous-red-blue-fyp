@@ -26,4 +26,5 @@ def security_stage_result(*, stage_id: str, execution: TestExecutionResult) -> V
         passed=passed,
         duration_ms=execution.duration_ms,
         details=details,
+        test_execution=execution,
     )

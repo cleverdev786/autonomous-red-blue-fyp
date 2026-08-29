@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import re
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from schemas.red_team import TestExecutionResult
 
 from schemas.common import (
     Identifier,
@@ -37,6 +40,29 @@ class PolicyDecision(BaseModel):
         return self
 
 
+class VerificationCheckStatus(str, Enum):
+    """Outcome of one fixed normal-behavior verification check."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    NOT_RUN = "not_run"
+
+
+class VerificationCheckResult(BaseModel):
+    """Typed observational result for one fixed check inside a verification stage."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    check_id: Identifier
+    status: VerificationCheckStatus
+    duration_ms: int = Field(ge=0)
+    details: NonEmptyText
+
+    @property
+    def passed(self) -> bool:
+        return self.status == VerificationCheckStatus.PASSED
+
+
 class VerificationStageResult(BaseModel):
     """One deterministic verification stage result."""
 
@@ -47,6 +73,8 @@ class VerificationStageResult(BaseModel):
     passed: bool
     duration_ms: int = Field(ge=0)
     details: NonEmptyText
+    checks: tuple[VerificationCheckResult, ...] = ()
+    test_execution: TestExecutionResult | None = None
 
 
 class VerificationResult(BaseModel):

@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 14 — Patch Verification Pipeline**
+**Milestone 15 — Experiment Storage and Metrics**
 
 ## Status
 
-**TECHNICALLY VERIFIED — implementation, authoritative automated verification with real GitPython, the Path Traversal fixture correction, and complete controlled host-side Docker/Git runtime verification PASS; final staged Git review and commit PENDING.**
+**TECHNICALLY VERIFIED — implementation, authoritative development-laptop automated verification with real GitPython/SQLAlchemy, and controlled file-backed SQLite runtime verification PASS; final staged Git review and commit remain pending.**
 
-Milestones 1–13 are complete. Milestone 13 is permanently committed at `7d883b8` (`7d883b80639a3cc12d354cd6fcee29c1dbf6e174`). Milestone 14 now implements policy/Git-integrity revalidation, isolated syntax/import and patched-app startup checks, controlled-executor-only functional/security/replay verification, a frozen regression allowlist, deterministic accept/reject decisions, accepted-only local patch-branch commits, and safe baseline restoration. Raw generated tests are syntax-checked only and never executed or used for acceptance. Authoritative development-laptop automated verification and the complete disposable-repository Docker/Git runtime gate pass after the two-file Path Traversal fixture correction; final staged Git review and the Milestone 14 commit remain pending, and Milestone 15 stays locked.
+Milestones 1–14 are complete. Milestone 14 is permanently committed at `cf45fc2` (`cf45fc2dc9ba001d1f2f74e6c90ccf55a8d18558`). Milestone 15 now implements local SQLite/SQLAlchemy research evidence storage, canonical typed artifact hashing, normalized run/classification/patch/verification records, evaluation-only ground-truth separation, explicit token/cost telemetry semantics, audit manifests and bounded policy references, observational functional-check evidence, and deterministic RQ1/RQ2/RQ3/Red metric recomputation. `experiments/runner.py` remains observational and does not implement later experiment conditions. Authoritative development-laptop automated verification passes at 257 tests with real GitPython 3.1.59 and SQLAlchemy, and the controlled file-backed SQLite runtime gate passes entirely inside `/tmp/fyp-m15-runtime` while leaving permanent Git refs/status, the 24-file implementation scope, `data/fyp.db`, `experiment-results/`, and the permanent audit state unchanged. Final staged Git review and the Milestone 15 commit remain pending; final RQ experiments have not been run and Milestone 16 stays locked.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -28,6 +28,41 @@ Milestones 1–13 are complete. Milestone 13 is permanently committed at `7d883b
 - [x] Milestone 11 — Blue Team Triage and Code Analysis — runtime verified and committed (`a3421a2`)
 - [x] Milestone 12 — Patch Generation and Patch Policy — runtime verified and committed (`ff17026`)
 - [x] Milestone 13 — Git Automation and Patch Branch Isolation — runtime verified and committed (`7d883b8`)
+- [x] Milestone 14 — Patch Verification Pipeline — runtime verified and committed (`cf45fc2`)
+
+## Milestone 15 Technically Verified
+
+Milestone 15 adds the frozen `storage/` and `experiments/` packages without changing agent or verification authority. Research results are recorded as canonical typed artifacts plus normalized SQLAlchemy rows. RQ1/RQ3 remain scenario-scoped; RQ2 is dataset-scoped with classifier-visible items separated from evaluation-only labels. Failed, rejected, policy-blocked and interrupted runs/attempts remain first-class records.
+
+Research metrics are recomputed from raw records; score rows are ignored by metric code and scoring formulas remain Milestone 16. Missing model token/cost telemetry remains explicitly `not_reported` rather than being fabricated as zero. The existing audit JSONL remains authoritative; storage records only a digest/summary and bounded policy-event references.
+
+Milestone 14 functional/security verification received observational result fields only: the same fixed functional HTTP sequence and deterministic decision rules remain unchanged, while individual functional outcomes and registered security/replay execution evidence are now persistable.
+
+See `docs/EXPERIMENT_STORAGE_METRICS.md`.
+
+Authoritative automated and runtime result:
+
+```text
+Python compilation: PASS
+Full development-laptop suite: 257 passed, 1 warning
+Focused experiment storage: 14 passed
+Focused experiment metrics: 7 passed
+Schema suite: 24 passed
+Milestone 14 verification regression: 23 passed
+GitService regression: 21 passed
+Combined M15/schema/M14 focused gate: 68 passed
+SQLAlchemy schema: PASS — exactly 20 tables
+Controlled file-backed SQLite runtime: PASS (2026-08-29)
+Canonical artifact reopen/hash verification: PASS — 27/27
+RQ1/RQ2/RQ3/Red metric recomputation: PASS
+Normal Application Task Success derivation: PASS — 9/17 synthetic checks
+Audit separation and bounded policy references: PASS
+Unknown token/cost telemetry remains NULL/not_reported: PASS
+Score-record independence from research metrics: PASS
+Permanent repository integrity: PASS — main @ cf45fc2, 24/24 implementation checksums unchanged
+Permanent data/fyp.db: absent before and after runtime
+Permanent experiment-results/audit state: unchanged
+```
 
 ## Milestone 7 Verified Baseline
 

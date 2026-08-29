@@ -6,9 +6,9 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 14 — Patch Verification Pipeline: TECHNICALLY VERIFIED; authoritative automated and controlled Docker/Git runtime verification PASS; final staged Git review and commit PENDING.**
+**Milestone 15 — Experiment Storage and Metrics: TECHNICALLY VERIFIED; authoritative automated and controlled file-backed SQLite runtime verification PASS, final staged Git review and commit PENDING.**
 
-Milestones 1–13 are complete. Milestone 13 is permanently committed at `7d883b8`. Milestone 14 provides deterministic patch-policy/Git-integrity revalidation, isolated syntax/import and startup checks, controlled-executor-only functional/security/original-replay verification, a frozen trusted regression allowlist, deterministic accept/reject decisions, accepted-only local patch-branch commits, and safe baseline restoration. Raw generated tests are syntax-checked only and never executed or used for acceptance. The complete development-laptop automated and Docker/Git runtime gates now pass after a two-file deterministic Path Traversal fixture correction that preserved the existing sandbox-escape safety response without weakening verification. No automatic retry, merge, push, experiment storage, or Milestone 15 work is included.
+Milestones 1–14 are complete. Milestone 14 is permanently committed at `cf45fc2`. Milestone 15 adds local SQLite/SQLAlchemy experiment storage and deterministic metric recomputation while preserving the existing safety and verification pipeline. Canonical typed artifacts are hashed and normalized atomically; RQ1/RQ3 scenario records are distinct from dataset-scoped RQ2 predictions and evaluation-only truth; rejected/policy-blocked/failed/incomplete evidence is retained; missing token/cost telemetry remains explicit; audit JSONL stays separate; and score computation remains deferred to Milestone 16. The M15 experiment runner records lifecycle/evidence only and does not implement later single-agent, experience, frozen-dataset, retry, freeze, final-experiment, or final-analysis behavior. Authoritative verification now passes at 257 tests plus a controlled file-backed SQLite runtime gate in `/tmp`; no final RQ experiments have been run.
 
 Current Milestone 14 verification baseline:
 
@@ -112,7 +112,26 @@ Milestone 13 commit: PASS (`7d883b8`)
 Milestone 12 commit: PASS (`ff17026`)
 ```
 
-Milestone 14 is technically verified. Final documentation/staged Git review and the Milestone 14 commit remain pending.
+Milestone 14 is permanently complete at `cf45fc2`. Milestone 15 implementation, authoritative automated verification, and controlled file-backed SQLite runtime verification now pass; only final staged Git review and the Milestone 15 commit remain pending.
+
+Milestone 15 authoritative verification baseline:
+
+```text
+Python compilation: PASS
+Full development-laptop suite: 257 passed, 1 warning
+Focused experiment storage: 14 passed
+Focused experiment metrics: 7 passed
+Schema suite: 24 passed
+Milestone 14 verification regression: 23 passed
+GitService regression: 21 passed
+Combined focused M15/schema/M14 gate: 68 passed
+SQLAlchemy schema: PASS — exactly 20 tables
+Controlled file-backed SQLite runtime verification: PASS (2026-08-29)
+Canonical artifacts after reopen: 27/27 hash-verified
+Permanent repository integrity: PASS — main @ cf45fc2, exact 24-file M15 state unchanged
+Permanent data/fyp.db: absent before and after runtime
+Final RQ experiments: NOT RUN
+```
 
 ## Configuration
 
@@ -148,6 +167,8 @@ Cloud-model credentials will be added only when a provider integration is implem
 ├── scripts/             # human-operated setup/reset/verification scripts
 ├── security_tests/      # fixed deterministic registered security tests
 ├── services/            # trusted deterministic services
+├── storage/             # local SQLAlchemy research evidence store
+├── experiments/         # observational run recording and deterministic metrics
 ├── tests/               # repository-level automated tests
 ├── PROGRESS.md
 ├── README.md
@@ -307,6 +328,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the Milestone 14 documentation finalization and final staged Git review.**
+**Complete the Milestone 15 final staged Git review.**
 
-Stage exactly the verified 24-file Milestone 14 scope, inspect the staged implementation/correction/documentation diffs, and commit only after `git diff --cached --check` and the exact staged-path comparison pass. Do not merge or push any generated patch branch and do not begin Milestone 15 until the Milestone 14 commit is confirmed.
+Stage exactly the verified 24-file Milestone 15 scope, inspect the staged storage/metrics, observational M14 evidence extensions, and documentation diffs, and commit only after `git diff --cached --check` and the exact staged-path comparison pass. Do not run final RQ experiments and do not begin Milestone 16 until the Milestone 15 commit is confirmed.
