@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 15 — Experiment Storage and Metrics**
+**Milestone 16 — Dashboard and Scoring**
 
 ## Status
 
-**TECHNICALLY VERIFIED — implementation, authoritative development-laptop automated verification with real GitPython/SQLAlchemy, and controlled file-backed SQLite runtime verification PASS; final staged Git review and commit remain pending.**
+**TECHNICALLY VERIFIED — deterministic `red-blue-v1` scoring, canonical score evidence, the local read-only dashboard, authoritative development-laptop automated verification, manual presentation/safety verification, and corrected concurrent SQLite runtime verification all PASS; final staged Git review and commit remain PENDING.**
 
-Milestones 1–14 are complete. Milestone 14 is permanently committed at `cf45fc2` (`cf45fc2dc9ba001d1f2f74e6c90ccf55a8d18558`). Milestone 15 now implements local SQLite/SQLAlchemy research evidence storage, canonical typed artifact hashing, normalized run/classification/patch/verification records, evaluation-only ground-truth separation, explicit token/cost telemetry semantics, audit manifests and bounded policy references, observational functional-check evidence, and deterministic RQ1/RQ2/RQ3/Red metric recomputation. `experiments/runner.py` remains observational and does not implement later experiment conditions. Authoritative development-laptop automated verification passes at 257 tests with real GitPython 3.1.59 and SQLAlchemy, and the controlled file-backed SQLite runtime gate passes entirely inside `/tmp/fyp-m15-runtime` while leaving permanent Git refs/status, the 24-file implementation scope, `data/fyp.db`, `experiment-results/`, and the permanent audit state unchanged. Final staged Git review and the Milestone 15 commit remain pending; final RQ experiments have not been run and Milestone 16 stays locked.
+Milestones 1–15 are permanently complete. Milestone 15 is committed at `b1572cf` (`b1572cfa0cb4289035684a19194811848a930efe`) as `Complete Milestone 15 experiment storage and metrics`. Milestone 16 adds deterministic, versioned Red/Blue game-style scoring derived only from stored post-run evidence plus a local React + Vite dashboard backed by a GET-only FastAPI API. Scores remain separate from research metrics, RQ2 dataset-classification runs receive no game score, incomplete runs receive no final score, and the dashboard has no attack, patch, Git, Docker, shell, environment-reset, experiment-control, or score-recalculation authority. The dashboard opens the existing SQLite research database with `mode=ro`, `PRAGMA query_only=ON`, and explicit SQLAlchemy `NullPool`. Authoritative development-laptop verification passes at 271 tests plus a 240-request concurrent dashboard stress gate with 240 HTTP 200 responses, zero closed-database/request exceptions, unchanged research DB SHA-256 and row counts, and zero production-only npm vulnerabilities. Final RQ experiments have not been run. Milestone 17 remains locked until the M16 commit is confirmed.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -29,29 +29,105 @@ Milestones 1–14 are complete. Milestone 14 is permanently committed at `cf45fc
 - [x] Milestone 12 — Patch Generation and Patch Policy — runtime verified and committed (`ff17026`)
 - [x] Milestone 13 — Git Automation and Patch Branch Isolation — runtime verified and committed (`7d883b8`)
 - [x] Milestone 14 — Patch Verification Pipeline — runtime verified and committed (`cf45fc2`)
+- [x] Milestone 15 — Experiment Storage and Metrics — runtime verified and committed (`b1572cf`)
 
-## Milestone 15 Technically Verified
+## Milestone 16 Technically Verified
 
-Milestone 15 adds the frozen `storage/` and `experiments/` packages without changing agent or verification authority. Research results are recorded as canonical typed artifacts plus normalized SQLAlchemy rows. RQ1/RQ3 remain scenario-scoped; RQ2 is dataset-scoped with classifier-visible items separated from evaluation-only labels. Failed, rejected, policy-blocked and interrupted runs/attempts remain first-class records.
+Milestone 16 defines scoring version `red-blue-v1`. Scoring is an explicit offline/post-run operation implemented in `orchestrator/scoring.py`; dashboard GET requests never calculate or persist scores. The scorer consumes stored terminal evidence, evaluator-only truth where a score component requires correctness evaluation, and the exact frozen policy-attribution map. LLM opinion is never score authority.
 
-Research metrics are recomputed from raw records; score rows are ignored by metric code and scoring formulas remain Milestone 16. Missing model token/cost telemetry remains explicitly `not_reported` rather than being fabricated as zero. The existing audit JSONL remains authoritative; storage records only a digest/summary and bounded policy-event references.
+Red score:
 
-Milestone 14 functional/security verification received observational result fields only: the same fixed functional HTTP sequence and deterministic decision rules remain unchanged, while individual functional outcomes and registered security/replay execution evidence are now persistable.
+```text
+C   = 1 only for a canonical RedTeamRunResult that revalidates the trusted
+      Milestone 8 confirmation semantics; otherwise 0
+D_R = repeated registered Red test uses after the first use
+P_R = Red-attributable blocked policy events from the frozen red-blue-v1 map
 
-See `docs/EXPERIMENT_STORAGE_METRICS.md`.
+Red = clamp(100*C - 5*min(D_R, 4) - 25*min(P_R, 2), 0, 100)
+```
+
+Blue score:
+
+```text
+classification correctness          10
+source-file localization            10
+function/route localization         10
+
+best single patch attempt only:
+  syntax_import                      5
+  application_startup                5
+  functional                        10
+  security                          20
+  original_replay                   25
+  regression                         5
+                                     --
+                                     70
+
+Blue = clamp(
+    diagnosis/localization points
+  + best one-attempt verification points
+  - 5*min(D_B, 3)
+  - 25*min(P_B, 2),
+  0,
+  100
+)
+```
+
+Patch-stage points are never combined across attempts. Duplicate Blue attempts are repeated prepared-diff SHA-256 values. RQ2 runs return `not_applicable`; CREATED/RUNNING runs return `ineligible_incomplete`; neither case creates score rows.
+
+Each persisted score has an immutable canonical typed `ScoreResult` artifact in existing `result_artifacts`. `score_records.evidence_reference` resolves to that artifact plus its SHA-256 digest. `(run_id, score_type, scoring_version)` is unique. Identical same-version rescoring is an idempotent no-op; changed evidence or an inconsistent score under the same version fails rather than overwriting history. Formula changes therefore require a new scoring version. Research metric code remains independent of score rows.
+
+The dashboard consists of `dashboard/api/` and `dashboard/frontend/`. The frontend uses the frozen React + Vite Phase-1 architecture. The FastAPI API reads an already-existing SQLite database only; it never initializes or creates the research DB. The corrected database engine uses SQLite URI `mode=ro`, `PRAGMA query_only=ON`, and `NullPool`, eliminating the intermittent cross-thread closed-connection failure found during runtime verification while preserving genuine read-only access.
+
+Minimum verified views are Overview, Runs, Run Detail, Findings, Patch Verification, Metrics, and Audit. Stored generated/model/diff/audit text is bounded and displayed as inert escaped text. Manual runtime verification confirmed literal `<script>...</script>` fixture strings did not execute and no unsafe operation/recalculation controls are exposed. CLI/orchestrator scoring was also verified from a copy where the dashboard package was absent.
 
 Authoritative automated and runtime result:
 
 ```text
-Python compilation: PASS
-Full development-laptop suite: 257 passed, 1 warning
-Focused experiment storage: 14 passed
-Focused experiment metrics: 7 passed
-Schema suite: 24 passed
-Milestone 14 verification regression: 23 passed
-GitService regression: 21 passed
-Combined M15/schema/M14 focused gate: 68 passed
+Python full development-laptop suite: 271 passed, 1 non-failing Starlette warning
+Focused scoring/dashboard/metric gate: 21 passed, 1 non-failing Starlette warning
 SQLAlchemy schema: PASS — exactly 20 tables
+Scoring perfect-run: Red 100 / Blue 100
+Penalty-run: Red 70 / Blue 70
+RQ2 score applicability: not_applicable; score rows = 0
+RUNNING score applicability: ineligible_incomplete; score rows = 0
+Canonical ScoreResult evidence/hash resolution: PASS
+Identical same-version rescore: PASS — DB SHA-256 unchanged
+Changed same-version evidence rejection: PASS — existing score rows/artifacts unchanged
+Dashboard genuine SQLite read-only/query-only enforcement: PASS
+Dashboard GET-only/API safety boundary: PASS
+Manual seven-view React presentation/safety verification: PASS
+NullPool correction: PASS
+Concurrent dashboard runtime: 240 attempted / 240 responses / 240 HTTP 200 / 0 exceptions
+Corrected API log: no 500, ProgrammingError, traceback, or closed-database error
+Concurrent-read research DB SHA-256: unchanged
+All 20 table row counts after concurrent reads: unchanged
+Total score rows after dashboard reads: unchanged (4)
+RQ2 score rows after dashboard reads: 0
+Persistent SQLite WAL/SHM/journal sidecars: none
+Core CLI/orchestrator without dashboard package: PASS
+Permanent data/fyp.db: absent
+Permanent agent-patch branches: none
+VERIFY implementation scope: exactly 27 files, byte-identical to post-correction baseline
+npm audit --omit=dev: 0 production vulnerabilities
+Full npm audit: 2 development/build advisories (1 moderate esbuild, 1 high Vite); recorded, not auto-fixed
+```
+
+The npm findings are a non-blocking development/build dependency warning for this local read-oriented dashboard because the production-only audit is clean. No `npm audit fix` or forced dependency upgrade was applied during M16 verification.
+
+See `docs/DASHBOARD_SCORING.md`.
+
+## Milestone 15 Permanent Baseline
+
+Milestone 15 is permanently complete at `b1572cf`. It added the frozen `storage/` and `experiments/` packages without changing agent or verification authority. Research results are recorded as canonical typed artifacts plus normalized SQLAlchemy rows. RQ1/RQ3 remain scenario-scoped; RQ2 is dataset-scoped with classifier-visible items separated from evaluation-only labels. Failed, rejected, policy-blocked and interrupted runs/attempts remain first-class records.
+
+Research metrics are recomputed from raw records. Score rows remain separate from metric code; M16 now supplies the deterministic game-score layer without changing those research metrics. Missing model token/cost telemetry remains explicitly `not_reported` rather than being fabricated as zero. The existing audit JSONL remains authoritative; storage records only a digest/summary and bounded policy-event references.
+
+Milestone 15 authoritative closure baseline remains:
+
+```text
+Full development-laptop suite at M15 closure: 257 passed, 1 warning
+SQLAlchemy schema: exactly 20 tables
 Controlled file-backed SQLite runtime: PASS (2026-08-29)
 Canonical artifact reopen/hash verification: PASS — 27/27
 RQ1/RQ2/RQ3/Red metric recomputation: PASS
@@ -59,9 +135,8 @@ Normal Application Task Success derivation: PASS — 9/17 synthetic checks
 Audit separation and bounded policy references: PASS
 Unknown token/cost telemetry remains NULL/not_reported: PASS
 Score-record independence from research metrics: PASS
-Permanent repository integrity: PASS — main @ cf45fc2, 24/24 implementation checksums unchanged
 Permanent data/fyp.db: absent before and after runtime
-Permanent experiment-results/audit state: unchanged
+Permanent commit: b1572cf
 ```
 
 ## Milestone 7 Verified Baseline
@@ -961,24 +1036,24 @@ See `docs/PATCH_VERIFICATION_PIPELINE.md`.
 
 Do not implement until the appropriate later milestone:
 
-- automatic patch retry execution / structured verification-feedback loop;
-- experiment storage and metrics aggregation;
-- experiment runner and RQ1/RQ2/RQ3 execution framework;
-- research dashboard/React UI;
-- experience/reward-guided selection;
+- Milestone 17 — Experience Memory + RQ1 Single-Agent Baseline;
+- Milestone 18 — RQ2 Frozen Classification Dataset;
+- Milestone 19 — RQ3 Structured Feedback Retry;
+- Milestone 20 — Experiment Freeze;
+- Milestone 21 — Final Controlled Experiments;
+- Milestone 22 — Results Analysis;
 - automatic merge or remote Git publication;
-- real external/cloud LLM provider integration;
-- new vulnerability classes;
-- generic HTTP, Docker, shell, or Git command execution.
+- unrestricted HTTP, Docker, shell, filesystem, database, or Git authority for LLM agents;
+- new vulnerability classes or real/public/production targets.
 
-Raw LLM-generated verification tests are intentionally non-authoritative and are not directly executed by Milestone 14.
+Final RQ experiments remain unrun. M16 scores are visibility/game evidence only and are not a replacement for RQ metrics or a reward/experience selector.
 
 ## Next Gate
 
-**Finalize Milestone 14 documentation and perform the exact final staged Git review.**
+**Perform the exact final staged Git review for Milestone 16 and commit only after the staged documentation/implementation scope is proven correct.**
 
-Stage only the verified 24-file Milestone 14 scope, run the exact staged-path comparison and `git diff --cached --check`, review implementation and documentation diffs, and commit only after every staged Git gate passes. Do not merge or push any generated patch branch and do not begin Milestone 15.
+Milestone 16 is technically verified with commit pending. Review the complete M16 implementation plus this documentation finalization, run staged whitespace/path checks, and commit only after every staged Git gate passes. Do not begin Milestone 17 and do not run final RQ experiments before the M16 commit is confirmed.
 
 ## Last Updated
 
-2026-08-27
+2026-09-08

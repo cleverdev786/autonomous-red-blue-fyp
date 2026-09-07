@@ -27,6 +27,7 @@ from schemas.experiments import (
     RetryFeedbackMode,
 )
 from schemas.scenarios import ScenarioGroundTruth
+from schemas.scoring import ScoreComponentObservation, ScoreResult, ScoreType
 from schemas.common import HttpMethod, VulnerabilityClass
 from storage.database import create_database_engine, initialize_database, make_session_factory
 from storage.models import (
@@ -357,11 +358,17 @@ def test_score_rows_cannot_change_research_metrics(seeded) -> None:
     _blue(write, "score-run", mode=ClassificationMode.HYBRID, label=ClassificationLabel.XSS, file_path="file.py", function="route")
     _patch(factory, run_id="score-run", attempt=1, state="accepted", prepared_ms=10, decision_ms=20, regression_pass=True, replay_pass=True)
     before = compute_rq1_metrics(read)
-    ScoreRepository(factory).record_score(
+    ScoreRepository(factory).record_score(ScoreResult(
         run_id="score-run",
-        score_type="blue",
-        score_value=Decimal("999"),
+        score_type=ScoreType.BLUE,
         scoring_version="future-m16",
-    )
+        components=(ScoreComponentObservation(
+            component_id="fixture", observed=True, points_possible=100, points_awarded=100,
+        ),),
+        penalties=(),
+        subtotal=100,
+        total_penalty=0,
+        final_score=100,
+    ))
     after = compute_rq1_metrics(read)
     assert before == after

@@ -6,30 +6,24 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 15 — Experiment Storage and Metrics: TECHNICALLY VERIFIED; authoritative automated and controlled file-backed SQLite runtime verification PASS, final staged Git review and commit PENDING.**
+**Milestone 16 — Dashboard and Scoring: TECHNICALLY VERIFIED; deterministic scoring, read-only dashboard, authoritative automated/runtime verification, and the NullPool concurrency correction PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–14 are complete. Milestone 14 is permanently committed at `cf45fc2`. Milestone 15 adds local SQLite/SQLAlchemy experiment storage and deterministic metric recomputation while preserving the existing safety and verification pipeline. Canonical typed artifacts are hashed and normalized atomically; RQ1/RQ3 scenario records are distinct from dataset-scoped RQ2 predictions and evaluation-only truth; rejected/policy-blocked/failed/incomplete evidence is retained; missing token/cost telemetry remains explicit; audit JSONL stays separate; and score computation remains deferred to Milestone 16. The M15 experiment runner records lifecycle/evidence only and does not implement later single-agent, experience, frozen-dataset, retry, freeze, final-experiment, or final-analysis behavior. Authoritative verification now passes at 257 tests plus a controlled file-backed SQLite runtime gate in `/tmp`; no final RQ experiments have been run.
+Milestones 1–15 are permanently complete. Milestone 15 is committed at `b1572cf`. Milestone 16 adds deterministic versioned `red-blue-v1` Red/Blue game scoring and a local React + Vite dashboard backed by a GET-only FastAPI API. The scorer runs explicitly offline/post-run from stored evidence; the dashboard never calculates or persists scores. Canonical `ScoreResult` artifacts carry component observations, penalties, selected patch attempt, attributed policy-event IDs, final score/version, and a SHA-256-linked `score_records.evidence_reference`. Scores remain separate from research metrics; RQ2 is `not_applicable`, and incomplete runs are `ineligible_incomplete` with no final score rows.
 
-Current Milestone 14 verification baseline:
+The dashboard opens an existing SQLite research DB with URI `mode=ro`, `PRAGMA query_only=ON`, and explicit SQLAlchemy `NullPool`. It provides Overview, Runs, Run Detail, Findings, Patch Verification, Metrics, and Audit views without attack, patch, Git, Docker, shell, environment-reset, experiment-control, or score-recalculation authority. Generated/model/diff/audit text is bounded and rendered inertly. Authoritative verification passes at 271 tests; a corrected 240-request concurrent dashboard runtime produced 240 HTTP 200 responses, zero closed-database/request exceptions, unchanged DB SHA-256 and row counts, and no persistent SQLite write sidecars. The production-only npm audit reports zero vulnerabilities; two development/build advisories remain recorded without an automatic or forced upgrade. Final RQ experiments have not been run and Milestone 17 remains locked.
+
+Milestone 16 scoring summary:
 
 ```text
-Python compilation: PASS
-Authoritative full suite after Path Traversal fixture correction: 230 passed, 1 warning
-Focused patch-generation tests after correction: 21 passed
-Focused Milestone 14 verification tests after correction: 21 passed
-Trusted verification policy: PASS
-Controlled Docker/Git runtime verification: PASS (2026-08-27)
-SQLi / XSS / Path Traversal accepted-remediation cases: PASS
-Insecure / functional-regression / syntax rejection cases: PASS
-Git-drift POLICY_BLOCKED case: PASS
-Raw generated-test non-execution: PASS
-Permanent repository stayed main @ 7d883b8; 24/24 scope checksums unchanged: PASS
-Milestone 13 commit: PASS (`7d883b8`)
+Red = clamp(100*C - 5*min(D_R,4) - 25*min(P_R,2), 0, 100)
+
+Blue diagnosis/localization: 10 classification + 10 source file + 10 function/route
+Blue best single patch attempt: 5 syntax + 5 startup + 10 functional
+                                + 20 security + 25 original replay + 5 regression
+Blue = clamp(component points - 5*min(D_B,3) - 25*min(P_B,2), 0, 100)
 ```
 
-The Milestone 12 agent never writes directly to disk. Source edits are restricted to the validated Milestone 11 `CodeFinding` file; proposed exact-text anchors must be grounded in the bounded source context; generated-test paths are derived by the trusted service; and final prepared patches remain in memory only.
-
-Milestone 13 materializes `PreparedPatch` artifacts only on deterministic isolated local branches. Milestone 14 verifies those branches through deterministic services and the isolated Docker lab. Automatic retries, merge, remote publication, persistent experiment execution, real cloud LLM providers, and the dashboard remain locked for later milestones.
+See `docs/DASHBOARD_SCORING.md` for the exact evidence authority, policy attribution, persistence rules, dashboard boundaries, and verification record.
 
 ## Approved Scope
 
@@ -56,7 +50,7 @@ Recommended:
 - Python 3.11–3.14
 - Git
 - Docker / Docker Compose (required in later milestones)
-- Node.js (required later for the React dashboard)
+- Node.js (required for the React + Vite dashboard build/preview)
 
 ## Linux Setup
 
@@ -92,46 +86,44 @@ If PowerShell blocks virtual-environment activation, use an appropriate local ex
 
 ## Basic Verification
 
-Run:
+Python verification:
 
 ```bash
 python -m compileall -q \
-  agents orchestrator schemas services llm dummy_apps infrastructure security_tests
+  agents orchestrator schemas services llm dummy_apps infrastructure security_tests dashboard
 python -m pytest -q -p no:cacheprovider
 ```
 
-Current implementation baseline:
+Dashboard frontend build:
 
-```text
-Python compilation: PASS
-Milestone 14 authoritative pytest after correction: 230 passed, 1 warning
-Milestone 14 focused verification tests: 21 passed
-Milestone 14 controlled Docker/Git runtime verification: PASS (2026-08-27)
-Milestone 14 permanent repository integrity: PASS — main @ 7d883b8, 24/24 scope checksums unchanged
-Milestone 13 commit: PASS (`7d883b8`)
-Milestone 12 commit: PASS (`ff17026`)
+```bash
+cd dashboard/frontend
+npm install --no-package-lock
+npm run build
 ```
 
-Milestone 14 is permanently complete at `cf45fc2`. Milestone 15 implementation, authoritative automated verification, and controlled file-backed SQLite runtime verification now pass; only final staged Git review and the Milestone 15 commit remain pending.
-
-Milestone 15 authoritative verification baseline:
+Current Milestone 16 authoritative baseline:
 
 ```text
-Python compilation: PASS
-Full development-laptop suite: 257 passed, 1 warning
-Focused experiment storage: 14 passed
-Focused experiment metrics: 7 passed
-Schema suite: 24 passed
-Milestone 14 verification regression: 23 passed
-GitService regression: 21 passed
-Combined focused M15/schema/M14 gate: 68 passed
-SQLAlchemy schema: PASS — exactly 20 tables
-Controlled file-backed SQLite runtime verification: PASS (2026-08-29)
-Canonical artifacts after reopen: 27/27 hash-verified
-Permanent repository integrity: PASS — main @ cf45fc2, exact 24-file M15 state unchanged
-Permanent data/fyp.db: absent before and after runtime
+Full development-laptop suite: 271 passed, 1 non-failing Starlette warning
+Focused scoring/dashboard/metric gate: 21 passed, 1 non-failing Starlette warning
+SQLAlchemy schema: exactly 20 tables
+React/Vite production build: PASS
+Perfect scoring fixture: Red 100 / Blue 100
+Score evidence integrity and same-version idempotency: PASS
+Changed same-version evidence rejection: PASS
+RQ2 not_applicable / RUNNING ineligible_incomplete: PASS
+Read-only dashboard: mode=ro + PRAGMA query_only=ON + NullPool
+Manual seven-view presentation/safety verification: PASS
+Concurrent corrected dashboard runtime: 240/240 HTTP 200, 0 exceptions
+Concurrent-read DB SHA-256 and all table row counts: unchanged
+Core CLI/orchestrator independent of dashboard package: PASS
+npm audit --omit=dev: 0 production vulnerabilities
+Permanent data/fyp.db: absent
 Final RQ experiments: NOT RUN
 ```
+
+Milestone 15 is permanently complete at `b1572cf`; its stale pre-commit README wording has been corrected here. Milestone 16 is technically verified, with only the final staged Git review and M16 commit pending.
 
 ## Configuration
 
@@ -158,6 +150,7 @@ Cloud-model credentials will be added only when a provider integration is implem
 ├── agents/              # untrusted typed Red/Blue reasoning roles
 ├── config/              # trusted human-controlled registries
 ├── data/                # generated/local data placeholders
+├── dashboard/           # read-only FastAPI API + React/Vite presentation UI
 ├── docs/                # architecture, research and milestone documentation
 ├── dummy_apps/          # deliberately vulnerable local applications
 ├── infrastructure/      # Docker/runtime entry points and probes
@@ -328,6 +321,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the Milestone 15 final staged Git review.**
+**Complete the Milestone 16 final staged Git review and commit.**
 
-Stage exactly the verified 24-file Milestone 15 scope, inspect the staged storage/metrics, observational M14 evidence extensions, and documentation diffs, and commit only after `git diff --cached --check` and the exact staged-path comparison pass. Do not run final RQ experiments and do not begin Milestone 16 until the Milestone 15 commit is confirmed.
+Stage only the verified M16 implementation plus this documentation finalization, prove the exact staged file scope, run `git diff --cached --check`, review the scoring/dashboard/documentation diffs, and commit only after all staged Git gates pass. Do not begin Milestone 17 and do not run final RQ experiments until the M16 commit is confirmed.

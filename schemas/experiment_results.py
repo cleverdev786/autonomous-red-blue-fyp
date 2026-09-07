@@ -25,6 +25,7 @@ class ArtifactType(str, Enum):
     PATCH_BRANCH_RESULT = "patch_branch_result"
     PATCH_VERIFICATION_RESULT = "patch_verification_result"
     PATCH_RETRY_FEEDBACK = "patch_retry_feedback"
+    SCORE_RESULT = "score_result"
 
 
 class TokenUsageStatus(str, Enum):

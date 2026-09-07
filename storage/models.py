@@ -328,4 +328,7 @@ class ScoreRecordRow(Base):
     score_type: Mapped[str] = mapped_column(String(20), nullable=False)
     score_value: Mapped[Decimal] = mapped_column(Numeric(18, 8), nullable=False)
     scoring_version: Mapped[str] = mapped_column(String(100), nullable=False)
-    evidence_reference: Mapped[str | None] = mapped_column(Text)
+    evidence_reference: Mapped[str] = mapped_column(Text, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("run_id", "score_type", "scoring_version", name="uq_score_run_type_version"),
+    )

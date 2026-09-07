@@ -62,6 +62,14 @@ from schemas.patches import (
     ProposedSecurityTest,
 )
 from schemas.scenarios import ScenarioGroundTruth
+from schemas.scoring import (
+    ScoreApplicability,
+    ScoreComponentObservation,
+    ScorePenaltyObservation,
+    ScoreResult,
+    ScoreType,
+    ScoringRunOutcome,
+)
 from schemas.red_team import (
     AttackPlan,
     AttackPlanningCatalog,
@@ -140,6 +148,12 @@ __all__ = [
     "RunStatus",
     "RunType",
     "ScenarioGroundTruth",
+    "ScoreApplicability",
+    "ScoreComponentObservation",
+    "ScorePenaltyObservation",
+    "ScoreResult",
+    "ScoreType",
+    "ScoringRunOutcome",
     "SecurityTestDefinition",
     "SourceLineRange",
     "SourceReadResult",

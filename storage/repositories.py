@@ -22,6 +22,7 @@ from schemas.git import PatchBranchResult
 from schemas.logging import AuditEvent, AuditExecutionStatus, AuditPolicyDecision, LogReadResult
 from schemas.patches import PatchGenerationResult, PatchRetryFeedback
 from schemas.red_team import RedTeamRunResult
+from schemas.scoring import ScoreResult
 from schemas.scenarios import ScenarioGroundTruth
 from schemas.verification import PatchVerificationResult, VerificationCheckStatus
 from storage.models import (
@@ -64,6 +65,7 @@ _ARTIFACT_MODELS: dict[ArtifactType, type[BaseModel]] = {
     ArtifactType.PATCH_BRANCH_RESULT: PatchBranchResult,
     ArtifactType.PATCH_VERIFICATION_RESULT: PatchVerificationResult,
     ArtifactType.PATCH_RETRY_FEEDBACK: PatchRetryFeedback,
+    ArtifactType.SCORE_RESULT: ScoreResult,
 }
 
 
@@ -580,20 +582,99 @@ class ResearchReadRepository:
 
 
 class ScoreRepository:
-    """Milestone 16-compatible score persistence sink; contains no scoring formula."""
+    """Immutable score/result-artifact persistence; contains no scoring formula."""
+
+    _EVIDENCE_PREFIX = "result_artifact"
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._factory = session_factory
 
-    def record_score(self, *, run_id: str, score_type: str, score_value: Decimal, scoring_version: str, evidence_reference: str | None = None) -> None:
-        if score_type not in {"red", "blue"}:
-            raise ResearchStorageError("score_type must be red or blue")
+    def record_score(self, result: ScoreResult) -> ScoreRecordRow:
+        """Persist canonical ScoreResult evidence and its score atomically.
+
+        The (run_id, score_type, scoring_version) identity is immutable. An
+        identical recalculation is an idempotent no-op. Any changed evidence
+        or inconsistent score under the same version fails visibly.
+        """
+        payload = canonical_model_json(result)
+        payload_sha256 = canonical_sha256(payload)
+        score_value = Decimal(result.final_score)
+
         with self._factory() as session:
-            session.add(ScoreRecordRow(
-                run_id=run_id,
-                score_type=score_type,
+            existing = session.scalar(
+                select(ScoreRecordRow).where(
+                    ScoreRecordRow.run_id == result.run_id,
+                    ScoreRecordRow.score_type == result.score_type.value,
+                    ScoreRecordRow.scoring_version == result.scoring_version,
+                )
+            )
+            if existing is not None:
+                artifact_id, recorded_sha256 = self._parse_evidence_reference(
+                    existing.evidence_reference
+                )
+                artifact = session.get(ResultArtifactRow, artifact_id)
+                if artifact is None or artifact.artifact_type != ArtifactType.SCORE_RESULT.value:
+                    raise ResearchStorageError(
+                        "existing score evidence artifact is missing or has the wrong type"
+                    )
+                if artifact.payload_sha256 != recorded_sha256:
+                    raise ResearchStorageError(
+                        "existing score evidence reference does not match its artifact digest"
+                    )
+                if existing.score_value != score_value:
+                    raise ResearchStorageError(
+                        "same scoring version produced an inconsistent score"
+                    )
+                if artifact.payload_sha256 != payload_sha256 or artifact.payload_json != payload:
+                    raise ResearchStorageError(
+                        "same scoring version cannot overwrite changed score evidence"
+                    )
+                return existing
+
+            artifact = ResultArtifactRow(
+                run_id=result.run_id,
+                attempt_number=result.selected_patch_attempt,
+                artifact_type=ArtifactType.SCORE_RESULT.value,
+                schema_name=ScoreResult.__name__,
+                schema_version="1.0",
+                payload_json=payload,
+                payload_sha256=payload_sha256,
+                created_at=datetime.now(UTC),
+            )
+            session.add(artifact)
+            session.flush()
+            evidence_reference = self._format_evidence_reference(
+                artifact.artifact_id, payload_sha256
+            )
+            row = ScoreRecordRow(
+                run_id=result.run_id,
+                score_type=result.score_type.value,
                 score_value=score_value,
-                scoring_version=scoring_version,
+                scoring_version=result.scoring_version,
                 evidence_reference=evidence_reference,
-            ))
+            )
+            session.add(row)
             ExperimentWriteRepository._commit(session, "score could not be recorded")
+            return row
+
+    @classmethod
+    def _format_evidence_reference(cls, artifact_id: int, payload_sha256: str) -> str:
+        return f"{cls._EVIDENCE_PREFIX}:{artifact_id}:sha256:{payload_sha256}"
+
+    @classmethod
+    def _parse_evidence_reference(cls, reference: str) -> tuple[int, str]:
+        parts = reference.split(":")
+        if (
+            len(parts) != 4
+            or parts[0] != cls._EVIDENCE_PREFIX
+            or parts[2] != "sha256"
+            or len(parts[3]) != 64
+        ):
+            raise ResearchStorageError("invalid score evidence reference")
+        try:
+            artifact_id = int(parts[1])
+        except ValueError as exc:
+            raise ResearchStorageError("invalid score evidence artifact id") from exc
+        if artifact_id < 1 or any(char not in "0123456789abcdef" for char in parts[3]):
+            raise ResearchStorageError("invalid score evidence reference")
+        return artifact_id, parts[3]
