@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from schemas.blue_team import BlueTeamAnalysisResult, MonitoringResult, SourceReadResult
 from schemas.common import ClassificationLabel, RunStatus, WorkflowState
 from schemas.experiment_results import AgentCallRecord, ArtifactType, RunProvenance, StageTimingRecord
+from schemas.experience import SelectionDecision
 from schemas.experiments import ClassificationMode, ExperimentConfiguration
 from schemas.git import PatchBranchResult
 from schemas.logging import AuditEvent, AuditExecutionStatus, AuditPolicyDecision, LogReadResult
@@ -66,6 +67,7 @@ _ARTIFACT_MODELS: dict[ArtifactType, type[BaseModel]] = {
     ArtifactType.PATCH_VERIFICATION_RESULT: PatchVerificationResult,
     ArtifactType.PATCH_RETRY_FEEDBACK: PatchRetryFeedback,
     ArtifactType.SCORE_RESULT: ScoreResult,
+    ArtifactType.SELECTION_DECISION: SelectionDecision,
 }
 
 
@@ -194,6 +196,12 @@ class ExperimentWriteRepository:
 
     def record_source_read_result(self, result: SourceReadResult) -> int:
         return self._record_artifact(result.run_id, ArtifactType.SOURCE_READ_RESULT, result)
+
+    def record_selection_decision(self, result: SelectionDecision) -> int:
+        """Persist an already-produced bounded selection decision as canonical evidence."""
+        return self._record_artifact(
+            result.run_id, ArtifactType.SELECTION_DECISION, result
+        )
 
     def record_red_result(
         self,

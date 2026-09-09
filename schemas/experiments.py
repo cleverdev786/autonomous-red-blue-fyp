@@ -97,11 +97,10 @@ class ExperimentConfiguration(BaseModel):
         if (
             self.run_type == RunType.FINAL_EVALUATION
             and self.research_question in {ResearchQuestion.RQ1, ResearchQuestion.RQ2}
-            and self.experience_mode == ExperienceMode.ENABLED_EXPLORATORY
+            and self.experience_mode != ExperienceMode.DISABLED
         ):
             raise ValueError(
-                "final RQ1/RQ2 runs must disable experience-guided selection "
-                "or use an identical frozen experience state"
+                "final primary RQ1/RQ2 runs must keep experience-guided selection disabled"
             )
         return self
 

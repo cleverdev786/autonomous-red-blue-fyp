@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 16 — Dashboard and Scoring**
+**Milestone 17 - Experience Memory + RQ1 Single-Agent Baseline**
 
 ## Status
 
-**TECHNICALLY VERIFIED — deterministic `red-blue-v1` scoring, canonical score evidence, the local read-only dashboard, authoritative development-laptop automated verification, manual presentation/safety verification, and corrected concurrent SQLite runtime verification all PASS; final staged Git review and commit remain PENDING.**
+**TECHNICALLY VERIFIED - bounded deterministic experience selection, the RQ1 single-agent baseline, authoritative development-laptop automated verification, controlled disposable runtime verification, and repository-integrity checks all PASS; final staged Git review and commit remain PENDING.**
 
-Milestones 1–15 are permanently complete. Milestone 15 is committed at `b1572cf` (`b1572cfa0cb4289035684a19194811848a930efe`) as `Complete Milestone 15 experiment storage and metrics`. Milestone 16 adds deterministic, versioned Red/Blue game-style scoring derived only from stored post-run evidence plus a local React + Vite dashboard backed by a GET-only FastAPI API. Scores remain separate from research metrics, RQ2 dataset-classification runs receive no game score, incomplete runs receive no final score, and the dashboard has no attack, patch, Git, Docker, shell, environment-reset, experiment-control, or score-recalculation authority. The dashboard opens the existing SQLite research database with `mode=ro`, `PRAGMA query_only=ON`, and explicit SQLAlchemy `NullPool`. Authoritative development-laptop verification passes at 271 tests plus a 240-request concurrent dashboard stress gate with 240 HTTP 200 responses, zero closed-database/request exceptions, unchanged research DB SHA-256 and row counts, and zero production-only npm vulnerabilities. Final RQ experiments have not been run. Milestone 17 remains locked until the M16 commit is confirmed.
+Milestones 1–16 are permanently complete. Milestone 16 is committed at `927746e` (`927746e41eca43bb4221dbdd9784ec47f4208cee`) as `Complete Milestone 16 dashboard and scoring`. Milestone 17 adds a bounded read-only experience projection over existing M15/M16 research evidence, a deterministic selector that can choose only registered and policy-approved strategies, and the RQ1 single-agent comparison condition. Experience does not add new targets, endpoints, tools, paths, permissions, limits, Git/Docker/network authority, or other capabilities. The single-agent condition uses `AgentRole.BLUE_SINGLE_AGENT` for every reasoning call while the multi-agent condition retains the existing specialist roles. Both conditions derive their mode from stored `ExperimentConfiguration`, use equivalent normalized inputs, and converge into the same existing patch, Git-isolation, verification, and research-storage path. Final RQ1/RQ2 evaluations keep experience disabled. Final RQ experiments have not been run. Milestone 18 remains locked until the M17 commit is confirmed.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -30,10 +30,113 @@ Milestones 1–15 are permanently complete. Milestone 15 is committed at `b1572c
 - [x] Milestone 13 — Git Automation and Patch Branch Isolation — runtime verified and committed (`7d883b8`)
 - [x] Milestone 14 — Patch Verification Pipeline — runtime verified and committed (`cf45fc2`)
 - [x] Milestone 15 — Experiment Storage and Metrics — runtime verified and committed (`b1572cf`)
+- [x] Milestone 16 — Dashboard and Scoring — runtime verified and committed (`927746e`)
 
-## Milestone 16 Technically Verified
+## Milestone 17 Technically Verified
 
-Milestone 16 defines scoring version `red-blue-v1`. Scoring is an explicit offline/post-run operation implemented in `orchestrator/scoring.py`; dashboard GET requests never calculate or persist scores. The scorer consumes stored terminal evidence, evaluator-only truth where a score component requires correctness evaluation, and the exact frozen policy-attribution map. LLM opinion is never score authority.
+Milestone 17 implements the Phase-1 experience-memory boundary and the RQ1 single-agent baseline without changing the verified M1-M16 Blue flow, patch-generation flow, verification pipeline, scoring implementation, dashboard, or storage models.
+
+### Experience memory and deterministic selection
+
+`services/experience_store.py` reads prior terminal RQ1 outcomes from the existing research database through `ResearchReadRepository`. It does not create a second mutable memory database and does not read evaluator ground-truth classification tables. The bounded history rule is:
+
+```text
+MAX_EXPERIENCE_RECORDS_PER_STRATEGY = 20
+ordering = completed_at DESC, started_at DESC, run_id ASC
+ordering version = completed_started_run-v1
+score version = red-blue-v1
+```
+
+Each `ExperienceSummary` contains only a small outcome projection: source run, scenario, trusted strategy ID, terminal status, optional Blue score, patch acceptance, regression flag, policy-block count, duplicate-patch count, and attempt count. A missing Blue score remains `None`; it is not converted to zero and is excluded from reward averages.
+
+`orchestrator/selection_policy.py` ranks only caller-registered strategies that also pass `PolicyEngine.validate_strategy_selection()`. Policy denial always overrides historical reward. No random exploration, reinforcement learning, online learning, model training, or self-modification is implemented. Ranking is deterministic: higher mean Blue score, higher patch acceptance, lower regression rate, fewer policy blocks, fewer duplicate patches, lower mean attempt count, then lexical strategy ID as the final tie-break.
+
+The three experience modes are:
+
+```text
+DISABLED
+  no experience lookup; use the configured trusted strategy
+
+FROZEN_IDENTICAL
+  use only the supplied immutable snapshot
+
+ENABLED_EXPLORATORY
+  read the current bounded history for development/exploratory use
+```
+
+Final primary RQ1/RQ2 configurations require `ExperienceMode.DISABLED`. Selection decisions are stored as canonical typed `selection_decision` result artifacts with SHA-256 integrity through the existing artifact store. No SQLAlchemy table was added; the schema remains exactly 20 tables.
+
+### RQ1 single-agent baseline
+
+`experiments/rq1_runner.py` derives `blue_team_mode` from the stored `ExperimentConfiguration`; `run()` has no second independent mode argument. `validate_rq1_configuration_pair()` requires the paired RQ1 conditions to differ only by `config_id` and `blue_team_mode`.
+
+The single-agent condition uses one general-purpose `SingleGeneralBlueAgent` persona across monitoring, triage/classification, code analysis, and patch proposal. Every provider call uses `AgentRole.BLUE_SINGLE_AGENT`. Stage-specific schemas and input adapters are allowed, but they do not create specialist identities. The multi-agent condition keeps the existing roles:
+
+```text
+BLUE_MONITORING
+BLUE_TRIAGE
+BLUE_CODE_ANALYSIS
+BLUE_PATCH_GENERATION
+```
+
+Both conditions explicitly run monitoring and then reuse the existing typed Blue/Patch contracts. The single-agent adapters inherit the existing `BlueTeamFlow.run` and `PatchGenerationFlow.run` behavior, and both RQ1 conditions use the same downstream patch-branch, Git-isolation, verification, and research-storage interfaces. `proposed_security_test` remains optional. M17 does not freeze the final RQ1 classification mode; that remains an M20 experiment-freeze decision. `RULE_ONLY` is rejected only for the single-agent RQ1 execution because that condition must include classification by the general Blue agent.
+
+### Authoritative automated and controlled runtime verification
+
+```text
+Focused M17/integration gate: 113 passed, 1 non-failing Starlette warning
+Full development-laptop suite: 286 passed, 1 non-failing Starlette warning
+SQLAlchemy schema: exactly 20 tables
+Protected M1-M16 flow files changed by M17: none
+Permanent data/fyp.db: absent
+M17 working scope during VERIFY: exactly 14 files, unstaged
+
+Experience runtime:
+  history bounded to 20 per strategy: PASS
+  stable deterministic ordering: PASS
+  missing Blue score remains None: PASS
+  missing score excluded from mean reward: PASS
+  read-only experience lookup changed no DB rows: PASS
+  read-only experience lookup changed no DB bytes: PASS
+  DISABLED performs zero live lookup: PASS
+  FROZEN_IDENTICAL uses supplied snapshot only: PASS
+  ENABLED_EXPLORATORY uses bounded live history: PASS
+  policy denial overrides superior reward: PASS
+  unregistered strategy rejected: PASS
+  canonical SelectionDecision persisted/hash revalidated: PASS
+  no FINAL_EVALUATION configuration created: PASS
+
+Paired RQ1 runtime:
+  paired configs differ only by Blue architecture: PASS
+  stored configuration derives condition: PASS
+  single-agent calls = BLUE_SINGLE_AGENT x4: PASS
+  multi-agent roles remain specialized: PASS
+  equivalent normalized inputs: PASS
+  equivalent normalized patch output: PASS
+  proposed_security_test optional: PASS
+  same downstream branch-flow object: PASS
+  same verification-pipeline object: PASS
+  same research DB/storage path: PASS
+  same canonical artifact stages stored: PASS
+  development configurations only: PASS
+
+Repository integrity after runtime VERIFY:
+  all 14 M17 files byte-identical to pre-runtime state: PASS
+  Git working-tree status unchanged: PASS
+  branch/ref state unchanged: PASS
+  nothing staged: PASS
+  HEAD remained permanent M16: PASS
+  permanent data/fyp.db remained absent: PASS
+  runtime evidence stayed under /tmp/fyp-m17-runtime: PASS
+```
+
+The controlled RQ1 runtime uses development fixtures and shared recording adapters to prove M17 architecture and condition isolation. It intentionally does not repeat the full M13/M14 Git/Docker remediation campaign because M17 does not modify those subsystems. No final RQ experiment was run.
+
+See `docs/EXPERIENCE_MEMORY_RQ1.md`.
+
+## Milestone 16 Permanent Baseline
+
+Milestone 16 is permanently complete at `927746e` (`927746e41eca43bb4221dbdd9784ec47f4208cee`). It defines scoring version `red-blue-v1`. Scoring is an explicit offline/post-run operation implemented in `orchestrator/scoring.py`; dashboard GET requests never calculate or persist scores. The scorer consumes stored terminal evidence, evaluator-only truth where a score component requires correctness evaluation, and the exact frozen policy-attribution map. LLM opinion is never score authority.
 
 Red score:
 
@@ -1036,7 +1139,6 @@ See `docs/PATCH_VERIFICATION_PIPELINE.md`.
 
 Do not implement until the appropriate later milestone:
 
-- Milestone 17 — Experience Memory + RQ1 Single-Agent Baseline;
 - Milestone 18 — RQ2 Frozen Classification Dataset;
 - Milestone 19 — RQ3 Structured Feedback Retry;
 - Milestone 20 — Experiment Freeze;
@@ -1046,14 +1148,14 @@ Do not implement until the appropriate later milestone:
 - unrestricted HTTP, Docker, shell, filesystem, database, or Git authority for LLM agents;
 - new vulnerability classes or real/public/production targets.
 
-Final RQ experiments remain unrun. M16 scores are visibility/game evidence only and are not a replacement for RQ metrics or a reward/experience selector.
+Final RQ experiments remain unrun. M16 scores remain separate from RQ metrics; M17 may use the stored Blue `red-blue-v1` score only as one bounded development/exploratory selection signal, while final RQ1/RQ2 evaluations keep experience disabled.
 
 ## Next Gate
 
-**Perform the exact final staged Git review for Milestone 16 and commit only after the staged documentation/implementation scope is proven correct.**
+**Perform the exact final staged Git review for Milestone 17 and commit only after the staged implementation/documentation scope is proven correct.**
 
-Milestone 16 is technically verified with commit pending. Review the complete M16 implementation plus this documentation finalization, run staged whitespace/path checks, and commit only after every staged Git gate passes. Do not begin Milestone 17 and do not run final RQ experiments before the M16 commit is confirmed.
+Milestone 17 is technically verified with commit pending. Review the complete M17 implementation plus this documentation finalization, prove the exact staged path scope, run staged whitespace/safety checks and the final regression gate, and commit only after every staged Git gate passes. Do not begin Milestone 18 and do not run final RQ experiments before the M17 commit is confirmed.
 
 ## Last Updated
 
-2026-09-08
+2026-09-09

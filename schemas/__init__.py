@@ -35,6 +35,12 @@ from schemas.experiments import (
     ModelConfiguration,
     RetryFeedbackMode,
 )
+from schemas.experience import (
+    ExperienceSnapshot,
+    ExperienceSummary,
+    SelectionDecision,
+    StrategyHistoryObservation,
+)
 from schemas.git import GitPolicyConfig, PatchBranchResult
 from schemas.experiment_results import (
     AgentCallRecord,
@@ -116,6 +122,8 @@ __all__ = [
     "EvidenceItem",
     "HttpExchangeEvidence",
     "ExperienceMode",
+    "ExperienceSnapshot",
+    "ExperienceSummary",
     "GitPolicyConfig",
     "ExperimentConfiguration",
     "ExperimentLimits",
@@ -155,10 +163,12 @@ __all__ = [
     "ScoreType",
     "ScoringRunOutcome",
     "SecurityTestDefinition",
+    "SelectionDecision",
     "SourceLineRange",
     "SourceReadResult",
     "SourceSnippet",
     "StageTimingRecord",
+    "StrategyHistoryObservation",
     "TargetDefinition",
     "TokenUsageStatus",
     "TestExecutionResult",

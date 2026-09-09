@@ -488,6 +488,28 @@ class PolicyEngine:
             f"Transition {current.value!r} -> {requested.value!r} is permitted."
         )
 
+    def validate_strategy_selection(
+        self,
+        *,
+        strategy_id: str,
+        registered_strategy_ids: tuple[str, ...],
+        allowed_strategy_ids: tuple[str, ...],
+    ) -> PolicyDecision:
+        """Allow only a trusted registered strategy that human policy permits."""
+        if strategy_id not in registered_strategy_ids:
+            return self._deny(
+                PolicyReasonCode.PROHIBITED_OPERATION,
+                f"Strategy {strategy_id!r} is not registered.",
+            )
+        if strategy_id not in allowed_strategy_ids:
+            return self._deny(
+                PolicyReasonCode.PROHIBITED_OPERATION,
+                f"Strategy {strategy_id!r} is not allowed by the current policy.",
+            )
+        return self._allow(
+            f"Strategy {strategy_id!r} is registered and policy-approved."
+        )
+
     def validate_runtime_budget(
         self,
         tracker: RunLimitTracker,

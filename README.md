@@ -6,24 +6,19 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 16 — Dashboard and Scoring: TECHNICALLY VERIFIED; deterministic scoring, read-only dashboard, authoritative automated/runtime verification, and the NullPool concurrency correction PASS; final staged Git review and commit PENDING.**
+**Milestone 17 - Experience Memory + RQ1 Single-Agent Baseline: TECHNICALLY VERIFIED; bounded deterministic experience selection, controlled RQ1 single-versus-multi architecture verification, authoritative automated/runtime checks, and repository-integrity checks PASS; final staged Git review and commit PENDING.**
 
-Milestones 1–15 are permanently complete. Milestone 15 is committed at `b1572cf`. Milestone 16 adds deterministic versioned `red-blue-v1` Red/Blue game scoring and a local React + Vite dashboard backed by a GET-only FastAPI API. The scorer runs explicitly offline/post-run from stored evidence; the dashboard never calculates or persists scores. Canonical `ScoreResult` artifacts carry component observations, penalties, selected patch attempt, attributed policy-event IDs, final score/version, and a SHA-256-linked `score_records.evidence_reference`. Scores remain separate from research metrics; RQ2 is `not_applicable`, and incomplete runs are `ineligible_incomplete` with no final score rows.
+Milestones 1–16 are permanently complete. Milestone 16 is committed at `927746e` (`927746e41eca43bb4221dbdd9784ec47f4208cee`) as `Complete Milestone 16 dashboard and scoring`.
 
-The dashboard opens an existing SQLite research DB with URI `mode=ro`, `PRAGMA query_only=ON`, and explicit SQLAlchemy `NullPool`. It provides Overview, Runs, Run Detail, Findings, Patch Verification, Metrics, and Audit views without attack, patch, Git, Docker, shell, environment-reset, experiment-control, or score-recalculation authority. Generated/model/diff/audit text is bounded and rendered inertly. Authoritative verification passes at 271 tests; a corrected 240-request concurrent dashboard runtime produced 240 HTTP 200 responses, zero closed-database/request exceptions, unchanged DB SHA-256 and row counts, and no persistent SQLite write sidecars. The production-only npm audit reports zero vulnerabilities; two development/build advisories remain recorded without an automatic or forced upgrade. Final RQ experiments have not been run and Milestone 17 remains locked.
+Milestone 17 adds a bounded read-only `ExperienceStore` over existing canonical research evidence, not a second memory database. Each trusted strategy can contribute at most 20 newest terminal RQ1 outcomes, ordered deterministically by completion time, start time, and run ID. Missing Blue scores remain unknown (`None`) and are excluded from reward averages rather than treated as zero. `SelectionPolicy` may rank only registered strategies that also pass policy approval. Policy denial always wins over historical reward. No reinforcement learning, online learning, random exploration, self-modification, or new execution authority is added.
 
-Milestone 16 scoring summary:
+Experience modes are `DISABLED`, `FROZEN_IDENTICAL`, and `ENABLED_EXPLORATORY`. Final primary RQ1/RQ2 evaluations require `DISABLED`. Selection decisions are stored as canonical `selection_decision` artifacts through the existing research artifact store, so the SQLAlchemy schema remains exactly 20 tables.
 
-```text
-Red = clamp(100*C - 5*min(D_R,4) - 25*min(P_R,2), 0, 100)
+The RQ1 baseline compares one general-purpose Blue persona against the existing specialist architecture. Every single-agent reasoning call uses `AgentRole.BLUE_SINGLE_AGENT`; the multi-agent condition retains `BLUE_MONITORING`, `BLUE_TRIAGE`, `BLUE_CODE_ANALYSIS`, and `BLUE_PATCH_GENERATION`. The RQ1 runner derives the condition from stored `ExperimentConfiguration`, and paired configs may differ only by `config_id` and `blue_team_mode`. Both conditions use equivalent normalized inputs and the same existing downstream patch-generation, branch/Git-isolation, verification, and research-storage interfaces. `proposed_security_test` remains optional, and the final RQ1 classification mode is not frozen until M20.
 
-Blue diagnosis/localization: 10 classification + 10 source file + 10 function/route
-Blue best single patch attempt: 5 syntax + 5 startup + 10 functional
-                                + 20 security + 25 original replay + 5 regression
-Blue = clamp(component points - 5*min(D_B,3) - 25*min(P_B,2), 0, 100)
-```
+Authoritative development-laptop verification passes at 286 tests. Controlled disposable runtime verification confirmed the 20-record bound, stable ordering, missing-score behavior, all three experience modes, policy override, canonical `SelectionDecision` persistence, single-agent role consistency, specialized multi-agent roles, paired-input equivalence, shared downstream interfaces/storage, development-only configurations, and repository immutability. No final RQ experiment has been run. Milestone 18 remains locked until the M17 commit is confirmed.
 
-See `docs/DASHBOARD_SCORING.md` for the exact evidence authority, policy attribution, persistence rules, dashboard boundaries, and verification record.
+See `docs/EXPERIENCE_MEMORY_RQ1.md` for the exact M17 architecture, safety boundary, experiment-control rules, and verification record. Milestone 16 scoring/dashboard details remain in `docs/DASHBOARD_SCORING.md`.
 
 ## Approved Scope
 
@@ -102,28 +97,36 @@ npm install --no-package-lock
 npm run build
 ```
 
-Current Milestone 16 authoritative baseline:
+Current Milestone 17 authoritative baseline:
 
 ```text
-Full development-laptop suite: 271 passed, 1 non-failing Starlette warning
-Focused scoring/dashboard/metric gate: 21 passed, 1 non-failing Starlette warning
+Full development-laptop suite: 286 passed, 1 non-failing Starlette warning
+Focused M17/integration gate: 113 passed, 1 non-failing Starlette warning
 SQLAlchemy schema: exactly 20 tables
-React/Vite production build: PASS
-Perfect scoring fixture: Red 100 / Blue 100
-Score evidence integrity and same-version idempotency: PASS
-Changed same-version evidence rejection: PASS
-RQ2 not_applicable / RUNNING ineligible_incomplete: PASS
-Read-only dashboard: mode=ro + PRAGMA query_only=ON + NullPool
-Manual seven-view presentation/safety verification: PASS
-Concurrent corrected dashboard runtime: 240/240 HTTP 200, 0 exceptions
-Concurrent-read DB SHA-256 and all table row counts: unchanged
-Core CLI/orchestrator independent of dashboard package: PASS
-npm audit --omit=dev: 0 production vulnerabilities
+Experience history limit: 20 terminal RQ1 records per trusted strategy
+Experience ordering: completed_at DESC, started_at DESC, run_id ASC
+Missing Blue score: preserved as None and excluded from reward average
+DISABLED: zero experience lookup
+FROZEN_IDENTICAL: supplied snapshot only
+ENABLED_EXPLORATORY: bounded live history
+Policy denial overrides historical reward: PASS
+Unregistered strategy rejection: PASS
+Canonical SelectionDecision artifact/hash validation: PASS
+Paired RQ1 configs differ only by Blue architecture: PASS
+Single-agent provider roles: BLUE_SINGLE_AGENT x4
+Multi-agent provider roles: monitoring / triage / code analysis / patch generation
+Equivalent normalized inputs and patch output: PASS
+Shared branch-flow and verification interfaces: PASS
+proposed_security_test remains optional: PASS
+Controlled runtime DBs: development configurations only
+Runtime evidence path: /tmp/fyp-m17-runtime
+M17 source files byte-identical before/after runtime: PASS
+Git status and branch/ref state unchanged: PASS
 Permanent data/fyp.db: absent
 Final RQ experiments: NOT RUN
 ```
 
-Milestone 15 is permanently complete at `b1572cf`; its stale pre-commit README wording has been corrected here. Milestone 16 is technically verified, with only the final staged Git review and M16 commit pending.
+Milestone 16 is permanently complete at `927746e`. Milestone 17 is technically verified, with only the final staged Git review and M17 commit pending.
 
 ## Configuration
 
@@ -321,6 +324,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the Milestone 16 final staged Git review and commit.**
+**Complete the Milestone 17 final staged Git review and commit.**
 
-Stage only the verified M16 implementation plus this documentation finalization, prove the exact staged file scope, run `git diff --cached --check`, review the scoring/dashboard/documentation diffs, and commit only after all staged Git gates pass. Do not begin Milestone 17 and do not run final RQ experiments until the M16 commit is confirmed.
+Stage only the verified M17 implementation plus this documentation finalization, prove the exact staged file scope, run `git diff --cached --check`, review the experience/RQ1/documentation diffs, and commit only after all staged Git gates pass. Do not begin Milestone 18 and do not run final RQ experiments until the M17 commit is confirmed.

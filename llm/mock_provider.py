@@ -98,6 +98,17 @@ class MockProvider:
                 raise MockProviderError("unexpected patch-generation response model")
             return self._patch_generation(input_data)
 
+        if role == AgentRole.BLUE_SINGLE_AGENT:
+            if response_model is MonitoringResult:
+                return self._monitoring(input_data)
+            if response_model is TriageResult:
+                return self._triage(input_data)
+            if response_model is CodeFinding:
+                return self._code_analysis(input_data)
+            if response_model is PatchProposal:
+                return self._patch_generation(input_data)
+            raise MockProviderError("unexpected single-agent response model")
+
         raise MockProviderError(f"unsupported mock agent role: {role.value}")
 
     @staticmethod

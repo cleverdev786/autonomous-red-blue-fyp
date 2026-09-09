@@ -2,7 +2,7 @@
 
 ## Status
 
-Milestone 16 is **technically verified with the final Git commit pending**.
+Milestone 16 is **permanently complete** at `927746e41eca43bb4221dbdd9784ec47f4208cee` (`927746e`) as `Complete Milestone 16 dashboard and scoring`.
 
 Permanent prerequisite checkpoint:
 
@@ -534,29 +534,27 @@ explicit unknown model telemetry semantics
 no automatic patch merge/push
 ```
 
-The following remain later milestones and are not implemented here:
+This document remains the permanent M16 scoring/dashboard record. M17 is documented separately in `docs/EXPERIENCE_MEMORY_RQ1.md`. The following remain later milestones:
 
 ```text
-M17 — Experience Memory + RQ1 Single-Agent Baseline
-M18 — RQ2 Frozen Classification Dataset
-M19 — RQ3 Structured Feedback Retry
-M20 — Experiment Freeze
-M21 — Final Controlled Experiments
-M22 — Results Analysis
+M18 - RQ2 Frozen Classification Dataset
+M19 - RQ3 Structured Feedback Retry
+M20 - Experiment Freeze
+M21 - Final Controlled Experiments
+M22 - Results Analysis
 ```
 
 ---
 
-## 13. Current Gate
+## 13. Permanent Gate Record
 
 ```text
 DESIGN       PASS
 IMPLEMENT    PASS
 TEST         PASS
 VERIFY       PASS
-DOCUMENT     IN PROGRESS / final review pending
-COMMIT       PENDING
-M17          LOCKED
+DOCUMENT     PASS
+COMMIT       PASS - 927746e41eca43bb4221dbdd9784ec47f4208cee
 ```
 
-After this documentation change is reviewed, the next action is the exact staged Git review for the complete Milestone 16 scope. Do not start Milestone 17 until the M16 commit is confirmed.
+Milestone 16 is permanently closed. M17 builds on this checkpoint without changing the frozen M16 scoring formulas or dashboard authority boundaries.
