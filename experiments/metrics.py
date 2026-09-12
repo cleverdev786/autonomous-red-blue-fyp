@@ -181,7 +181,9 @@ def compute_rq2_metrics(repository: ResearchReadRepository, *, final_only: bool 
                 "confusion_matrix": matrix,
                 "accuracy": _rate(correct, len(pairs_label)),
                 "per_class": per_class,
-                "macro_f1": statistics.mean(item["f1"] for item in per_class.values()),
+                "macro_f1": statistics.mean(
+                    item["f1"] for item in per_class.values() if item["support"] > 0
+                ) if any(item["support"] > 0 for item in per_class.values()) else 0.0,
                 "attack_detection_rate": _rate(attack_detected, len(attack_pairs)),
                 "benign_false_positive_rate": _rate(benign_fp, benign_total),
                 "unknown_rate": _rate(sum(predicted == ClassificationLabel.UNKNOWN.value for predicted, _ in pairs_label), len(pairs_label)),

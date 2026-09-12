@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 17 - Experience Memory + RQ1 Single-Agent Baseline**
+**Milestone 18 - RQ2 Frozen Classification Dataset**
 
 ## Status
 
-**TECHNICALLY VERIFIED - bounded deterministic experience selection, the RQ1 single-agent baseline, authoritative development-laptop automated verification, controlled disposable runtime verification, and repository-integrity checks all PASS; final staged Git review and commit remain PENDING.**
+**TECHNICALLY VERIFIED - the M18 frozen RQ2 dataset, corrected support-aware metric behavior, controlled real-runtime capture, dataset promotion, and repository-integrity checks all PASS; final staged Git review and commit remain PENDING.**
 
-Milestones 1–16 are permanently complete. Milestone 16 is committed at `927746e` (`927746e41eca43bb4221dbdd9784ec47f4208cee`) as `Complete Milestone 16 dashboard and scoring`. Milestone 17 adds a bounded read-only experience projection over existing M15/M16 research evidence, a deterministic selector that can choose only registered and policy-approved strategies, and the RQ1 single-agent comparison condition. Experience does not add new targets, endpoints, tools, paths, permissions, limits, Git/Docker/network authority, or other capabilities. The single-agent condition uses `AgentRole.BLUE_SINGLE_AGENT` for every reasoning call while the multi-agent condition retains the existing specialist roles. Both conditions derive their mode from stored `ExperimentConfiguration`, use equivalent normalized inputs, and converge into the same existing patch, Git-isolation, verification, and research-storage path. Final RQ1/RQ2 evaluations keep experience disabled. Final RQ experiments have not been run. Milestone 18 remains locked until the M17 commit is confirmed.
+Milestones 1-17 are permanently complete. Milestone 17 is committed at `25ebfdb` (`25ebfdbee1c6ca310c073c21fca3b81603e366ab`). Milestone 18 freezes `rq2-classification` / `v1` as 60 real controlled-runtime observations with a 10 SQLi / 10 XSS / 10 Path Traversal / 30 benign truth distribution. No Rule/LLM/Hybrid benchmark or final research experiment has been run.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -31,6 +31,45 @@ Milestones 1–16 are permanently complete. Milestone 16 is committed at `927746
 - [x] Milestone 14 — Patch Verification Pipeline — runtime verified and committed (`cf45fc2`)
 - [x] Milestone 15 — Experiment Storage and Metrics — runtime verified and committed (`b1572cf`)
 - [x] Milestone 16 — Dashboard and Scoring — runtime verified and committed (`927746e`)
+- [x] Milestone 17 — Experience Memory + RQ1 Single-Agent Baseline — runtime verified and committed (`25ebfdb`)
+- [x] Milestone 18 — RQ2 Frozen Classification Dataset — runtime verified; commit pending
+
+## Milestone 18 Technically Verified
+
+Milestone 18 freezes the RQ2 dataset as `rq2-classification` / `v1` under `experiments/datasets/rq2-classification-v1/`. It contains exactly 60 real controlled-runtime observations: 10 SQL Injection, 10 XSS, 10 Path Traversal, and 30 benign. Each of the three existing registered deterministic security tests was executed 10 times; each repetition contributed one registered control observation and one registered attack observation. No new payloads, tests, vulnerability classes, targets, endpoints, or execution capabilities were added.
+
+The verified duplication audit records 60 unique event IDs, 60 unique classifier-input hashes, and 6 unique semantic-input hashes. The dataset therefore represents repeated controlled observations of six fixed control/attack semantics, not broad payload-family generalization. Classifier-visible run-neutral normalized events are physically separated from evaluator-only labels and runtime provenance.
+
+Verified dataset hashes:
+
+```text
+inputs.jsonl      9a7db4522d96c2a4d27b6f131bd145c6fd38b7614e0ccbbef8ab7dbf4cc5c6f5
+ground_truth.jsonl 376cac8cbf7963aa0630f0a2437f555d56861c945beda2a0ffdb63f47391781f
+manifest.json     8131e0ad2a40a6963fe9f405445352ce8af287f6ab41297f80ebba0735e31345
+```
+
+M18 also corrects RQ2 macro F1 to average only over ground-truth classes with support greater than zero. All five per-class labels, the five-label confusion matrix, and `unknown_rate` remain reported; an incorrect `unknown` prediction still reduces the true-class result and accuracy.
+
+Authoritative M18 verification:
+
+```text
+Corrected full development-laptop suite: 301 passed, 1 non-failing Starlette warning
+Runtime captures: 60 real observations from 30 registered executions
+Truth counts: 10 SQLi / 10 XSS / 10 Path Traversal / 30 benign / 0 unknown
+Runtime provenance matches: 60/60
+Classifier-only load without truth file: 60/60
+Mode-neutral materializations: 180/180
+SQLAlchemy schema: exactly 20 tables
+Disposable dataset rows: 60
+Disposable truth rows: 60
+Event classifications: 0
+FINAL_EVALUATION configurations: 0
+FINAL_EVALUATION runs: 0
+```
+
+The first runtime VERIFY attempt stopped on a false-positive leakage invariant because evaluator `source_target_id=vulnerable-store` matched the legitimate observable event component. The VERIFY gate made no implementation change. A narrow corrective IMPLEMENT/TEST pass removed only that false-positive comparison while preserving structural field-name and evaluator-only provenance checks. The original 60 captures remained byte-identical, and VERIFY resumed from them without rerunning the registered test executions.
+
+See `docs/RQ2_FROZEN_DATASET.md` and `experiments/datasets/rq2-classification-v1/GENERATION_NOTES.md`.
 
 ## Milestone 17 Technically Verified
 
@@ -1139,7 +1178,6 @@ See `docs/PATCH_VERIFICATION_PIPELINE.md`.
 
 Do not implement until the appropriate later milestone:
 
-- Milestone 18 — RQ2 Frozen Classification Dataset;
 - Milestone 19 — RQ3 Structured Feedback Retry;
 - Milestone 20 — Experiment Freeze;
 - Milestone 21 — Final Controlled Experiments;
@@ -1152,10 +1190,10 @@ Final RQ experiments remain unrun. M16 scores remain separate from RQ metrics; M
 
 ## Next Gate
 
-**Perform the exact final staged Git review for Milestone 17 and commit only after the staged implementation/documentation scope is proven correct.**
+**Perform the exact final staged Git review for Milestone 18 and commit only after the staged implementation/dataset/documentation scope is proven correct.**
 
-Milestone 17 is technically verified with commit pending. Review the complete M17 implementation plus this documentation finalization, prove the exact staged path scope, run staged whitespace/safety checks and the final regression gate, and commit only after every staged Git gate passes. Do not begin Milestone 18 and do not run final RQ experiments before the M17 commit is confirmed.
+Milestone 18 is technically verified with commit pending. Prove the exact staged path scope, revalidate the permanent dataset SHA-256 values, run staged whitespace/integrity checks and the final regression gate, and commit only after every staged Git gate passes. Do not run Rule/LLM/Hybrid classification, final RQ experiments, or begin Milestone 19 before the M18 commit is confirmed.
 
 ## Last Updated
 
-2026-09-09
+2026-09-12

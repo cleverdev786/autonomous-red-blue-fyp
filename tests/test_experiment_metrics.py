@@ -270,6 +270,112 @@ def test_rq2_metrics_recompute_all_five_labels_and_keep_unknown_usage_unknown(se
     assert set(llm["confusion_matrix"]) == {label.value for label in ClassificationLabel}
 
 
+def test_rq2_macro_f1_excludes_zero_support_prediction_only_unknown_class(seeded) -> None:
+    write, truth, read, _ = seeded
+    supported_truth = (
+        ClassificationLabel.SQL_INJECTION,
+        ClassificationLabel.XSS,
+        ClassificationLabel.PATH_TRAVERSAL,
+        ClassificationLabel.BENIGN,
+    )
+    item_ids = []
+    for index, label in enumerate(supported_truth):
+        item_id = truth.record_dataset_item(
+            dataset_id="dataset-rq2",
+            dataset_version="dataset-v1",
+            event_id=f"supported-{index}",
+            normalized_input={"event_id": f"supported-{index}"},
+        )
+        truth.record_classification_truth(
+            dataset_item_id=item_id,
+            ground_truth_label=label,
+        )
+        item_ids.append(item_id)
+
+    config = _config(
+        config_id="rq2-supported-macro",
+        rq=ResearchQuestion.RQ2,
+        classification=ClassificationMode.RULE_ONLY,
+    )
+    _run(write, config, "run-supported-macro")
+    for item_id, label in zip(item_ids, supported_truth, strict=True):
+        write.record_event_classification(
+            run_id="run-supported-macro",
+            dataset_item_id=item_id,
+            classification_mode=ClassificationMode.RULE_ONLY,
+            predicted_label=label,
+            confidence=1.0,
+            duration_ms=1,
+        )
+    write.finalize_run(
+        "run-supported-macro",
+        status=RunStatus.COMPLETED,
+        completed_at=START + timedelta(seconds=1),
+    )
+
+    metric = compute_rq2_metrics(read)["conditions"]["rule_only"]
+    assert metric["accuracy"] == 1.0
+    assert metric["per_class"][ClassificationLabel.UNKNOWN.value]["support"] == 0
+    assert metric["macro_f1"] == 1.0
+
+
+def test_rq2_unknown_prediction_remains_an_error_for_supported_truth(seeded) -> None:
+    write, truth, read, _ = seeded
+    supported_truth = (
+        ClassificationLabel.SQL_INJECTION,
+        ClassificationLabel.XSS,
+        ClassificationLabel.PATH_TRAVERSAL,
+        ClassificationLabel.BENIGN,
+    )
+    item_ids = []
+    for index, label in enumerate(supported_truth):
+        item_id = truth.record_dataset_item(
+            dataset_id="dataset-rq2",
+            dataset_version="dataset-v1",
+            event_id=f"unknown-check-{index}",
+            normalized_input={"event_id": f"unknown-check-{index}"},
+        )
+        truth.record_classification_truth(
+            dataset_item_id=item_id,
+            ground_truth_label=label,
+        )
+        item_ids.append(item_id)
+
+    config = _config(
+        config_id="rq2-unknown-error",
+        rq=ResearchQuestion.RQ2,
+        classification=ClassificationMode.RULE_ONLY,
+    )
+    _run(write, config, "run-unknown-error")
+    predictions = (
+        ClassificationLabel.UNKNOWN,
+        ClassificationLabel.XSS,
+        ClassificationLabel.PATH_TRAVERSAL,
+        ClassificationLabel.BENIGN,
+    )
+    for item_id, predicted in zip(item_ids, predictions, strict=True):
+        write.record_event_classification(
+            run_id="run-unknown-error",
+            dataset_item_id=item_id,
+            classification_mode=ClassificationMode.RULE_ONLY,
+            predicted_label=predicted,
+            confidence=1.0,
+            duration_ms=1,
+        )
+    write.finalize_run(
+        "run-unknown-error",
+        status=RunStatus.COMPLETED,
+        completed_at=START + timedelta(seconds=1),
+    )
+
+    metric = compute_rq2_metrics(read)["conditions"]["rule_only"]
+    assert metric["accuracy"] == pytest.approx(3 / 4)
+    assert metric["unknown_rate"] == pytest.approx(1 / 4)
+    assert metric["per_class"][ClassificationLabel.SQL_INJECTION.value]["recall"] == 0.0
+    assert metric["per_class"][ClassificationLabel.SQL_INJECTION.value]["f1"] == 0.0
+    assert metric["macro_f1"] < 1.0
+
+
 def test_rq3_metrics_derive_second_attempt_acceptance_repeated_failure_and_additional_usage(seeded) -> None:
     write, _, read, factory = seeded
     for retry, run_id, second_state in (

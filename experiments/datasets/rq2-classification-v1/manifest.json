@@ -1,0 +1,38 @@
+{
+  "dataset_id": "rq2-classification",
+  "dataset_version": "v1",
+  "duplication_audit": {
+    "repetition_group_sizes": {
+      "path-traversal-private-file-001:control-public-file": 10,
+      "path-traversal-private-file-001:traversal-private-file": 10,
+      "sqli-login-bypass-001:control-wrong-password": 10,
+      "sqli-login-bypass-001:injection-bypass": 10,
+      "xss-reflection-001:control-normal-search": 10,
+      "xss-reflection-001:unescaped-reflection": 10
+    },
+    "total_events": 60,
+    "unique_classifier_input_hashes": 60,
+    "unique_event_ids": 60,
+    "unique_semantic_input_hashes": 6
+  },
+  "expected_class_counts": {
+    "benign": 30,
+    "path_traversal": 10,
+    "sql_injection": 10,
+    "unknown": 0,
+    "xss": 10
+  },
+  "generated_at": "2026-09-12T17:38:34.543577Z",
+  "generation_method": "controlled-runtime-capture-v1",
+  "ground_truth_sha256": "376cac8cbf7963aa0630f0a2437f555d56861c945beda2a0ffdb63f47391781f",
+  "inputs_sha256": "9a7db4522d96c2a4d27b6f131bd145c6fd38b7614e0ccbbef8ab7dbf4cc5c6f5",
+  "item_count": 60,
+  "repetitions_per_test": 10,
+  "schema_version": "1.0",
+  "source_framework_commit": "25ebfdbee1c6ca310c073c21fca3b81603e366ab",
+  "source_test_ids": [
+    "path-traversal-private-file-001",
+    "sqli-login-bypass-001",
+    "xss-reflection-001"
+  ]
+}

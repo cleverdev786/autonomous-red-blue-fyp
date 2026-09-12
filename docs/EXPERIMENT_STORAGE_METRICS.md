@@ -218,6 +218,8 @@ RQ2 support includes the fixed five-label confusion matrix and:
 
 Zero-denominator precision/recall/F1 is deterministically reported as `0.0`.
 
+Milestone 18 corrected macro F1 to average per-class F1 only over ground-truth classes with support greater than zero. This prevents the prediction-only `unknown` label from lowering a perfect four-ground-truth-class RQ2 dataset from 1.0 to 0.8 solely because `unknown` has zero truth support. All five per-class values and the five-label confusion matrix remain available, and an incorrect `unknown` prediction still reduces accuracy/true-class performance and increases `unknown_rate`.
+
 RQ3 support includes:
 
 - second-attempt acceptance rate;

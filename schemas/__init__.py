@@ -76,6 +76,15 @@ from schemas.scoring import (
     ScoreType,
     ScoringRunOutcome,
 )
+from schemas.rq2_dataset import (
+    RQ2CapturedObservation,
+    RQ2ClassifierEvent,
+    RQ2DatasetInputItem,
+    RQ2DatasetManifest,
+    RQ2DuplicationAudit,
+    RQ2GroundTruthItem,
+    RQ2SourceKind,
+)
 from schemas.red_team import (
     AttackPlan,
     AttackPlanningCatalog,
@@ -152,6 +161,13 @@ __all__ = [
     "RestrictedReconnaissanceContext",
     "ResearchQuestion",
     "RetryFeedbackMode",
+    "RQ2CapturedObservation",
+    "RQ2ClassifierEvent",
+    "RQ2DatasetInputItem",
+    "RQ2DatasetManifest",
+    "RQ2DuplicationAudit",
+    "RQ2GroundTruthItem",
+    "RQ2SourceKind",
     "RunProvenance",
     "RunStatus",
     "RunType",

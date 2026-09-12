@@ -6,19 +6,17 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 17 - Experience Memory + RQ1 Single-Agent Baseline: TECHNICALLY VERIFIED; bounded deterministic experience selection, controlled RQ1 single-versus-multi architecture verification, authoritative automated/runtime checks, and repository-integrity checks PASS; final staged Git review and commit PENDING.**
+**Milestone 18 - RQ2 Frozen Classification Dataset: TECHNICALLY VERIFIED; DOCUMENT/finalization complete locally, final staged Git review and commit PENDING.**
 
-Milestones 1–16 are permanently complete. Milestone 16 is committed at `927746e` (`927746e41eca43bb4221dbdd9784ec47f4208cee`) as `Complete Milestone 16 dashboard and scoring`.
+Milestones 1-17 are permanently complete. Milestone 17 is committed at `25ebfdb` (`25ebfdbee1c6ca310c073c21fca3b81603e366ab`) as `Complete Milestone 17 experience memory and RQ1 baseline`.
 
-Milestone 17 adds a bounded read-only `ExperienceStore` over existing canonical research evidence, not a second memory database. Each trusted strategy can contribute at most 20 newest terminal RQ1 outcomes, ordered deterministically by completion time, start time, and run ID. Missing Blue scores remain unknown (`None`) and are excluded from reward averages rather than treated as zero. `SelectionPolicy` may rank only registered strategies that also pass policy approval. Policy denial always wins over historical reward. No reinforcement learning, online learning, random exploration, self-modification, or new execution authority is added.
+Milestone 18 freezes `rq2-classification` / `v1` as exactly 60 real controlled-runtime observations: 10 SQL Injection, 10 XSS, 10 Path Traversal, and 30 benign. The observations come from 10 repetitions of each existing registered deterministic test, with one registered control and one registered attack observation per repetition. The dataset has 60 unique event IDs and classifier-input hashes but 6 unique semantic-input hashes, so it is explicitly a repeated-observation dataset rather than evidence of 60 distinct payload variants.
 
-Experience modes are `DISABLED`, `FROZEN_IDENTICAL`, and `ENABLED_EXPLORATORY`. Final primary RQ1/RQ2 evaluations require `DISABLED`. Selection decisions are stored as canonical `selection_decision` artifacts through the existing research artifact store, so the SQLAlchemy schema remains exactly 20 tables.
+Classifier-visible input and evaluator-only truth/provenance are physically separated and SHA-256 protected. Verified file hashes are `9a7db452...c6f5` for `inputs.jsonl` and `376cac8c...181f` for `ground_truth.jsonl`. RQ2 macro F1 is now support-aware while all five prediction labels, the confusion matrix, and `unknown_rate` remain reported. The corrected development-laptop suite passed 301 tests. Disposable runtime verification retained exactly 20 SQLAlchemy tables, seeded 60 dataset items plus 60 truth rows, produced zero event classifications, and created zero `FINAL_EVALUATION` configurations/runs.
 
-The RQ1 baseline compares one general-purpose Blue persona against the existing specialist architecture. Every single-agent reasoning call uses `AgentRole.BLUE_SINGLE_AGENT`; the multi-agent condition retains `BLUE_MONITORING`, `BLUE_TRIAGE`, `BLUE_CODE_ANALYSIS`, and `BLUE_PATCH_GENERATION`. The RQ1 runner derives the condition from stored `ExperimentConfiguration`, and paired configs may differ only by `config_id` and `blue_team_mode`. Both conditions use equivalent normalized inputs and the same existing downstream patch-generation, branch/Git-isolation, verification, and research-storage interfaces. `proposed_security_test` remains optional, and the final RQ1 classification mode is not frozen until M20.
+The first M18 VERIFY attempt correctly stopped on a leakage-validator false positive where the legitimate observable component value `vulnerable-store` matched evaluator `source_target_id`. A narrow corrective IMPLEMENT/TEST pass fixed only that false positive, preserved the original 60 real captures unchanged, and VERIFY resumed from those captures without rerunning the registered tests.
 
-Authoritative development-laptop verification passes at 286 tests. Controlled disposable runtime verification confirmed the 20-record bound, stable ordering, missing-score behavior, all three experience modes, policy override, canonical `SelectionDecision` persistence, single-agent role consistency, specialized multi-agent roles, paired-input equivalence, shared downstream interfaces/storage, development-only configurations, and repository immutability. No final RQ experiment has been run. Milestone 18 remains locked until the M17 commit is confirmed.
-
-See `docs/EXPERIENCE_MEMORY_RQ1.md` for the exact M17 architecture, safety boundary, experiment-control rules, and verification record. Milestone 16 scoring/dashboard details remain in `docs/DASHBOARD_SCORING.md`.
+See `docs/RQ2_FROZEN_DATASET.md` and `experiments/datasets/rq2-classification-v1/GENERATION_NOTES.md` for the exact M18 dataset, integrity, limitations, and verification record. Final Rule/LLM/Hybrid experiments remain unrun.
 
 ## Approved Scope
 
@@ -97,7 +95,7 @@ npm install --no-package-lock
 npm run build
 ```
 
-Current Milestone 17 authoritative baseline:
+Permanent Milestone 17 authoritative baseline:
 
 ```text
 Full development-laptop suite: 286 passed, 1 non-failing Starlette warning
@@ -126,7 +124,7 @@ Permanent data/fyp.db: absent
 Final RQ experiments: NOT RUN
 ```
 
-Milestone 16 is permanently complete at `927746e`. Milestone 17 is technically verified, with only the final staged Git review and M17 commit pending.
+Milestone 16 is permanently complete at `927746e`. Milestone 17 is permanently complete at `25ebfdb` (`25ebfdbee1c6ca310c073c21fca3b81603e366ab`).
 
 ## Configuration
 
@@ -324,6 +322,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Complete the Milestone 17 final staged Git review and commit.**
+**Perform the exact final staged Git review for Milestone 18.**
 
-Stage only the verified M17 implementation plus this documentation finalization, prove the exact staged file scope, run `git diff --cached --check`, review the experience/RQ1/documentation diffs, and commit only after all staged Git gates pass. Do not begin Milestone 18 and do not run final RQ experiments until the M17 commit is confirmed.
+Stage only the verified M18 implementation, the exact promoted `rq2-classification` / `v1` dataset artifacts, and this documentation finalization. Prove the exact staged path scope and dataset SHA-256 values, run staged whitespace/integrity checks and the final regression gate, and commit only after every staged Git gate passes. Do not run Rule/LLM/Hybrid classification, final experiments, or begin Milestone 19 before the M18 commit is confirmed.
