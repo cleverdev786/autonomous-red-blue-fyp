@@ -73,15 +73,21 @@ class PatchGenerationFlow:
         analysis: BlueTeamAnalysisResult,
         attempt_number: int,
         retry_feedback: PatchRetryFeedback | None = None,
+        entry_state: WorkflowState | None = None,
     ) -> PatchGenerationResult:
         """Prepare one bounded patch and stop before Git/application/verification work."""
         if attempt_number < 1:
             raise ValueError("attempt_number must be >= 1")
         self._validate_analysis(analysis)
+        current_state = entry_state or analysis.final_state
+        if current_state not in {WorkflowState.CODE_ANALYSIS, WorkflowState.REJECTED}:
+            raise PatchGenerationFlowError(
+                "patch generation entry state must be code_analysis or rejected"
+            )
 
         state = self._transition(
             run_id=analysis.run_id,
-            current=analysis.final_state,
+            current=current_state,
             requested=WorkflowState.PATCH_GENERATING,
         )
         self._require_policy(

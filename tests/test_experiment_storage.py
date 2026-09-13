@@ -505,6 +505,9 @@ def test_patch_feedback_is_stored_as_inert_source_to_receiving_attempt_evidence(
 
     write, _, factory, _ = repositories
     _create_run(write, run_id="feedback-run")
+    write.begin_patch_attempt(run_id="feedback-run", attempt_number=1)
+    write.begin_patch_attempt(run_id="feedback-run", attempt_number=2)
+    write.begin_patch_attempt(run_id="feedback-run", attempt_number=3)
     artifact_id = write.record_patch_retry_feedback(
         run_id="feedback-run",
         source_attempt_number=1,
@@ -525,4 +528,14 @@ def test_patch_feedback_is_stored_as_inert_source_to_receiving_attempt_evidence(
             source_attempt_number=2,
             receiving_attempt_number=2,
             feedback=PatchRetryFeedback(failed_stage="regression", error_summary="bad linkage"),
+        )
+    with pytest.raises(ResearchStorageError, match="exactly the previous attempt"):
+        write.record_patch_retry_feedback(
+            run_id="feedback-run",
+            source_attempt_number=1,
+            receiving_attempt_number=3,
+            feedback=PatchRetryFeedback(
+                failed_stage="regression",
+                error_summary="must not skip attempt 2",
+            ),
         )

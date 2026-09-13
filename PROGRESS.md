@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 18 - RQ2 Frozen Classification Dataset**
+**Milestone 19 - RQ3 Structured Feedback Retry**
 
 ## Status
 
-**TECHNICALLY VERIFIED - the M18 frozen RQ2 dataset, corrected support-aware metric behavior, controlled real-runtime capture, dataset promotion, and repository-integrity checks all PASS; final staged Git review and commit remain PENDING.**
+**TECHNICALLY VERIFIED - M19 IMPLEMENT, development-laptop TEST, runtime/integration VERIFY, safety checks, corrected RQ3 denominator semantics, and repository-integrity checks all PASS; DOCUMENT finalization is in progress. Staging and commit remain PENDING.**
 
-Milestones 1-17 are permanently complete. Milestone 17 is committed at `25ebfdb` (`25ebfdbee1c6ca310c073c21fca3b81603e366ab`). Milestone 18 freezes `rq2-classification` / `v1` as 60 real controlled-runtime observations with a 10 SQLi / 10 XSS / 10 Path Traversal / 30 benign truth distribution. No Rule/LLM/Hybrid benchmark or final research experiment has been run.
+Milestones 1-18 are permanently complete. Milestone 18 is committed at `aa58d89` (`aa58d8941cdca6cf371090b62236104e6967ff60`) as `Complete Milestone 18 frozen RQ2 classification dataset`. The frozen `rq2-classification` / `v1` dataset remains unchanged. No actual RQ1/RQ2/RQ3 final experiment has been run.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -32,7 +32,64 @@ Milestones 1-17 are permanently complete. Milestone 17 is committed at `25ebfdb`
 - [x] Milestone 15 — Experiment Storage and Metrics — runtime verified and committed (`b1572cf`)
 - [x] Milestone 16 — Dashboard and Scoring — runtime verified and committed (`927746e`)
 - [x] Milestone 17 — Experience Memory + RQ1 Single-Agent Baseline — runtime verified and committed (`25ebfdb`)
-- [x] Milestone 18 — RQ2 Frozen Classification Dataset — runtime verified; commit pending
+- [x] Milestone 18 — RQ2 Frozen Classification Dataset — runtime verified and committed (`aa58d89`)
+- [x] Milestone 19 — RQ3 Structured Feedback Retry — runtime verified; documentation/staged review/commit pending
+
+## Milestone 19 Technically Verified
+
+M19 implements the optional secondary RQ3 comparison between `RetryFeedbackMode.NONE` and `RetryFeedbackMode.STRUCTURED` without changing the trusted execution boundary. The stored RQ3 configuration is the treatment authority. Paired configurations differ only by `config_id` and retry-feedback mode.
+
+Retry behavior is deliberately narrow: only a deterministic verified `REJECTED` attempt with successful baseline restoration and remaining shared budget may transition to `PATCH_GENERATING`. The actual runtime audit recorded `rejected->patch_generating`. `ACCEPTED`, `FAILED`, and `POLICY_BLOCKED` remained terminal. The original Blue analysis/source context, stored baseline commit, and one shared `RunLimitTracker` are reused across attempts.
+
+Structured feedback is derived internally from only attempt `N-1`, persisted with exact source/receiving linkage, and excludes raw stdout/stderr, pytest output, traceback text, shell output, arbitrary exception text, and unrestricted diff content. Current regression evidence does not expose a safe compatible per-test ID namespace, so `regression_failure_ids` remains empty. `original_replay_succeeded` is frozen to exploit-replay semantics.
+
+A begun retry attempt is persisted before downstream work. Provider failure produced a retained second-attempt `FAILED` record; model-budget denial produced `POLICY_BLOCKED`; and an externally interrupted begun retry remained `patch_generating`/incomplete evidence rather than disappearing. Retry model calls are persisted with unavailable token/cost telemetry as `NULL / NOT_REPORTED`.
+
+The primary second-attempt denominator is all actual second attempts. Runtime metric evidence with one of each outcome produced:
+
+```text
+eligible second attempts: 5
+ACCEPTED:       1 (0.20)
+REJECTED:       1 (0.20)
+POLICY_BLOCKED: 1 (0.20)
+FAILED:         1 (0.20)
+incomplete:     1 (0.20)
+```
+
+`repeated_failure_rate` means `REJECTED / all actual second attempts`. Any evaluable-only `ACCEPTED / (ACCEPTED + REJECTED)` rate is secondary only.
+
+Authoritative M19 development-laptop evidence:
+
+```text
+Approved implementation patch SHA-256: c0db469fb091e3b9bc3442c61441ccc1a691dff453326555dd21c02a1bcc9d21
+Live 10-file implementation vs fresh M18 + approved patch: byte-identical 10/10
+Focused M19 tests: 56 passed
+Affected M12-M18 regression tests: 222 passed, 1 known non-failing Starlette warning
+Complete laptop suite: 313 passed, 1 known non-failing Starlette warning
+Actual REJECTED -> PATCH_GENERATING audit transition: PASS
+Disposable real-Git baseline restoration to clean main/base commit: PASS
+Shared attempt/model/runtime budget behavior: PASS
+NONE feedback rows/model retry fields: none
+STRUCTURED feedback linkage: N-1 -> N PASS
+Raw unrestricted failure output excluded from retry context: PASS
+Begun retry persistence across FAILED/POLICY_BLOCKED/interruption: PASS
+Missing token/cost telemetry: NULL / NOT_REPORTED
+SQLAlchemy schema: exactly 20 tables
+Disposable M19 runtime configurations: DEVELOPMENT only
+Disposable M19 configs/runs observed in VERIFY: 13 / 13
+FINAL_EVALUATION configurations in M19 VERIFY: 0
+Actual RQ1/RQ2/RQ3 final experiments executed: 0
+```
+
+Permanent M18 RQ2 dataset hashes remained unchanged after M19 VERIFY:
+
+```text
+inputs.jsonl        9a7db4522d96c2a4d27b6f131bd145c6fd38b7614e0ccbbef8ab7dbf4cc5c6f5
+ground_truth.jsonl 376cac8cbf7963aa0630f0a2437f555d56861c945beda2a0ffdb63f47391781f
+manifest.json       8131e0ad2a40a6963fe9f405445352ce8af287f6ab41297f80ebba0735e31345
+```
+
+Synthetic `RunType.FINAL_EVALUATION` rows used by unit-test metric fixtures exist only inside disposable test databases. They do not execute a final experiment and leave no persistent final-evaluation artifact.
 
 ## Milestone 18 Technically Verified
 
@@ -1178,7 +1235,6 @@ See `docs/PATCH_VERIFICATION_PIPELINE.md`.
 
 Do not implement until the appropriate later milestone:
 
-- Milestone 19 — RQ3 Structured Feedback Retry;
 - Milestone 20 — Experiment Freeze;
 - Milestone 21 — Final Controlled Experiments;
 - Milestone 22 — Results Analysis;
@@ -1190,10 +1246,10 @@ Final RQ experiments remain unrun. M16 scores remain separate from RQ metrics; M
 
 ## Next Gate
 
-**Perform the exact final staged Git review for Milestone 18 and commit only after the staged implementation/dataset/documentation scope is proven correct.**
+**Perform the M19 exact staged Git review only after explicit approval.**
 
-Milestone 18 is technically verified with commit pending. Prove the exact staged path scope, revalidate the permanent dataset SHA-256 values, run staged whitespace/integrity checks and the final regression gate, and commit only after every staged Git gate passes. Do not run Rule/LLM/Hybrid classification, final RQ experiments, or begin Milestone 19 before the M18 commit is confirmed.
+M19 is technically verified and documented locally. Before any commit, prove the exact implementation + documentation scope, keep the permanent M18 dataset hashes unchanged, run staged whitespace/integrity checks and the approved final regression gate, and commit only after every staged Git gate passes. Do not begin M20 or run any actual final RQ experiment before the M19 commit is confirmed.
 
 ## Last Updated
 
-2026-09-12
+2026-09-13

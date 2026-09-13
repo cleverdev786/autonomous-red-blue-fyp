@@ -199,34 +199,131 @@ def compute_rq3_metrics(repository: ResearchReadRepository, *, final_only: bool 
         grouped: dict[str, list[ExperimentRunRow]] = defaultdict(list)
         for run, config in pairs:
             grouped[config.retry_feedback_mode].append(run)
+
         output = {}
         for mode, runs in grouped.items():
             run_ids = [run.run_id for run in runs]
-            attempts = list(session.scalars(select(PatchAttemptRow).where(PatchAttemptRow.run_id.in_(run_ids)))) if run_ids else []
-            eligible = []
-            second_accepted = 0
-            repeated_failures = 0
-            accepted_attempt_counts = []
-            accepted_times = []
+            attempts = (
+                list(
+                    session.scalars(
+                        select(PatchAttemptRow).where(PatchAttemptRow.run_id.in_(run_ids))
+                    )
+                )
+                if run_ids
+                else []
+            )
+            attempts_by_run: dict[str, list[PatchAttemptRow]] = defaultdict(list)
+            for attempt in attempts:
+                attempts_by_run[attempt.run_id].append(attempt)
+            for own in attempts_by_run.values():
+                own.sort(key=lambda item: item.attempt_number)
+
+            eligible_run_ids: list[str] = []
+            second_outcomes = {
+                "accepted": 0,
+                "rejected": 0,
+                "policy_blocked": 0,
+                "failed": 0,
+                "incomplete": 0,
+            }
+            accepted_attempt_counts: list[float] = []
+            accepted_times: list[float] = []
+
             for run in runs:
-                own = sorted([a for a in attempts if a.run_id == run.run_id], key=lambda a: a.attempt_number)
-                if len(own) >= 2 and own[0].final_state != "accepted":
-                    eligible.append(run.run_id)
-                    if own[1].final_state == "accepted": second_accepted += 1
-                    else: repeated_failures += 1
-                accepted = next((a for a in own if a.final_state == "accepted"), None)
-                if accepted:
+                own = attempts_by_run.get(run.run_id, [])
+                first = next((item for item in own if item.attempt_number == 1), None)
+                second = next((item for item in own if item.attempt_number == 2), None)
+                if (
+                    first is None
+                    or first.final_state != "rejected"
+                    or first.patch_decision != "rejected"
+                    or second is None
+                ):
+                    continue
+
+                eligible_run_ids.append(run.run_id)
+                if second.final_state in {"accepted", "rejected", "policy_blocked", "failed"}:
+                    second_outcomes[second.final_state] += 1
+                else:
+                    second_outcomes["incomplete"] += 1
+
+                accepted = next(
+                    (
+                        item
+                        for item in own
+                        if item.attempt_number > 1 and item.final_state == "accepted"
+                    ),
+                    None,
+                )
+                if accepted is not None:
                     accepted_attempt_counts.append(float(accepted.attempt_number))
-                    if accepted.verification_decision_at:
-                        accepted_times.append((accepted.verification_decision_at - run.started_at).total_seconds() * 1000)
-            stages = list(session.scalars(select(VerificationStageRow).join(PatchAttemptRow, VerificationStageRow.patch_attempt_id == PatchAttemptRow.id).where(PatchAttemptRow.run_id.in_(run_ids), VerificationStageRow.stage_id == "regression"))) if run_ids else []
-            retry_calls = list(session.scalars(select(AgentCallRow).where(AgentCallRow.run_id.in_(run_ids), AgentCallRow.patch_attempt_number.is_not(None), AgentCallRow.patch_attempt_number > 1))) if run_ids else []
+                    if accepted.verification_decision_at is not None:
+                        accepted_times.append(
+                            (accepted.verification_decision_at - run.started_at).total_seconds()
+                            * 1000
+                        )
+
+            denominator = len(eligible_run_ids)
+            evaluable = second_outcomes["accepted"] + second_outcomes["rejected"]
+            retry_stages = (
+                list(
+                    session.scalars(
+                        select(VerificationStageRow)
+                        .join(
+                            PatchAttemptRow,
+                            VerificationStageRow.patch_attempt_id == PatchAttemptRow.id,
+                        )
+                        .where(
+                            PatchAttemptRow.run_id.in_(eligible_run_ids),
+                            PatchAttemptRow.attempt_number > 1,
+                            VerificationStageRow.stage_id == "regression",
+                        )
+                    )
+                )
+                if eligible_run_ids
+                else []
+            )
+            retry_calls = (
+                list(
+                    session.scalars(
+                        select(AgentCallRow).where(
+                            AgentCallRow.run_id.in_(eligible_run_ids),
+                            AgentCallRow.patch_attempt_number.is_not(None),
+                            AgentCallRow.patch_attempt_number > 1,
+                        )
+                    )
+                )
+                if eligible_run_ids
+                else []
+            )
+
             output[mode] = {
-                "eligible_failed_first_attempt_runs": len(eligible),
-                "second_attempt_acceptance_rate": _rate(second_accepted, len(eligible)),
-                "repeated_failure_rate": _rate(repeated_failures, len(eligible)),
-                "average_attempts_to_accepted_patch": statistics.mean(accepted_attempt_counts) if accepted_attempt_counts else None,
-                "regression_rate": _rate(sum(not s.passed for s in stages), len(stages)),
+                "eligible_failed_first_attempt_runs": denominator,
+                "second_attempt_outcome_counts": second_outcomes,
+                "second_attempt_acceptance_rate": _rate(
+                    second_outcomes["accepted"], denominator
+                ),
+                "repeated_failure_rate": _rate(second_outcomes["rejected"], denominator),
+                "second_attempt_policy_blocked_rate": _rate(
+                    second_outcomes["policy_blocked"], denominator
+                ),
+                "second_attempt_failed_rate": _rate(second_outcomes["failed"], denominator),
+                "second_attempt_incomplete_rate": _rate(
+                    second_outcomes["incomplete"], denominator
+                ),
+                "evaluable_second_attempt_acceptance_rate": _rate(
+                    second_outcomes["accepted"], evaluable
+                ),
+                "evaluable_second_attempt_count": evaluable,
+                "average_attempts_to_accepted_patch": (
+                    statistics.mean(accepted_attempt_counts)
+                    if accepted_attempt_counts
+                    else None
+                ),
+                "regression_rate": _rate(
+                    sum(not stage.passed for stage in retry_stages),
+                    len(retry_stages),
+                ),
                 "time_to_accepted_patch_ms": _summary(accepted_times),
                 "additional_model_usage": _usage(retry_calls),
             }

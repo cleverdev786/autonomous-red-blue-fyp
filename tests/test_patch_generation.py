@@ -266,6 +266,35 @@ def test_structured_retry_feedback_is_included_only_when_supplied(
     ] == feedback.model_dump(mode="json")
 
 
+def test_retry_entry_uses_rejected_to_patch_generating_transition(
+    registry: TargetRegistry,
+    tmp_path: Path,
+) -> None:
+    provider = CapturingProvider(MockProvider())
+    flow = _flow(registry=registry, tmp_path=tmp_path, provider=provider)
+    result = flow.run(
+        analysis=_analysis(run_id="retry-entry"),
+        attempt_number=2,
+        entry_state=WorkflowState.REJECTED,
+    )
+    assert result.final_state == WorkflowState.PATCH_VALIDATING
+    events = AuditService(project_root=tmp_path).read_run(run_id="retry-entry")
+    transitions = [event.target for event in events if event.operation == "workflow_transition"]
+    assert "rejected->patch_generating" in transitions
+
+
+def test_retry_entry_rejects_unapproved_start_state(
+    registry: TargetRegistry,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(PatchGenerationFlowError, match="entry state"):
+        _flow(registry=registry, tmp_path=tmp_path, provider=MockProvider()).run(
+            analysis=_analysis(run_id="retry-bad-entry"),
+            attempt_number=2,
+            entry_state=WorkflowState.PATCH_APPLYING,
+        )
+
+
 def test_optional_generated_test_path_is_service_derived_and_not_written(
     registry: TargetRegistry,
     tmp_path: Path,

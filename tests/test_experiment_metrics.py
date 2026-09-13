@@ -136,7 +136,7 @@ def _patch(factory, *, run_id: str, attempt: int, state: str, prepared_ms: int, 
             run_id=run_id,
             attempt_number=attempt,
             final_state=state,
-            patch_decision="accepted" if state == "accepted" else "rejected",
+            patch_decision=state if state in {"accepted", "rejected"} else None,
             patch_prepared_at=START + timedelta(milliseconds=prepared_ms),
             verification_decision_at=START + timedelta(milliseconds=decision_ms),
             attempt_completed_at=START + timedelta(milliseconds=decision_ms),
@@ -401,6 +401,112 @@ def test_rq3_metrics_derive_second_attempt_acceptance_repeated_failure_and_addit
     assert result["structured"]["additional_model_usage"]["input_tokens"] == 50
     assert result["none"]["second_attempt_acceptance_rate"] == 0.0
     assert result["none"]["repeated_failure_rate"] == 1.0
+
+
+def test_rq3_primary_second_attempt_denominator_keeps_all_actual_outcomes_distinct(seeded) -> None:
+    write, _, read, factory = seeded
+    states = ("accepted", "rejected", "policy_blocked", "failed")
+    for index, second_state in enumerate(states, start=1):
+        run_id = f"rq3-denominator-{second_state}"
+        config = _config(
+            config_id=f"cfg-{run_id}",
+            rq=ResearchQuestion.RQ3,
+            retry=RetryFeedbackMode.STRUCTURED,
+        )
+        _run(write, config, run_id, start_offset=index)
+        _patch(
+            factory,
+            run_id=run_id,
+            attempt=1,
+            state="rejected",
+            prepared_ms=index * 1000 + 10,
+            decision_ms=index * 1000 + 20,
+            regression_pass=False,
+            replay_pass=False,
+        )
+        if second_state in {"accepted", "rejected"}:
+            _patch(
+                factory,
+                run_id=run_id,
+                attempt=2,
+                state=second_state,
+                prepared_ms=index * 1000 + 30,
+                decision_ms=index * 1000 + 50,
+                regression_pass=second_state == "accepted",
+                replay_pass=second_state == "accepted",
+            )
+        else:
+            with factory() as session:
+                session.add(PatchAttemptRow(
+                    run_id=run_id,
+                    attempt_number=2,
+                    final_state=second_state,
+                    failure_reason=f"synthetic {second_state}",
+                    attempt_completed_at=START + timedelta(milliseconds=index * 1000 + 40),
+                ))
+                session.commit()
+        write.finalize_run(
+            run_id,
+            status={
+                "accepted": RunStatus.ACCEPTED,
+                "rejected": RunStatus.REJECTED,
+                "policy_blocked": RunStatus.POLICY_BLOCKED,
+                "failed": RunStatus.FAILED,
+            }[second_state],
+            completed_at=START + timedelta(seconds=index, milliseconds=60),
+        )
+
+    metric = compute_rq3_metrics(read)["conditions"]["structured"]
+    assert metric["eligible_failed_first_attempt_runs"] == 4
+    assert metric["second_attempt_outcome_counts"] == {
+        "accepted": 1,
+        "rejected": 1,
+        "policy_blocked": 1,
+        "failed": 1,
+        "incomplete": 0,
+    }
+    assert metric["second_attempt_acceptance_rate"] == 0.25
+    assert metric["repeated_failure_rate"] == 0.25
+    assert metric["second_attempt_policy_blocked_rate"] == 0.25
+    assert metric["second_attempt_failed_rate"] == 0.25
+    assert metric["evaluable_second_attempt_acceptance_rate"] == 0.5
+    assert metric["evaluable_second_attempt_count"] == 2
+    assert metric["average_attempts_to_accepted_patch"] == 2
+    assert metric["regression_rate"] == 0.5
+
+
+def test_rq3_incomplete_begun_retry_stays_in_primary_denominator(seeded) -> None:
+    write, _, read, factory = seeded
+    config = _config(
+        config_id="cfg-rq3-incomplete",
+        rq=ResearchQuestion.RQ3,
+        retry=RetryFeedbackMode.STRUCTURED,
+    )
+    _run(write, config, "rq3-incomplete")
+    _patch(
+        factory,
+        run_id="rq3-incomplete",
+        attempt=1,
+        state="rejected",
+        prepared_ms=10,
+        decision_ms=20,
+        regression_pass=False,
+        replay_pass=False,
+    )
+    with factory() as session:
+        session.add(PatchAttemptRow(
+            run_id="rq3-incomplete",
+            attempt_number=2,
+            final_state="patch_generating",
+        ))
+        session.commit()
+    write.finalize_run("rq3-incomplete", status=RunStatus.FAILED)
+
+    metric = compute_rq3_metrics(read)["conditions"]["structured"]
+    assert metric["eligible_failed_first_attempt_runs"] == 1
+    assert metric["second_attempt_acceptance_rate"] == 0.0
+    assert metric["second_attempt_incomplete_rate"] == 1.0
+    assert metric["second_attempt_outcome_counts"]["incomplete"] == 1
 
 
 def test_red_metrics_cover_confirmation_evidence_duplicates_policy_requests_and_time(seeded) -> None:

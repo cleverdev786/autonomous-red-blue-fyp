@@ -259,6 +259,56 @@ class ExperimentWriteRepository:
             self._commit(session, "duplicate Blue result evidence")
             return artifact.artifact_id
 
+    def begin_patch_attempt(
+        self,
+        *,
+        run_id: str,
+        attempt_number: int,
+        started_state: WorkflowState = WorkflowState.PATCH_GENERATING,
+    ) -> None:
+        """Persist an authorized patch-attempt record before generation can fail."""
+        if attempt_number < 1:
+            raise ResearchStorageError("patch attempt number must be >= 1")
+        if started_state != WorkflowState.PATCH_GENERATING:
+            raise ResearchStorageError("new patch attempts must begin in patch_generating")
+        with self._factory() as session:
+            if session.get(ExperimentRunRow, run_id) is None:
+                raise ResearchStorageError("experiment run does not exist")
+            session.add(PatchAttemptRow(
+                run_id=run_id,
+                attempt_number=attempt_number,
+                final_state=started_state.value,
+            ))
+            self._commit(session, "duplicate patch attempt")
+
+    def record_patch_attempt_terminal_failure(
+        self,
+        *,
+        run_id: str,
+        attempt_number: int,
+        final_state: WorkflowState,
+        failure_reason: str,
+        completed_at: datetime | None = None,
+    ) -> None:
+        """Close a begun attempt that failed before normal verification persistence."""
+        if final_state not in {WorkflowState.FAILED, WorkflowState.POLICY_BLOCKED}:
+            raise ResearchStorageError(
+                "terminal pre-verification attempt outcome must be failed or policy_blocked"
+            )
+        reason = failure_reason.strip()[:4000]
+        if not reason:
+            raise ResearchStorageError("terminal patch-attempt failure requires a reason")
+        with self._factory() as session:
+            attempt = self._patch_attempt(session, run_id, attempt_number)
+            if attempt.verification_artifact_id is not None:
+                raise ResearchStorageError(
+                    "cannot overwrite a patch attempt that already has verification evidence"
+                )
+            attempt.final_state = final_state.value
+            attempt.failure_reason = reason
+            attempt.attempt_completed_at = completed_at or datetime.now(UTC)
+            self._commit(session, "patch attempt terminal failure could not be recorded")
+
     def record_patch_generation_result(
         self,
         result: PatchGenerationResult,
@@ -266,24 +316,39 @@ class ExperimentWriteRepository:
         prepared_at: datetime | None = None,
     ) -> int:
         with self._factory() as session:
-            artifact = self._artifact_row(result.run_id, ArtifactType.PATCH_GENERATION_RESULT, result, result.attempt_number)
+            artifact = self._artifact_row(
+                result.run_id,
+                ArtifactType.PATCH_GENERATION_RESULT,
+                result,
+                result.attempt_number,
+            )
             session.add(artifact)
             session.flush()
             prepared = result.prepared_patch
-            session.add(PatchAttemptRow(
-                run_id=result.run_id,
-                attempt_number=result.attempt_number,
-                prepared_patch_artifact_id=artifact.artifact_id,
-                prepared_diff_sha256=prepared.diff_sha256,
-                files_changed=prepared.files_changed,
-                inserted_lines=prepared.inserted_lines,
-                deleted_lines=prepared.deleted_lines,
-                total_diff_bytes=prepared.total_diff_bytes,
-                changed_paths_json=json.dumps([item.file_path for item in prepared.files], separators=(",", ":")),
-                generated_test_path=prepared.generated_test_path,
-                final_state=result.final_state.value,
-                patch_prepared_at=prepared_at or datetime.now(UTC),
+            attempt = session.scalar(select(PatchAttemptRow).where(
+                PatchAttemptRow.run_id == result.run_id,
+                PatchAttemptRow.attempt_number == result.attempt_number,
             ))
+            if attempt is None:
+                attempt = PatchAttemptRow(
+                    run_id=result.run_id,
+                    attempt_number=result.attempt_number,
+                )
+                session.add(attempt)
+            elif attempt.prepared_patch_artifact_id is not None:
+                raise ResearchStorageError("duplicate patch generation attempt")
+            attempt.prepared_patch_artifact_id = artifact.artifact_id
+            attempt.prepared_diff_sha256 = prepared.diff_sha256
+            attempt.files_changed = prepared.files_changed
+            attempt.inserted_lines = prepared.inserted_lines
+            attempt.deleted_lines = prepared.deleted_lines
+            attempt.total_diff_bytes = prepared.total_diff_bytes
+            attempt.changed_paths_json = json.dumps(
+                [item.file_path for item in prepared.files], separators=(",", ":")
+            )
+            attempt.generated_test_path = prepared.generated_test_path
+            attempt.final_state = result.final_state.value
+            attempt.patch_prepared_at = prepared_at or datetime.now(UTC)
             self._commit(session, "duplicate patch generation attempt")
             return artifact.artifact_id
 
@@ -373,9 +438,23 @@ class ExperimentWriteRepository:
         feedback: PatchRetryFeedback,
     ) -> int:
         """Persist already-produced sanitized feedback; never generate or apply a retry."""
-        if source_attempt_number < 1 or receiving_attempt_number <= source_attempt_number:
-            raise ResearchStorageError("feedback must link an earlier source attempt to a later receiving attempt")
+        if source_attempt_number < 1 or receiving_attempt_number != source_attempt_number + 1:
+            raise ResearchStorageError(
+                "feedback must link exactly the previous attempt to the receiving attempt"
+            )
         with self._factory() as session:
+            source = session.scalar(select(PatchAttemptRow).where(
+                PatchAttemptRow.run_id == run_id,
+                PatchAttemptRow.attempt_number == source_attempt_number,
+            ))
+            receiving = session.scalar(select(PatchAttemptRow).where(
+                PatchAttemptRow.run_id == run_id,
+                PatchAttemptRow.attempt_number == receiving_attempt_number,
+            ))
+            if source is None or receiving is None:
+                raise ResearchStorageError(
+                    "feedback linkage requires both source and receiving patch attempts"
+                )
             artifact = self._artifact_row(
                 run_id, ArtifactType.PATCH_RETRY_FEEDBACK, feedback, receiving_attempt_number
             )

@@ -222,12 +222,16 @@ Milestone 18 corrected macro F1 to average per-class F1 only over ground-truth c
 
 RQ3 support includes:
 
-- second-attempt acceptance rate;
-- average attempts to accepted patch;
-- repeated-failure rate;
-- regression rate;
-- time to accepted patch;
-- additional retry model calls/tokens/cost.
+- primary second-attempt acceptance rate over all actual second attempts;
+- separate second-attempt `ACCEPTED`, `REJECTED`, `POLICY_BLOCKED`, `FAILED`, and incomplete counts/rates;
+- secondary evaluable-only acceptance rate over `ACCEPTED + REJECTED` when useful;
+- average attempts to accepted patch for retry-eligible runs that eventually accept;
+- repeated-failure rate defined as second-attempt `REJECTED / all actual second attempts`;
+- retry-attempt regression rate (attempt number greater than 1 only);
+- time to accepted patch for the retry-eligible population;
+- additional retry model calls/tokens/cost from retry attempts only.
+
+The primary RQ3 denominator intentionally retains adverse/system outcomes. A structured-feedback condition cannot improve its apparent acceptance rate by dropping `FAILED`, `POLICY_BLOCKED`, or interrupted/incomplete retries. Missing token/cost telemetry remains `NULL` and is reported as incomplete/`NOT_REPORTED`, never as zero.
 
 Red support includes:
 
@@ -246,8 +250,10 @@ check rows.
 
 The schema permits accepted, rejected, policy-blocked, failed and still-running
 partial records. A successful later attempt does not erase an earlier failed
-attempt. An interrupted `running` record remains available for later completeness
-analysis instead of being deleted.
+attempt. M19 creates the patch-attempt research row before downstream retry work,
+so an authorized attempt cannot disappear if provider/orchestration work later
+fails or is interrupted. An incomplete begun retry remains available to RQ3
+metrics/completeness analysis instead of being deleted.
 
 ## Milestone boundary
 

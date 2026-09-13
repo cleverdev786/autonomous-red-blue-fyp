@@ -6,17 +6,27 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 18 - RQ2 Frozen Classification Dataset: TECHNICALLY VERIFIED; DOCUMENT/finalization complete locally, final staged Git review and commit PENDING.**
+**Milestone 19 - RQ3 Structured Feedback Retry: IMPLEMENTED, TESTED, and RUNTIME VERIFIED locally; documentation finalization in progress.**
 
-Milestones 1-17 are permanently complete. Milestone 17 is committed at `25ebfdb` (`25ebfdbee1c6ca310c073c21fca3b81603e366ab`) as `Complete Milestone 17 experience memory and RQ1 baseline`.
+Milestones 1-18 are permanently complete. Milestone 18 is committed at `aa58d89` (`aa58d8941cdca6cf371090b62236104e6967ff60`) as `Complete Milestone 18 frozen RQ2 classification dataset`.
 
-Milestone 18 freezes `rq2-classification` / `v1` as exactly 60 real controlled-runtime observations: 10 SQL Injection, 10 XSS, 10 Path Traversal, and 30 benign. The observations come from 10 repetitions of each existing registered deterministic test, with one registered control and one registered attack observation per repetition. The dataset has 60 unique event IDs and classifier-input hashes but 6 unique semantic-input hashes, so it is explicitly a repeated-observation dataset rather than evidence of 60 distinct payload variants.
+Milestone 19 implements the optional secondary RQ3 comparison between `RetryFeedbackMode.NONE` and `RetryFeedbackMode.STRUCTURED`. RQ3 retry begins only after a deterministic verified `REJECTED` patch attempt with baseline restoration and remaining shared budget. `ACCEPTED`, `FAILED`, and `POLICY_BLOCKED` remain terminal and do not automatically retry. The retry path reuses the original Blue analysis/source context, the stored baseline commit, and one shared `RunLimitTracker`; it does not rerun Blue analysis or reset attempt/model/runtime budgets.
 
-Classifier-visible input and evaluator-only truth/provenance are physically separated and SHA-256 protected. Verified file hashes are `9a7db452...c6f5` for `inputs.jsonl` and `376cac8c...181f` for `ground_truth.jsonl`. RQ2 macro F1 is now support-aware while all five prediction labels, the confusion matrix, and `unknown_rate` remain reported. The corrected development-laptop suite passed 301 tests. Disposable runtime verification retained exactly 20 SQLAlchemy tables, seeded 60 dataset items plus 60 truth rows, produced zero event classifications, and created zero `FINAL_EVALUATION` configurations/runs.
+Structured feedback is derived internally from only the immediately previous attempt (`N-1 -> N`) using typed verification evidence. Raw stdout/stderr, pytest output, traceback text, shell output, unrestricted exception text, and unrestricted patch diffs are not forwarded to the model. Under the current evidence model, `regression_failure_ids` remains empty; `original_replay_succeeded` means the original exploit replay completed without timeout and exploit evidence was observed.
 
-The first M18 VERIFY attempt correctly stopped on a leakage-validator false positive where the legitimate observable component value `vulnerable-store` matched evaluator `source_target_id`. A narrow corrective IMPLEMENT/TEST pass fixed only that false positive, preserved the original 60 real captures unchanged, and VERIFY resumed from those captures without rerunning the registered tests.
+The primary RQ3 second-attempt acceptance denominator is **all actual second attempts**, including `ACCEPTED`, `REJECTED`, `POLICY_BLOCKED`, `FAILED`, and genuinely interrupted/incomplete attempts. These outcomes remain separate in reporting. `repeated_failure_rate` means second-attempt `REJECTED` divided by all actual second attempts. Any evaluable-only acceptance rate is secondary and cannot replace the primary denominator.
 
-See `docs/RQ2_FROZEN_DATASET.md` and `experiments/datasets/rq2-classification-v1/GENERATION_NOTES.md` for the exact M18 dataset, integrity, limitations, and verification record. Final Rule/LLM/Hybrid experiments remain unrun.
+Development-laptop TEST evidence: 56 focused M19 tests passed; 222 affected M12-M18 regression tests passed; the complete suite passed 313 tests with only the existing non-failing Starlette deprecation warning. Runtime VERIFY used disposable DEVELOPMENT research storage and disposable Git evidence only. It proved the actual `REJECTED -> PATCH_GENERATING` transition, real baseline restoration, shared budgets, NONE/STRUCTURED treatment separation, safe feedback linkage, begun-retry persistence, `NULL / NOT_REPORTED` token/cost telemetry, five-way second-attempt outcome retention, exactly 20 SQLAlchemy tables, unchanged M18 RQ2 dataset hashes, and zero actual `FINAL_EVALUATION` experiments.
+
+The permanent M18 RQ2 dataset remains frozen and unchanged:
+
+```text
+inputs.jsonl        9a7db4522d96c2a4d27b6f131bd145c6fd38b7614e0ccbbef8ab7dbf4cc5c6f5
+ground_truth.jsonl 376cac8cbf7963aa0630f0a2437f555d56861c945beda2a0ffdb63f47391781f
+manifest.json       8131e0ad2a40a6963fe9f405445352ce8af287f6ab41297f80ebba0735e31345
+```
+
+No real RQ1/RQ2/RQ3 final experiment has been run. M20 remains locked pending explicit approval after M19 documentation, staged review, and commit.
 
 ## Approved Scope
 
