@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 import hashlib
@@ -15,7 +16,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from schemas.blue_team import BlueTeamAnalysisResult, MonitoringResult, SourceReadResult
-from schemas.common import ClassificationLabel, RunStatus, WorkflowState
+from schemas.common import ClassificationLabel, RunStatus, RunType, WorkflowState
+from schemas.experiment_freeze import FinalEvaluationPreflightReceipt
 from schemas.experiment_results import AgentCallRecord, ArtifactType, RunProvenance, StageTimingRecord
 from schemas.experience import SelectionDecision
 from schemas.experiments import ClassificationMode, ExperimentConfiguration
@@ -116,6 +118,7 @@ class ExperimentWriteRepository:
         scenario_id: str | None = None,
         dataset_id: str | None = None,
         started_at: datetime | None = None,
+        final_preflight: FinalEvaluationPreflightReceipt | None = None,
     ) -> None:
         if repetition_index < 1:
             raise ResearchStorageError("repetition_index must be >= 1")
@@ -125,6 +128,27 @@ class ExperimentWriteRepository:
             config = session.get(ExperimentConfigurationRow, config_id)
             if config is None:
                 raise ResearchStorageError("experiment configuration does not exist")
+            if config.run_type == RunType.FINAL_EVALUATION.value:
+                if final_preflight is None:
+                    raise ResearchStorageError(
+                        "FINAL_EVALUATION run storage requires a freeze preflight receipt"
+                    )
+                if final_preflight.config_id != config_id:
+                    raise ResearchStorageError("preflight config_id does not match stored config")
+                if final_preflight.configuration_sha256 != config.configuration_sha256:
+                    raise ResearchStorageError("preflight configuration hash does not match stored config")
+                if final_preflight.baseline_git_commit != baseline_commit:
+                    raise ResearchStorageError("preflight baseline does not match requested run")
+                if final_preflight.repetition_index != repetition_index:
+                    raise ResearchStorageError("preflight repetition does not match requested run")
+                if final_preflight.scenario_id != scenario_id:
+                    raise ResearchStorageError("preflight scenario does not match requested run")
+                if final_preflight.dataset_id != dataset_id:
+                    raise ResearchStorageError("preflight dataset does not match requested run")
+            elif final_preflight is not None:
+                raise ResearchStorageError(
+                    "DEVELOPMENT run storage must not receive final preflight evidence"
+                )
             if config.research_question == "rq2":
                 if dataset_id != config.dataset_id or scenario_id is not None:
                     raise ResearchStorageError("RQ2 run must use its configured dataset_id")
@@ -655,6 +679,83 @@ class EvaluationTruthRepository:
                 source_notes=source_notes,
             ))
             ExperimentWriteRepository._commit(session, "classification truth already exists")
+
+
+@dataclass(frozen=True, slots=True)
+class ClassifierDatasetRecord:
+    database_id: int
+    event_id: str
+    normalized_input_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ExperimentExecutionContext:
+    run_id: str
+    config_id: str
+    scenario_id: str | None
+    dataset_id: str | None
+    status: str
+    baseline_commit: str
+    configuration: ExperimentConfiguration
+
+
+class ExperimentExecutionReadRepository:
+    """Narrow execution reads with no evaluator ground-truth access."""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._factory = session_factory
+
+    def run_context(self, run_id: str) -> ExperimentExecutionContext:
+        with self._factory() as session:
+            run = session.get(ExperimentRunRow, run_id)
+            if run is None:
+                raise ResearchStorageError("experiment run does not exist")
+            config_row = session.get(ExperimentConfigurationRow, run.config_id)
+            if config_row is None:
+                raise ResearchStorageError("experiment configuration does not exist")
+            config = ExperimentConfiguration.model_validate_json(config_row.configuration_json)
+            return ExperimentExecutionContext(
+                run_id=run.run_id,
+                config_id=run.config_id,
+                scenario_id=run.scenario_id,
+                dataset_id=run.dataset_id,
+                status=run.status,
+                baseline_commit=run.baseline_commit,
+                configuration=config,
+            )
+
+    def classifier_dataset_items(
+        self,
+        *,
+        dataset_id: str,
+        dataset_version: str,
+    ) -> tuple[ClassifierDatasetRecord, ...]:
+        with self._factory() as session:
+            rows = tuple(
+                session.scalars(
+                    select(DatasetItemRow)
+                    .where(
+                        DatasetItemRow.dataset_id == dataset_id,
+                        DatasetItemRow.dataset_version == dataset_version,
+                    )
+                    .order_by(DatasetItemRow.event_id.asc())
+                )
+            )
+        return tuple(
+            ClassifierDatasetRecord(
+                database_id=row.id,
+                event_id=row.event_id,
+                normalized_input_sha256=row.normalized_input_sha256,
+            )
+            for row in rows
+        )
+
+    def next_agent_sequence(self, run_id: str) -> int:
+        with self._factory() as session:
+            maximum = session.scalar(
+                select(func.max(AgentCallRow.sequence_number)).where(AgentCallRow.run_id == run_id)
+            )
+        return int(maximum or 0) + 1
 
 
 class ResearchReadRepository:

@@ -51,6 +51,16 @@ class RQ2ClassifierEvent(BaseModel):
         )
 
 
+class RQ2ClassificationDecision(BaseModel):
+    """Run-neutral classifier response used by the dedicated RQ2 evaluator."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    classification: ClassificationLabel
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = Field(min_length=1, max_length=2000)
+
+
 class RQ2CapturedObservation(BaseModel):
     """Evaluator-only runtime capture consumed by the deterministic dataset builder."""
 

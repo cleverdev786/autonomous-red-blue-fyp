@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from agents.base import TypedReasoningAgent
 from agents.blue import CodeAnalysisAgent, MonitoringAgent, TriageAgent
-from llm.interface import StructuredGenerationProvider
+from llm.interface import StructuredGenerationProvider, require_research_recording_for_final_capable
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
 from schemas.blue_team import (
@@ -72,6 +72,7 @@ class BlueTeamFlow:
         self.target_registry = target_registry
         self.policy_engine = policy_engine
         self.limits = limits
+        require_research_recording_for_final_capable(provider)
         self.provider = provider
         self.audit_service = audit_service
         self.rule_engine = RuleEngine()

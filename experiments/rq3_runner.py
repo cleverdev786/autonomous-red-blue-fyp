@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
-import hashlib
 from pathlib import Path
-import time
-from typing import Any
 
 from sqlalchemy import func, select
 
 from agents.blue.patch_generation import PatchGenerationAgent
 from agents.blue.single_agent import SingleGeneralBlueAgent
-from llm.interface import StructuredGenerationProvider, StructuredModelT
+from llm.interface import StructuredGenerationProvider
+from llm.research_provider import ResearchRecordingProvider
 from orchestrator.limits import LimitExceededError, RunLimitTracker
 from orchestrator.patch_branch_flow import PatchBranchFlow, PatchBranchPolicyBlocked
 from orchestrator.patch_generation_flow import (
@@ -22,8 +19,7 @@ from orchestrator.patch_generation_flow import (
 )
 from orchestrator.policy_engine import PolicyEngine
 from schemas.blue_team import BlueTeamAnalysisResult
-from schemas.common import AgentRole, PatchDecision, ResearchQuestion, RunStatus, WorkflowState
-from schemas.experiment_results import AgentCallRecord, CostUsageStatus, TokenUsageStatus
+from schemas.common import AgentRole, PatchDecision, ResearchQuestion, RunStatus, RunType, WorkflowState
 from schemas.experiments import (
     BlueTeamMode,
     ExperimentConfiguration,
@@ -102,96 +98,6 @@ def validate_rq3_configuration_pair(
         )
 
 
-class _ResearchRecordingPatchProvider:
-    """Observe patch-generation provider calls without adding provider authority."""
-
-    def __init__(
-        self,
-        *,
-        delegate: StructuredGenerationProvider,
-        run_id: str,
-        config: ExperimentConfiguration,
-        write_repository: ExperimentWriteRepository,
-        first_sequence_number: int,
-    ) -> None:
-        self.delegate = delegate
-        self.run_id = run_id
-        self.config = config
-        self.write_repository = write_repository
-        self._next_sequence_number = first_sequence_number
-
-    def generate_structured(
-        self,
-        *,
-        role: AgentRole,
-        input_data: Mapping[str, Any],
-        response_model: type[StructuredModelT],
-    ) -> Mapping[str, Any] | StructuredModelT:
-        attempt_number = input_data.get("attempt_number")
-        if not isinstance(attempt_number, int) or attempt_number < 1:
-            raise RQ3RunnerError("patch-generation call lacks a valid attempt_number")
-
-        sequence = self._next_sequence_number
-        self._next_sequence_number += 1
-        started = time.monotonic()
-        try:
-            result = self.delegate.generate_structured(
-                role=role,
-                input_data=input_data,
-                response_model=response_model,
-            )
-        except Exception:
-            self._record_call(
-                role=role,
-                attempt_number=attempt_number,
-                sequence=sequence,
-                duration_ms=self._elapsed_ms(started),
-                status=RunStatus.FAILED,
-            )
-            raise
-        self._record_call(
-            role=role,
-            attempt_number=attempt_number,
-            sequence=sequence,
-            duration_ms=self._elapsed_ms(started),
-            status=RunStatus.COMPLETED,
-        )
-        return result
-
-    def _record_call(
-        self,
-        *,
-        role: AgentRole,
-        attempt_number: int,
-        sequence: int,
-        duration_ms: int,
-        status: RunStatus,
-    ) -> None:
-        digest = hashlib.sha256(self.run_id.encode("utf-8")).hexdigest()[:16]
-        self.write_repository.record_agent_call(
-            self.run_id,
-            AgentCallRecord(
-                call_id=f"rq3-patch-{attempt_number}-{sequence}-{digest}",
-                agent_role=role,
-                sequence_number=sequence,
-                provider=self.config.model.provider,
-                model_name=self.config.model.model_name,
-                duration_ms=duration_ms,
-                result_status=status,
-                patch_attempt_number=attempt_number,
-                input_tokens=None,
-                output_tokens=None,
-                token_usage_status=TokenUsageStatus.NOT_REPORTED,
-                estimated_cost=None,
-                cost_status=CostUsageStatus.NOT_REPORTED,
-            ),
-        )
-
-    @staticmethod
-    def _elapsed_ms(started: float) -> int:
-        return max(0, int((time.monotonic() - started) * 1000))
-
-
 class RQ3PatchRetryRunner:
     """Execute only the RQ3 patch/retry treatment from fixed prior Blue/Red evidence."""
 
@@ -237,13 +143,20 @@ class RQ3PatchRetryRunner:
             limits=limits,
         )
         self._require_fresh_patch_attempt_scope(run_id)
+        if config.run_type == RunType.FINAL_EVALUATION:
+            self._require_recorded_upstream_calls(
+                run_id=run_id,
+                config=config,
+                red_attempt_number=red_run.attempt_number,
+            )
 
-        recording_provider = _ResearchRecordingPatchProvider(
+        recording_provider = ResearchRecordingProvider(
             delegate=self.provider,
             run_id=run_id,
-            config=config,
+            model_configuration=config.model,
             write_repository=self.write_repository,
             first_sequence_number=self._next_agent_sequence(run_id),
+            require_verified_binding=(config.run_type == RunType.FINAL_EVALUATION),
         )
         patch_flow = self._patch_flow(
             config=config,
@@ -426,6 +339,51 @@ class RQ3PatchRetryRunner:
                 select(func.max(AgentCallRow.sequence_number)).where(AgentCallRow.run_id == run_id)
             )
         return int(maximum or 0) + 1
+
+
+    def _require_recorded_upstream_calls(
+        self,
+        *,
+        run_id: str,
+        config: ExperimentConfiguration,
+        red_attempt_number: int,
+    ) -> None:
+        with self.read_repository.session() as session:
+            rows = tuple(
+                session.scalars(
+                    select(AgentCallRow)
+                    .where(AgentCallRow.run_id == run_id)
+                    .order_by(AgentCallRow.sequence_number.asc())
+                )
+            )
+        red_rows = tuple(row for row in rows if row.red_attempt_number == red_attempt_number)
+        expected_red = {
+            AgentRole.RED_RECONNAISSANCE.value,
+            AgentRole.RED_ATTACK_PLANNER.value,
+            AgentRole.RED_ATTACK_VERIFIER.value,
+        }
+        if len(red_rows) != 3 or {row.agent_role for row in red_rows} != expected_red:
+            raise RQ3RunnerError("final RQ3 requires exactly recorded Red model-call evidence")
+        if any(row.result_status != RunStatus.COMPLETED.value for row in red_rows):
+            raise RQ3RunnerError("final RQ3 Red model-call evidence must be completed")
+
+        upstream = tuple(row for row in rows if row.red_attempt_number is None and row.patch_attempt_number is None)
+        if config.blue_team_mode == BlueTeamMode.SINGLE_AGENT:
+            if len(upstream) != 3 or any(
+                row.agent_role != AgentRole.BLUE_SINGLE_AGENT.value for row in upstream
+            ):
+                raise RQ3RunnerError("final single-agent RQ3 requires three recorded upstream Blue calls")
+        else:
+            expected_blue = {
+                AgentRole.BLUE_MONITORING.value,
+                AgentRole.BLUE_CODE_ANALYSIS.value,
+            }
+            if config.classification_mode.value != "rule_only":
+                expected_blue.add(AgentRole.BLUE_TRIAGE.value)
+            if len(upstream) != len(expected_blue) or {row.agent_role for row in upstream} != expected_blue:
+                raise RQ3RunnerError("final RQ3 requires complete recorded upstream Blue model-call evidence")
+        if any(row.result_status != RunStatus.COMPLETED.value for row in upstream):
+            raise RQ3RunnerError("final RQ3 upstream Blue model-call evidence must be completed")
 
     def _precheck_patch_attempt_budget(
         self,

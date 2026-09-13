@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from agents.base import TypedReasoningAgent
 from agents.red import AttackPlanningAgent, AttackVerificationAgent, ReconnaissanceAgent
-from llm.interface import StructuredGenerationProvider
+from llm.interface import StructuredGenerationProvider, require_research_recording_for_final_capable
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
 from schemas.common import WorkflowState
@@ -63,6 +63,7 @@ class RedTeamFlow:
         self.policy_engine = policy_engine
         self.limits = limits
         self.executor = executor
+        require_research_recording_for_final_capable(provider)
         self.provider = provider
         self.audit_service = audit_service
         self.reconnaissance_service = ReconnaissanceService(registry=target_registry)

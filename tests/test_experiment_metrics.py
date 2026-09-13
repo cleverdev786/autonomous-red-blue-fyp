@@ -18,6 +18,7 @@ from experiments.metrics import (
 )
 from schemas.blue_team import BlueTeamAnalysisResult, CodeFinding, TriageResult
 from schemas.common import AgentRole, ClassificationLabel, ResearchQuestion, RunStatus, RunType, WorkflowState
+from schemas.experiment_freeze import FinalEvaluationPreflightReceipt
 from schemas.experiment_results import AgentCallRecord, CostUsageStatus, RunProvenance, TokenUsageStatus
 from schemas.experiments import (
     BlueTeamMode,
@@ -42,6 +43,8 @@ from storage.repositories import (
     ExperimentWriteRepository,
     ResearchReadRepository,
     ScoreRepository,
+    canonical_model_json,
+    canonical_sha256,
 )
 
 
@@ -92,6 +95,34 @@ def _config(*, config_id: str, rq: ResearchQuestion, blue=BlueTeamMode.MULTI_AGE
     )
 
 
+def _synthetic_preflight(config: ExperimentConfiguration) -> FinalEvaluationPreflightReceipt:
+    rq2 = config.research_question == ResearchQuestion.RQ2
+    return FinalEvaluationPreflightReceipt(
+        freeze_id="synthetic-final-fixture",
+        freeze_manifest_sha256="1" * 64,
+        run_plan_entry_id=f"entry-{config.config_id}",
+        config_id=config.config_id,
+        configuration_sha256=canonical_sha256(canonical_model_json(config)),
+        research_question=config.research_question,
+        repetition_index=1,
+        framework_git_commit=BASE,
+        baseline_git_commit=BASE,
+        scenario_id=None if rq2 else "scenario-xss",
+        dataset_id="dataset-rq2" if rq2 else None,
+        scenario_version=None if rq2 else "scenario-v1",
+        dataset_version="dataset-v1" if rq2 else None,
+        prompt_set_version="p-v1",
+        schema_set_version="s-v1",
+        agent_configuration_version="a-v1",
+        context_policy_version="c-v1",
+        rule_version="rule-v1",
+        test_suite_version="tests-v1",
+        verification_policy_version="verify-v1",
+        environment_manifest_sha256="2" * 64,
+        python_version="3.12",
+    )
+
+
 def _run(write, config, run_id: str, *, start_offset: int = 0):
     write.create_configuration(config)
     write.create_run(
@@ -102,6 +133,11 @@ def _run(write, config, run_id: str, *, start_offset: int = 0):
         scenario_id=None if config.research_question == ResearchQuestion.RQ2 else "scenario-xss",
         dataset_id="dataset-rq2" if config.research_question == ResearchQuestion.RQ2 else None,
         started_at=START + timedelta(seconds=start_offset),
+        final_preflight=(
+            _synthetic_preflight(config)
+            if config.run_type == RunType.FINAL_EVALUATION
+            else None
+        ),
     )
     write.record_provenance(run_id, _prov(rq2=config.research_question == ResearchQuestion.RQ2))
     write.mark_running(run_id)

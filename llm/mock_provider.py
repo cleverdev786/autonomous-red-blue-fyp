@@ -16,6 +16,8 @@ from schemas.blue_team import (
     TriageResult,
 )
 from schemas.common import AgentRole, ClassificationLabel
+from schemas.experiments import ProviderDescriptor
+from schemas.rq2_dataset import RQ2ClassificationDecision
 from schemas.patches import PatchProposal
 from schemas.logging import LogReadResult
 from schemas.red_team import (
@@ -48,6 +50,18 @@ class MockProvider:
         self.blue_confidence = blue_confidence
         self.include_generated_patch_test = include_generated_patch_test
         self._call_roles: list[AgentRole] = []
+
+    @property
+    def descriptor(self) -> ProviderDescriptor:
+        return ProviderDescriptor(
+            provider="mock",
+            model_name="fixture",
+            temperature=0.0,
+            max_output_tokens=2000,
+            seed=None,
+            final_capable=False,
+            identity_verified=True,
+        )
 
     @property
     def call_roles(self) -> tuple[AgentRole, ...]:
@@ -84,9 +98,11 @@ class MockProvider:
             return self._monitoring(input_data)
 
         if role == AgentRole.BLUE_TRIAGE:
-            if response_model is not TriageResult:
-                raise MockProviderError("unexpected triage response model")
-            return self._triage(input_data)
+            if response_model is TriageResult:
+                return self._triage(input_data)
+            if response_model is RQ2ClassificationDecision:
+                return self._rq2_classification(input_data)
+            raise MockProviderError("unexpected triage response model")
 
         if role == AgentRole.BLUE_CODE_ANALYSIS:
             if response_model is not CodeFinding:
@@ -255,6 +271,22 @@ class MockProvider:
             "confidence": self.blue_confidence,
             "supporting_event_ids": supporting_ids,
             "reason": "Deterministic mock triage fixture over the supplied normalized evidence.",
+        }
+
+    def _rq2_classification(self, input_data: Mapping[str, Any]) -> Mapping[str, Any]:
+        allowed = {ClassificationLabel(value) for value in input_data.get("allowed_labels", [])}
+        if allowed != set(ClassificationLabel):
+            raise MockProviderError("RQ2 input did not contain the frozen label set")
+        classification = self.blue_classification
+        rule_result = input_data.get("rule_result")
+        if classification is None and isinstance(rule_result, Mapping):
+            classification = ClassificationLabel(rule_result["classification"])
+        if classification is None:
+            classification = ClassificationLabel.UNKNOWN
+        return {
+            "classification": classification.value,
+            "confidence": self.blue_confidence,
+            "reason": "Deterministic mock RQ2 classification over classifier-visible input.",
         }
 
     @classmethod

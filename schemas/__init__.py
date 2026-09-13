@@ -33,6 +33,7 @@ from schemas.experiments import (
     ExperimentLimits,
     ExperimentRunSummary,
     ModelConfiguration,
+    ProviderDescriptor,
     RetryFeedbackMode,
 )
 from schemas.experience import (
@@ -41,11 +42,23 @@ from schemas.experience import (
     SelectionDecision,
     StrategyHistoryObservation,
 )
+from schemas.experiment_freeze import (
+    EnvironmentManifest,
+    ExperimentFreezeManifest,
+    ExperimentRunPlan,
+    FinalEvaluationPreflightReceipt,
+    FrozenConfigurationReference,
+    FrozenFileKind,
+    FrozenFileReference,
+    PromptAssetReference,
+    RunPlanEntry,
+)
 from schemas.git import GitPolicyConfig, PatchBranchResult
 from schemas.experiment_results import (
     AgentCallRecord,
     ArtifactType,
     CostUsageStatus,
+    ProviderCallUsage,
     RunProvenance,
     StageTimingRecord,
     TokenUsageStatus,
@@ -58,6 +71,7 @@ from schemas.logging import (
     AuditPolicyDecision,
     LogReadResult,
 )
+from schemas.prompts import PromptAsset
 from schemas.patches import (
     PatchGenerationResult,
     PatchProposal,
@@ -78,6 +92,7 @@ from schemas.scoring import (
 )
 from schemas.rq2_dataset import (
     RQ2CapturedObservation,
+    RQ2ClassificationDecision,
     RQ2ClassifierEvent,
     RQ2DatasetInputItem,
     RQ2DatasetManifest,
@@ -133,6 +148,13 @@ __all__ = [
     "ExperienceMode",
     "ExperienceSnapshot",
     "ExperienceSummary",
+    "EnvironmentManifest",
+    "ExperimentFreezeManifest",
+    "ExperimentRunPlan",
+    "FinalEvaluationPreflightReceipt",
+    "FrozenConfigurationReference",
+    "FrozenFileKind",
+    "FrozenFileReference",
     "GitPolicyConfig",
     "ExperimentConfiguration",
     "ExperimentLimits",
@@ -141,6 +163,10 @@ __all__ = [
     "LogReadResult",
     "ModelConfiguration",
     "MonitoringResult",
+    "PromptAsset",
+    "PromptAssetReference",
+    "ProviderCallUsage",
+    "ProviderDescriptor",
     "PatchDecision",
     "PatchBranchResult",
     "PatchGenerationResult",
@@ -161,7 +187,9 @@ __all__ = [
     "RestrictedReconnaissanceContext",
     "ResearchQuestion",
     "RetryFeedbackMode",
+    "RunPlanEntry",
     "RQ2CapturedObservation",
+    "RQ2ClassificationDecision",
     "RQ2ClassifierEvent",
     "RQ2DatasetInputItem",
     "RQ2DatasetManifest",

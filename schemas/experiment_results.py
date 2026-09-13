@@ -42,6 +42,36 @@ class CostUsageStatus(str, Enum):
     NOT_APPLICABLE = "not_applicable"
 
 
+class ProviderCallUsage(BaseModel):
+    """Telemetry returned by a provider adapter for its most recent call."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    token_usage_status: TokenUsageStatus = TokenUsageStatus.NOT_REPORTED
+    estimated_cost: Decimal | None = Field(default=None, ge=Decimal("0"))
+    cost_status: CostUsageStatus = CostUsageStatus.NOT_REPORTED
+    currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    pricing_version: Identifier | None = None
+
+    @model_validator(mode="after")
+    def telemetry_matches_status(self) -> "ProviderCallUsage":
+        if self.token_usage_status == TokenUsageStatus.REPORTED:
+            if self.input_tokens is None or self.output_tokens is None:
+                raise ValueError("reported token usage requires input_tokens and output_tokens")
+        elif self.input_tokens is not None or self.output_tokens is not None:
+            raise ValueError("unreported/not-applicable token usage cannot contain token counts")
+        if self.cost_status in {CostUsageStatus.PROVIDER_REPORTED, CostUsageStatus.DERIVED}:
+            if self.estimated_cost is None or self.currency is None:
+                raise ValueError("reported/derived cost requires estimated_cost and currency")
+            if self.cost_status == CostUsageStatus.DERIVED and self.pricing_version is None:
+                raise ValueError("derived cost requires pricing_version")
+        elif self.estimated_cost is not None or self.currency is not None or self.pricing_version is not None:
+            raise ValueError("unreported/not-applicable cost cannot contain cost metadata")
+        return self
+
+
 class StageTimingRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -75,11 +105,15 @@ class RunProvenance(BaseModel):
     software_versions: dict[Identifier, str] = Field(default_factory=dict, max_length=30)
     prompt_versions: dict[AgentRole, Identifier] = Field(default_factory=dict, max_length=20)
     random_seed: int | None = None
+    experiment_freeze_id: Identifier | None = None
+    freeze_manifest_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def require_exact_evaluation_version(self) -> "RunProvenance":
         if (self.scenario_version is None) == (self.dataset_version is None):
             raise ValueError("provenance requires exactly one of scenario_version or dataset_version")
+        if (self.experiment_freeze_id is None) != (self.freeze_manifest_sha256 is None):
+            raise ValueError("freeze provenance requires both freeze ID and manifest hash")
         return self
 
 

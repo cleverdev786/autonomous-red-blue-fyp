@@ -44,6 +44,21 @@ class ExperienceMode(str, Enum):
     ENABLED_EXPLORATORY = "enabled_exploratory"
 
 
+class ProviderDescriptor(BaseModel):
+    """Actual provider/model settings exposed by a trusted provider adapter."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    provider: Identifier
+    model_name: Identifier
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    max_output_tokens: int = Field(default=2000, ge=1, le=100_000)
+    seed: int | None = None
+    final_capable: bool = False
+    research_recording: bool = False
+    identity_verified: bool = False
+
+
 class ModelConfiguration(BaseModel):
     """Provider-neutral model settings recorded for reproducibility."""
 

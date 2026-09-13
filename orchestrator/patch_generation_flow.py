@@ -8,7 +8,7 @@ import time
 from typing import Any
 
 from agents.blue.patch_generation import PatchGenerationAgent
-from llm.interface import StructuredGenerationProvider
+from llm.interface import StructuredGenerationProvider, require_research_recording_for_final_capable
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
 from schemas.blue_team import BlueTeamAnalysisResult, SourceReadResult
@@ -50,6 +50,7 @@ class PatchGenerationFlow:
         self.target_registry = target_registry
         self.policy_engine = policy_engine
         self.limits = limits
+        require_research_recording_for_final_capable(provider)
         self.provider = provider
         self.audit_service = audit_service
         self.project_root = project_root.resolve(strict=False)
