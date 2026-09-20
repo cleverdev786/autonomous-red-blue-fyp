@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-asset-open",
+  "fixture_id": "dev-path-asset-open-02",
+  "fixture_version": "v1",
+  "input_fields": [
+    "asset"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "event_id": "dev-event-path-02",
+    "file_activity": "decoded path resolved outside the synthetic asset root",
+    "parameter": "asset",
+    "route": "/dev/assets/open",
+    "sample_value": "%2e%2e/%2e%2e/secrets/dev.txt",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-asset-open",
+      "safe_description": "Checks whether encoded parent components escape the asset root after decoding.",
+      "test_id": "dev-path-asset-encoded-002",
+      "vulnerability_class": "path_traversal"
+    },
+    {
+      "endpoint_id": "dev-asset-open",
+      "safe_description": "Checks whether asset identifiers alter a SQL predicate.",
+      "test_id": "dev-sqli-asset-id-002",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-asset-open",
+      "safe_description": "Checks whether asset captions are rendered as markup.",
+      "test_id": "dev-xss-asset-caption-002",
+      "vulnerability_class": "xss"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "from pathlib import Path\nfrom urllib.parse import unquote\n\nASSET_ROOT = Path(\"/srv/synthetic/assets\")\n\n\ndef open_asset(asset):\n    decoded = unquote(asset)\n    candidate = ASSET_ROOT / decoded\n    return candidate.read_bytes()\n",
+      "file_path": "synthetic_lab/app/asset_store.py"
+    },
+    {
+      "content": "def asset_kind(name):\n    return name.rsplit(\".\", 1)[-1].lower()\n",
+      "file_path": "synthetic_lab/app/asset_metadata.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

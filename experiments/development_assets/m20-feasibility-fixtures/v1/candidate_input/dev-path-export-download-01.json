@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-export-download",
+  "fixture_id": "dev-path-export-download-01",
+  "fixture_version": "v1",
+  "input_fields": [
+    "filename"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "event_id": "dev-event-path-01",
+    "file_activity": "read succeeded outside the synthetic export root",
+    "parameter": "filename",
+    "route": "/dev/exports/download",
+    "sample_value": "../../secrets/dev.txt",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-export-download",
+      "safe_description": "Checks whether parent-directory components escape the export root.",
+      "test_id": "dev-path-export-parent-001",
+      "vulnerability_class": "path_traversal"
+    },
+    {
+      "endpoint_id": "dev-export-download",
+      "safe_description": "Checks whether an export identifier alters a SQL predicate.",
+      "test_id": "dev-sqli-export-id-001",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-export-download",
+      "safe_description": "Checks whether export names are rendered as markup.",
+      "test_id": "dev-xss-export-name-001",
+      "vulnerability_class": "xss"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "from pathlib import Path\n\nEXPORT_ROOT = Path(\"/srv/synthetic/exports\")\n\n\ndef download_export(filename):\n    requested = EXPORT_ROOT / filename\n    return requested.read_bytes()\n",
+      "file_path": "synthetic_lab/app/export_files.py"
+    },
+    {
+      "content": "def export_label(filename):\n    return filename.rsplit(\"/\", 1)[-1]\n",
+      "file_path": "synthetic_lab/app/export_manifest.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

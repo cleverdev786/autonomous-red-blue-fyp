@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-manual-open",
+  "fixture_id": "dev-benign-safe-document-02",
+  "fixture_version": "v1",
+  "input_fields": [
+    "requested"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "event_id": "dev-event-benign-02",
+    "file_activity": "resolved path remained inside the synthetic manual root",
+    "parameter": "requested",
+    "route": "/dev/manuals/open",
+    "sample_value": "guide/intro.txt",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-manual-open",
+      "safe_description": "Synthetic traversal probe offered as a decoy for contained path handling.",
+      "test_id": "dev-path-manual-probe-002",
+      "vulnerability_class": "path_traversal"
+    },
+    {
+      "endpoint_id": "dev-manual-open",
+      "safe_description": "Synthetic SQLi probe offered as a decoy.",
+      "test_id": "dev-sqli-manual-id-002",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-manual-open",
+      "safe_description": "Synthetic XSS probe offered as a decoy.",
+      "test_id": "dev-xss-manual-title-002",
+      "vulnerability_class": "xss"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "from pathlib import Path\n\nMANUAL_ROOT = Path(\"/srv/synthetic/manuals\")\n\n\ndef open_manual(requested):\n    root = MANUAL_ROOT.resolve()\n    candidate = (root / requested).resolve()\n    candidate.relative_to(root)\n    return candidate.read_bytes()\n",
+      "file_path": "synthetic_lab/app/manual_store.py"
+    },
+    {
+      "content": "def manual_label(path):\n    return path.rsplit(\"/\", 1)[-1]\n",
+      "file_path": "synthetic_lab/app/manual_index.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

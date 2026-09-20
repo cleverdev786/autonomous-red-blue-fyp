@@ -1,0 +1,16 @@
+{
+  "evaluator_only": true,
+  "fixture_ids": [
+    "dev-sqli-member-lookup-01",
+    "dev-sqli-invoice-load-02",
+    "dev-xss-badge-preview-01",
+    "dev-xss-note-render-02",
+    "dev-path-export-download-01",
+    "dev-path-asset-open-02",
+    "dev-benign-product-lookup-01",
+    "dev-benign-safe-document-02"
+  ],
+  "fixture_set_id": "m20-feasibility-fixtures",
+  "fixture_set_version": "v1",
+  "truth_bundle_sha256": "c3927af2124361cc145dc766307059f904369ad3f86445e9124af88d92176e70"
+}

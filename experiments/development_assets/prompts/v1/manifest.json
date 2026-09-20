@@ -1,0 +1,50 @@
+{
+  "development_only": true,
+  "final_evaluation_forbidden": true,
+  "manifest_id": "m20-feasibility-prompts-v1",
+  "prompt_bundle_sha256": "577c03e6bf47f1ba58ddce6b6e67404f37cfcb9d411e794555d4bf8ff0f79980",
+  "prompt_set_id": "m20-feasibility-prompts",
+  "references": [
+    {
+      "file_sha256": "58a88d4c444ec6e3cb57192a7084acb3fb54a9e5232610ebc1c344574afca179",
+      "path": "red-test-selection.json",
+      "prompt_id": "m20-dev-red-test-selection-v1",
+      "response_schema_id": "m20-dev-test-selection-response-v1",
+      "response_schema_sha256": "2bedcb5c6d8a46ed49513ab404df4b199b6f57e163c3e0bcd49f4d4ce9e4b683",
+      "role": "red_attack_planner",
+      "task": "test-selection",
+      "version": "v1"
+    },
+    {
+      "file_sha256": "cf73c36fecd602887dac93ca579cf64a17d807b671880aa2504737e49faa4bbd",
+      "path": "blue-classification-triage.json",
+      "prompt_id": "m20-dev-blue-classification-v1",
+      "response_schema_id": "m20-dev-classification-response-v1",
+      "response_schema_sha256": "05ec9f408f03a559be02996e04cebfd60c3ef79f9edfdaacdeca680531c5d10b",
+      "role": "blue_triage",
+      "task": "classification",
+      "version": "v1"
+    },
+    {
+      "file_sha256": "5fb2f9a39364a20993e61fc4a7f1eeb0fa705c9abbc36cfaf2c4b55e95f7dd4a",
+      "path": "blue-source-analysis.json",
+      "prompt_id": "m20-dev-blue-source-analysis-v1",
+      "response_schema_id": "m20-dev-source-analysis-response-v1",
+      "response_schema_sha256": "e133a10d49677e2b3d7e19fe01fb441b0136313d529c8b084e957ad3c8f534cd",
+      "role": "blue_code_analysis",
+      "task": "source-analysis",
+      "version": "v1"
+    },
+    {
+      "file_sha256": "c5089b54326cd750c325b1b9857f196c94db501442a8f433c1a143683582ea09",
+      "path": "blue-patch-generation.json",
+      "prompt_id": "m20-dev-blue-patch-generation-v1",
+      "response_schema_id": "m20-dev-patch-response-v1",
+      "response_schema_sha256": "17046f642400f90a829a99ec6d3b72c50b5e3b84505778e41e2f797dda33a28f",
+      "role": "blue_patch_generation",
+      "task": "patch-generation",
+      "version": "v1"
+    }
+  ],
+  "version": "v1"
+}

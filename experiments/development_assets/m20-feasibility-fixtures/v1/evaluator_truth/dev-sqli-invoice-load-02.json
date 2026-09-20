@@ -1,0 +1,33 @@
+{
+  "truth": {
+    "expected_classification": "sql_injection",
+    "expected_function_or_route": "load_invoice",
+    "expected_patch_decision": "accepted",
+    "expected_pre_patch_attack_confirmed": true,
+    "expected_registered_test_id": "dev-sqli-invoice-expression-002",
+    "expected_source_file": "synthetic_lab/app/invoice_store.py",
+    "expected_vulnerability_class": "sql_injection",
+    "fixture_id": "dev-sqli-invoice-load-02",
+    "fixture_version": "v1"
+  },
+  "verification": {
+    "allowed_import_roots": [],
+    "expected_parameters": [
+      "cursor",
+      "invoice_id"
+    ],
+    "path_root_name": null,
+    "profile": "sql_parameterized",
+    "required_check_ids": [
+      "patch-policy",
+      "syntax-startup",
+      "normal-functional",
+      "registered-security-test",
+      "original-replay",
+      "regression"
+    ],
+    "sql_placeholder": "?",
+    "tainted_parameter": null,
+    "target_function": "load_invoice"
+  }
+}

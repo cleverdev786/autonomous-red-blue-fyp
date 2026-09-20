@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-product-lookup",
+  "fixture_id": "dev-benign-product-lookup-01",
+  "fixture_version": "v1",
+  "input_fields": [
+    "product_id"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "db_activity": "single parameterized product lookup completed normally",
+    "event_id": "dev-event-benign-01",
+    "parameter": "product_id",
+    "route": "/dev/products/by-id",
+    "sample_value": "42",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-product-lookup",
+      "safe_description": "Synthetic SQLi probe offered as a decoy for an already parameterized lookup.",
+      "test_id": "dev-sqli-product-probe-001",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-product-lookup",
+      "safe_description": "Synthetic XSS probe offered as a decoy.",
+      "test_id": "dev-xss-product-name-001",
+      "vulnerability_class": "xss"
+    },
+    {
+      "endpoint_id": "dev-product-lookup",
+      "safe_description": "Synthetic traversal probe offered as a decoy.",
+      "test_id": "dev-path-product-export-001",
+      "vulnerability_class": "path_traversal"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "def lookup_product(cursor, product_id):\n    cursor.execute(\n        \"SELECT id, name FROM products WHERE id = ?\",\n        (product_id,),\n    )\n    return cursor.fetchone()\n",
+      "file_path": "synthetic_lab/app/product_store.py"
+    },
+    {
+      "content": "def cache_key(product_id):\n    return f\"product:{product_id}\"\n",
+      "file_path": "synthetic_lab/app/product_cache.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

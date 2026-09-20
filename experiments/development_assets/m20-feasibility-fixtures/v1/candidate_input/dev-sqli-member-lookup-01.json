@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-member-lookup",
+  "fixture_id": "dev-sqli-member-lookup-01",
+  "fixture_version": "v1",
+  "input_fields": [
+    "email"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "db_activity": "member lookup returned more than one row",
+    "event_id": "dev-event-sqli-01",
+    "parameter": "email",
+    "route": "/dev/members/lookup",
+    "sample_value": "alpha@example.test' OR '1'='1",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-member-lookup",
+      "safe_description": "Checks whether quote-based input changes the member query result set.",
+      "test_id": "dev-sqli-member-quote-001",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-member-lookup",
+      "safe_description": "Checks whether member input is reflected as executable markup.",
+      "test_id": "dev-xss-member-reflect-001",
+      "vulnerability_class": "xss"
+    },
+    {
+      "endpoint_id": "dev-member-lookup",
+      "safe_description": "Checks whether member input can escape a synthetic file root.",
+      "test_id": "dev-path-member-file-001",
+      "vulnerability_class": "path_traversal"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "def find_member_by_email(cursor, email):\n    query = \"SELECT id, email FROM members WHERE email = '\" + email + \"'\"\n    cursor.execute(query)\n    return cursor.fetchone()\n",
+      "file_path": "synthetic_lab/app/member_lookup.py"
+    },
+    {
+      "content": "def normalize_member_email(email):\n    return email.strip().lower()\n",
+      "file_path": "synthetic_lab/app/member_helpers.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}
