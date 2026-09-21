@@ -3,21 +3,27 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from experiments.feasibility_assets import FeasibilityAssetError, load_feasibility_assets
+import experiments.feasibility_readiness as readiness_module
 from experiments.feasibility_readiness import (
     V4_C4_API_MODEL_ID,
     V4_C4_API_ROUTE,
     V4_C4_CANDIDATE_ID,
     V4_CANDIDATE_IDS,
     FeasibilityReadinessError,
+    build_round_evidence_protection_manifest,
+    canonical_evidence_tree_sha256,
     derive_cloud_pacing,
+    evaluate_global_v4_readiness,
     expected_frozen_contract,
     frozen_cloud_request_input_byte_lengths,
+    require_global_v4_readiness,
     validate_v4_c4_zero_generation_readiness,
     validate_v4_local_carry_forward_reference,
 )
@@ -26,6 +32,8 @@ from schemas.feasibility import ProviderCandidateCategory
 from schemas.feasibility_readiness import (
     CloudQuotaSnapshot,
     CloudZeroGenerationReadinessV4,
+    GlobalReadinessDecision,
+    GlobalReadinessDecisionV4,
     LocalReadinessCarryForwardReferenceV4,
 )
 
@@ -305,3 +313,210 @@ def test_v4_readiness_schema_forbids_any_provider_or_generation_request() -> Non
     payload["generation_requests_made"] = 1
     with pytest.raises(ValidationError):
         CloudZeroGenerationReadinessV4.model_validate(payload)
+
+
+
+def _write_minimal_tree(root: Path, name: str, content: str) -> tuple[str, int]:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / name).write_text(content, encoding="utf-8")
+    return canonical_evidence_tree_sha256(root)
+
+
+def _global_v4_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    v2 = load_feasibility_assets(ASSET_ROOT, candidate_set_version="v2")
+    v4, c4 = _c4_readiness()
+    contract = expected_frozen_contract(assets=v4, selector_file=SELECTOR_FILE)
+
+    source_descriptors = tuple(
+        next(item for item in v2.candidates if item.spec.candidate_id == candidate_id)
+        for candidate_id in V4_CANDIDATE_IDS[:2]
+    )
+    references = []
+    synthetic_bindings = {}
+    for candidate_id, source in zip(V4_CANDIDATE_IDS[:2], source_descriptors, strict=True):
+        target = next(item for item in v4.candidates if item.spec.candidate_id == candidate_id)
+        readiness_root = tmp_path / candidate_id / "readiness"
+        inspection_root = tmp_path / candidate_id / "inspection"
+        readiness_sha, readiness_count = _write_minimal_tree(
+            readiness_root, "local-readiness.json", candidate_id
+        )
+        inspection_sha, inspection_count = _write_minimal_tree(
+            inspection_root, "inspection.txt", "PASS"
+        )
+        synthetic_bindings[candidate_id] = {
+            "readiness_sha256": readiness_sha,
+            "readiness_file_count": readiness_count,
+            "inspection_sha256": inspection_sha,
+            "inspection_file_count": inspection_count,
+        }
+        references.append(
+            LocalReadinessCarryForwardReferenceV4(
+                candidate_id=candidate_id,
+                source_readiness_reference=str(readiness_root),
+                source_readiness_bundle_sha256=readiness_sha,
+                source_inspection_reference=str(inspection_root),
+                source_inspection_bundle_sha256=inspection_sha,
+                source_candidate_descriptor_sha256=canonical_model_sha256(source),
+                target_candidate_descriptor_sha256=canonical_model_sha256(target),
+                source_readiness_passed=True,
+                source_evidence_immutable_verified=True,
+                identity_equivalent_verified=True,
+                source_generation_requests_made=0,
+                frozen_contract=contract,
+            )
+        )
+    monkeypatch.setattr(readiness_module, "V4_LOCAL_EVIDENCE_BINDINGS", synthetic_bindings)
+
+    c4_root = tmp_path / "c4-corrective"
+    c4_root.mkdir()
+    summary = {
+        "candidate_id": V4_C4_CANDIDATE_ID,
+        "model": V4_C4_API_MODEL_ID,
+        "result": "PASS",
+        "first_failed_readiness_attempt_preserved": True,
+        "c4_schema_readiness": "PASS",
+        "observed_quota": {"rpm": 15, "tpm": 250000, "rpd": 500, "tpd": None},
+        "derived_pacing": {
+            "effective_rpm": 12,
+            "effective_tpm": 200000,
+            "fixed_interval_seconds": 5.0,
+        },
+        "automatic_retries": 0,
+        "streaming": False,
+        "tools_enabled": False,
+        "grounding_enabled": False,
+        "thinking_config": "omitted",
+        "provider_requests_made": 0,
+        "generation_requests_made": 0,
+        "f2_f3_executed": False,
+        "global_barrier_evaluated": False,
+        "frozen_generation_settings_sha256": contract.generation_settings_sha256,
+        "response_schema_sha256": list(contract.response_schema_sha256),
+    }
+    (c4_root / "c4-readiness-result.json").write_text(
+        json.dumps(summary, sort_keys=True), encoding="utf-8"
+    )
+    (c4_root / "quota-screenshot-evidence.txt").write_text("quota evidence", encoding="utf-8")
+    (c4_root / "SHA256SUMS").write_text("preserved", encoding="utf-8")
+    c4_sha, c4_count = canonical_evidence_tree_sha256(c4_root)
+    monkeypatch.setattr(readiness_module, "V4_C4_CORRECTIVE_EVIDENCE_SHA256", c4_sha)
+    monkeypatch.setattr(readiness_module, "V4_C4_CORRECTIVE_EVIDENCE_FILE_COUNT", c4_count)
+
+    round1_root = tmp_path / "round1"
+    for candidate_id in readiness_module.ROUND1_CANDIDATE_IDS:
+        candidate_root = round1_root / candidate_id
+        candidate_root.mkdir(parents=True)
+        (candidate_root / "result.txt").write_text(candidate_id, encoding="utf-8")
+    manifest = build_round_evidence_protection_manifest(
+        evidence_root=round1_root,
+        round_id=readiness_module.ROUND1_PROTECTION_ROUND_ID,
+    )
+    manifest_path = tmp_path / "round1-manifest.json"
+    manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+    monkeypatch.setattr(
+        readiness_module,
+        "ROUND1_PROTECTION_MANIFEST_SHA256",
+        hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        readiness_module, "ROUND1_PROTECTION_BUNDLE_SHA256", manifest.bundle_sha256
+    )
+    monkeypatch.setattr(readiness_module, "ROUND1_PROTECTION_FILE_COUNT", manifest.file_count)
+
+    kwargs = {
+        "assets": v4,
+        "asset_root": ASSET_ROOT,
+        "selector_file": SELECTOR_FILE,
+        "source_descriptors": source_descriptors,
+        "local_references": tuple(references),
+        "c4_evidence": c4,
+        "c4_corrective_evidence_root": c4_root,
+        "round1_evidence_root": round1_root,
+        "round1_protection_manifest_path": manifest_path,
+        "v3_discovery_none_preserved": True,
+        "local_readiness_runtime_inactive_verified": True,
+        "pre_inference_generation_absent": True,
+    }
+    return kwargs, summary
+
+
+def test_v4_global_readiness_barrier_passes_only_immutable_zero_generation_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kwargs, _ = _global_v4_fixture(tmp_path, monkeypatch)
+    decision = evaluate_global_v4_readiness(**kwargs)
+    assert decision == GlobalReadinessDecisionV4(
+        candidate_ids=V4_CANDIDATE_IDS,
+        ready=True,
+        failure_reasons=(),
+        total_generation_requests_made=0,
+    )
+    require_global_v4_readiness(decision)
+
+
+def test_v4_global_readiness_rejects_immutable_evidence_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kwargs, _ = _global_v4_fixture(tmp_path, monkeypatch)
+    l3_root = Path(kwargs["local_references"][0].source_readiness_reference)
+    (l3_root / "local-readiness.json").write_text("tampered", encoding="utf-8")
+    decision = evaluate_global_v4_readiness(**kwargs)
+    assert decision.ready is False
+    assert any("immutable evidence tree digest mismatch" in reason for reason in decision.failure_reasons)
+    with pytest.raises(FeasibilityReadinessError, match="v4 inference blocked"):
+        require_global_v4_readiness(decision)
+
+
+def test_v4_global_readiness_rejects_c4_history_or_summary_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kwargs, summary = _global_v4_fixture(tmp_path, monkeypatch)
+    c4_root = kwargs["c4_corrective_evidence_root"]
+    summary["first_failed_readiness_attempt_preserved"] = False
+    (c4_root / "c4-readiness-result.json").write_text(
+        json.dumps(summary, sort_keys=True), encoding="utf-8"
+    )
+    updated_sha, updated_count = canonical_evidence_tree_sha256(c4_root)
+    monkeypatch.setattr(readiness_module, "V4_C4_CORRECTIVE_EVIDENCE_SHA256", updated_sha)
+    monkeypatch.setattr(readiness_module, "V4_C4_CORRECTIVE_EVIDENCE_FILE_COUNT", updated_count)
+    decision = evaluate_global_v4_readiness(**kwargs)
+    assert decision.ready is False
+    assert any(
+        "first_failed_readiness_attempt_preserved" in reason
+        for reason in decision.failure_reasons
+    )
+
+
+def test_v4_global_readiness_rejects_v3_runtime_or_generation_preconditions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kwargs, _ = _global_v4_fixture(tmp_path, monkeypatch)
+    for update, expected in (
+        ({"v3_discovery_none_preserved": False}, "V3-DISCOVERY-NONE"),
+        ({"local_readiness_runtime_inactive_verified": False}, "runtime inactivity"),
+        ({"pre_inference_generation_absent": False}, "pre-inference generation"),
+    ):
+        decision = evaluate_global_v4_readiness(**(kwargs | update))
+        assert decision.ready is False
+        assert any(expected in reason for reason in decision.failure_reasons)
+
+
+def test_v4_global_readiness_rejects_unexpected_v3_repository_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kwargs, _ = _global_v4_fixture(tmp_path, monkeypatch)
+    synthetic_assets = tmp_path / "assets"
+    (synthetic_assets / "candidates" / "v3").mkdir(parents=True)
+    decision = evaluate_global_v4_readiness(**(kwargs | {"asset_root": synthetic_assets}))
+    assert decision.ready is False
+    assert any("v3 repository assets unexpectedly exist" in reason for reason in decision.failure_reasons)
+
+
+def test_v2_global_readiness_contract_remains_v2_only() -> None:
+    with pytest.raises(ValidationError):
+        GlobalReadinessDecision(
+            candidate_set_version="v4",
+            candidate_ids=V4_CANDIDATE_IDS,
+            ready=True,
+            total_generation_requests_made=0,
+        )

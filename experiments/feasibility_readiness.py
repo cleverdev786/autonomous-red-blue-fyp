@@ -24,6 +24,7 @@ from schemas.feasibility_readiness import (
     EvidenceFileDigest,
     FrozenContractEvidence,
     GlobalReadinessDecision,
+    GlobalReadinessDecisionV4,
     LocalReadinessCarryForwardReferenceV4,
     LocalZeroInferenceReadiness,
     RoundEvidenceProtectionManifest,
@@ -62,6 +63,32 @@ V4_C4_OBSERVED_RPD = 500
 V4_C4_EFFECTIVE_RPM = 12
 V4_C4_EFFECTIVE_TPM = 200_000
 V4_C4_FIXED_INTERVAL_SECONDS = 5.0
+V4_LOCAL_EVIDENCE_BINDINGS = {
+    "l3-qwen2.5-coder-7b-instruct-q4-k-m": {
+        "readiness_sha256": "6a88642b6827c63d2e827fbb2d826da7538efbaf741643dffafd86d6a18f1ba4",
+        "readiness_file_count": 57,
+        "inspection_sha256": "c3c922f84ff5dec4a803c6e1e29cc32d1c8ad5cff9f2f816979b0996bf738c03",
+        "inspection_file_count": 2,
+    },
+    "l4-gemma3-12b-it-q4-k-m": {
+        "readiness_sha256": "b7bd936b57ac6cd0249b203cd976dce887d562401a8cb91d0f231c78d0b2a854",
+        "readiness_file_count": 60,
+        "inspection_sha256": "9d8005590cbc1e05a653cebb256a59b0d3f0a17c0a6b97494f1a2430dc8a6f45",
+        "inspection_file_count": 2,
+    },
+}
+V4_C4_CORRECTIVE_EVIDENCE_SHA256 = (
+    "c9255ab99af987108c72aedc5232143cad0b0e7063bddbfcbbba3bb88e9b2a11"
+)
+V4_C4_CORRECTIVE_EVIDENCE_FILE_COUNT = 3
+ROUND1_PROTECTION_MANIFEST_SHA256 = (
+    "80b4a41cb25eb32e151c7868d7a7832e9466c934ae9e75aaa9e63d9a1dc949bd"
+)
+ROUND1_PROTECTION_BUNDLE_SHA256 = (
+    "966f9391b5ab6ca3090e827364ec5b6fb6ce3af6bbd8b88ffc3efd130aed867d"
+)
+ROUND1_PROTECTION_FILE_COUNT = 727
+ROUND1_PROTECTION_ROUND_ID = "m20-development-feasibility-round-1"
 FROZEN_SELECTOR_FILE_SHA256 = (
     "2fcc1b5cf83ea36ff74b7b27c1fdfee8420ee13cd579735b269500568992151a"
 )
@@ -77,6 +104,44 @@ def _canonical_sha256(value: object) -> str:
         value = value.model_dump(mode="json")
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def canonical_evidence_tree_sha256(evidence_root: Path) -> tuple[str, int]:
+    """Hash an immutable evidence tree by relative path and per-file SHA-256."""
+    if evidence_root.is_symlink():
+        raise FeasibilityReadinessError("evidence tree root cannot be a symlink")
+    try:
+        root = evidence_root.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise FeasibilityReadinessError("immutable evidence tree is missing") from exc
+    if not root.is_dir():
+        raise FeasibilityReadinessError("immutable evidence tree must be a directory")
+
+    digest = hashlib.sha256()
+    file_count = 0
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            raise FeasibilityReadinessError("immutable evidence tree forbids symlinks")
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root).as_posix()
+        digest.update(f"{_sha256_file(path)}  ./{relative}\n".encode("utf-8"))
+        file_count += 1
+    if file_count == 0:
+        raise FeasibilityReadinessError("immutable evidence tree cannot be empty")
+    return digest.hexdigest(), file_count
+
+
+def verify_immutable_evidence_tree_digest(
+    *,
+    evidence_root: Path,
+    expected_sha256: str,
+    expected_file_count: int,
+) -> None:
+    """Require exact immutable evidence-tree path/content identity."""
+    actual_sha256, actual_file_count = canonical_evidence_tree_sha256(evidence_root)
+    if actual_sha256 != expected_sha256 or actual_file_count != expected_file_count:
+        raise FeasibilityReadinessError("immutable evidence tree digest mismatch")
 
 
 def build_round_evidence_protection_manifest(
@@ -358,6 +423,192 @@ def validate_v4_c4_zero_generation_readiness(
         or expected_pacing.fixed_interval_seconds != V4_C4_FIXED_INTERVAL_SECONDS
     ):
         raise FeasibilityReadinessError("C4 approved 12-RPM/5-second pacing is not reproduced")
+
+def _validate_c4_corrective_evidence_summary(
+    *,
+    evidence_root: Path,
+    expected_contract: FrozenContractEvidence,
+) -> None:
+    """Bind the v4 barrier to the approved corrective C4 PASS summary without re-running it."""
+    summary_path = evidence_root / "c4-readiness-result.json"
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise FeasibilityReadinessError("C4 corrective readiness summary is unreadable") from exc
+
+    required = {
+        "candidate_id": V4_C4_CANDIDATE_ID,
+        "model": V4_C4_API_MODEL_ID,
+        "result": "PASS",
+        "first_failed_readiness_attempt_preserved": True,
+        "c4_schema_readiness": "PASS",
+        "automatic_retries": 0,
+        "streaming": False,
+        "tools_enabled": False,
+        "grounding_enabled": False,
+        "thinking_config": "omitted",
+        "provider_requests_made": 0,
+        "generation_requests_made": 0,
+        "f2_f3_executed": False,
+        "global_barrier_evaluated": False,
+        "frozen_generation_settings_sha256": expected_contract.generation_settings_sha256,
+        "response_schema_sha256": list(expected_contract.response_schema_sha256),
+    }
+    for key, expected in required.items():
+        if payload.get(key) != expected:
+            raise FeasibilityReadinessError(f"C4 corrective readiness summary mismatch: {key}")
+
+    quota = payload.get("observed_quota")
+    if quota != {"rpm": 15, "tpm": 250_000, "rpd": 500, "tpd": None}:
+        raise FeasibilityReadinessError("C4 corrective readiness quota summary differs")
+    pacing = payload.get("derived_pacing")
+    if pacing != {
+        "effective_rpm": V4_C4_EFFECTIVE_RPM,
+        "effective_tpm": V4_C4_EFFECTIVE_TPM,
+        "fixed_interval_seconds": V4_C4_FIXED_INTERVAL_SECONDS,
+    }:
+        raise FeasibilityReadinessError("C4 corrective readiness pacing summary differs")
+
+
+def evaluate_global_v4_readiness(
+    *,
+    assets: LoadedFeasibilityAssets,
+    asset_root: Path,
+    selector_file: Path,
+    source_descriptors: tuple[FeasibilityCandidateDescriptor, FeasibilityCandidateDescriptor],
+    local_references: tuple[
+        LocalReadinessCarryForwardReferenceV4,
+        LocalReadinessCarryForwardReferenceV4,
+    ],
+    c4_evidence: CloudZeroGenerationReadinessV4,
+    c4_corrective_evidence_root: Path,
+    round1_evidence_root: Path,
+    round1_protection_manifest_path: Path,
+    v3_discovery_none_preserved: bool,
+    local_readiness_runtime_inactive_verified: bool,
+    pre_inference_generation_absent: bool,
+) -> GlobalReadinessDecisionV4:
+    """Aggregate immutable v4 readiness evidence without dispatching model inference."""
+    failures: list[str] = []
+
+    expected_ids = assets.candidate_manifest.candidate_ids
+    if assets.candidate_manifest.manifest_version != "v4":
+        failures.append("candidate manifest is not v4")
+    if expected_ids != V4_CANDIDATE_IDS:
+        failures.append("v4 candidate IDs differ from the approved set")
+
+    try:
+        expected_contract = expected_frozen_contract(assets=assets, selector_file=selector_file)
+    except FeasibilityReadinessError as exc:
+        failures.append(str(exc))
+        expected_contract = None
+
+    # Preserve the completed Round-1 evidence with its exact historical protection manifest.
+    try:
+        if _sha256_file(round1_protection_manifest_path) != ROUND1_PROTECTION_MANIFEST_SHA256:
+            raise FeasibilityReadinessError("Round-1 protection manifest SHA mismatch")
+        manifest = RoundEvidenceProtectionManifest.model_validate_json(
+            round1_protection_manifest_path.read_text(encoding="utf-8")
+        )
+        if (
+            manifest.round_id != ROUND1_PROTECTION_ROUND_ID
+            or manifest.candidate_ids != ROUND1_CANDIDATE_IDS
+            or manifest.file_count != ROUND1_PROTECTION_FILE_COUNT
+            or manifest.bundle_sha256 != ROUND1_PROTECTION_BUNDLE_SHA256
+        ):
+            raise FeasibilityReadinessError("Round-1 protection manifest identity differs")
+        verify_round_evidence_protection_manifest(
+            evidence_root=round1_evidence_root,
+            manifest=manifest,
+        )
+    except (OSError, ValueError, FeasibilityReadinessError) as exc:
+        failures.append(f"Round-1 evidence protection failed: {exc}")
+
+    source_by_id = {item.spec.candidate_id: item for item in source_descriptors}
+    reference_by_id = {item.candidate_id: item for item in local_references}
+    if set(source_by_id) != set(V4_CANDIDATE_IDS[:2]):
+        failures.append("v2 source descriptors do not cover exactly L3/L4")
+    if set(reference_by_id) != set(V4_CANDIDATE_IDS[:2]):
+        failures.append("v4 local carry-forward references do not cover exactly L3/L4")
+
+    for candidate_id in V4_CANDIDATE_IDS[:2]:
+        source = source_by_id.get(candidate_id)
+        reference = reference_by_id.get(candidate_id)
+        if source is None or reference is None:
+            continue
+        try:
+            validate_v4_local_carry_forward_reference(
+                assets=assets,
+                selector_file=selector_file,
+                source_descriptor=source,
+                reference=reference,
+            )
+            binding = V4_LOCAL_EVIDENCE_BINDINGS[candidate_id]
+            if reference.source_readiness_bundle_sha256 != binding["readiness_sha256"]:
+                raise FeasibilityReadinessError(
+                    f"{candidate_id}: recorded readiness evidence digest differs"
+                )
+            if reference.source_inspection_bundle_sha256 != binding["inspection_sha256"]:
+                raise FeasibilityReadinessError(
+                    f"{candidate_id}: recorded inspection evidence digest differs"
+                )
+            verify_immutable_evidence_tree_digest(
+                evidence_root=Path(reference.source_readiness_reference),
+                expected_sha256=binding["readiness_sha256"],
+                expected_file_count=int(binding["readiness_file_count"]),
+            )
+            verify_immutable_evidence_tree_digest(
+                evidence_root=Path(reference.source_inspection_reference),
+                expected_sha256=binding["inspection_sha256"],
+                expected_file_count=int(binding["inspection_file_count"]),
+            )
+        except (KeyError, FeasibilityReadinessError) as exc:
+            failures.append(f"{candidate_id}: carry-forward evidence failed: {exc}")
+
+    if expected_contract is not None:
+        try:
+            validate_v4_c4_zero_generation_readiness(
+                assets=assets,
+                selector_file=selector_file,
+                evidence=c4_evidence,
+            )
+            verify_immutable_evidence_tree_digest(
+                evidence_root=c4_corrective_evidence_root,
+                expected_sha256=V4_C4_CORRECTIVE_EVIDENCE_SHA256,
+                expected_file_count=V4_C4_CORRECTIVE_EVIDENCE_FILE_COUNT,
+            )
+            _validate_c4_corrective_evidence_summary(
+                evidence_root=c4_corrective_evidence_root,
+                expected_contract=expected_contract,
+            )
+        except FeasibilityReadinessError as exc:
+            failures.append(f"C4 corrective readiness evidence failed: {exc}")
+
+    if not v3_discovery_none_preserved:
+        failures.append("V3-DISCOVERY-NONE continuity is not verified")
+    if (asset_root / "candidates" / "v3").exists() or (
+        asset_root / "execution-plan-v3.json"
+    ).exists():
+        failures.append("v3 repository assets unexpectedly exist")
+    if not local_readiness_runtime_inactive_verified:
+        failures.append("local readiness runtime inactivity is not verified")
+    if not pre_inference_generation_absent:
+        failures.append("new v4 pre-inference generation evidence exists")
+
+    return GlobalReadinessDecisionV4(
+        candidate_ids=expected_ids,
+        ready=not failures,
+        failure_reasons=tuple(failures),
+        total_generation_requests_made=0,
+    )
+
+
+def require_global_v4_readiness(decision: GlobalReadinessDecisionV4) -> None:
+    """Block Candidate Set v4 feasibility inference unless the zero-generation barrier passed."""
+    if not decision.ready or decision.total_generation_requests_made != 0:
+        reasons = "; ".join(decision.failure_reasons) or "readiness barrier did not pass"
+        raise FeasibilityReadinessError("Candidate Set v4 inference blocked: " + reasons)
+
 
 def evaluate_global_round2_readiness(
     *,

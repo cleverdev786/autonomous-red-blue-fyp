@@ -243,3 +243,15 @@ class GlobalReadinessDecision(BaseModel):
     ready: bool
     failure_reasons: tuple[str, ...] = ()
     total_generation_requests_made: Literal[0] = 0
+
+
+class GlobalReadinessDecisionV4(BaseModel):
+    """Fail-closed Candidate Set v4 barrier evaluated before any feasibility inference."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_set_version: Literal["v4"] = "v4"
+    candidate_ids: tuple[Identifier, Identifier, Identifier]
+    ready: bool
+    failure_reasons: tuple[str, ...] = ()
+    total_generation_requests_made: Literal[0] = 0
