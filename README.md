@@ -6,17 +6,32 @@ Final Year Project:
 
 ## Current Status
 
-**Milestone 19 - RQ3 Structured Feedback Retry: IMPLEMENTED, TESTED, and RUNTIME VERIFIED locally; documentation finalization in progress.**
+**Milestone 20 - Experiment Freeze / DEVELOPMENT Feasibility Candidate Selection: Candidate Set v4 repository support has passed IMPLEMENT, focused TEST, and VERIFY. The v4 DOCUMENT checkpoint is updated locally; C4 live zero-generation readiness has not been run.**
 
-Milestones 1-18 are permanently complete. Milestone 18 is committed at `aa58d89` (`aa58d8941cdca6cf371090b62236104e6967ff60`) as `Complete Milestone 18 frozen RQ2 classification dataset`.
+Milestones 1-19 are permanently complete. Milestone 19 is committed at `8a62232` (`8a62232e256699cc6a5e385cbb6267a4a06ae01c`) as `Complete Milestone 19 structured feedback retry`. Milestone 20 work is on branch `m20-work`; the preserved pre-v4 WIP checkpoint is `1b67c0c` (`1b67c0caee99e469ec1ab66818cb7c4cbb1668d6`).
 
-Milestone 19 implements the optional secondary RQ3 comparison between `RetryFeedbackMode.NONE` and `RetryFeedbackMode.STRUCTURED`. RQ3 retry begins only after a deterministic verified `REJECTED` patch attempt with baseline restoration and remaining shared budget. `ACCEPTED`, `FAILED`, and `POLICY_BLOCKED` remain terminal and do not automatically retry. The retry path reuses the original Blue analysis/source context, the stored baseline commit, and one shared `RunLimitTracker`; it does not rerun Blue analysis or reset attempt/model/runtime budgets.
+The frozen `feasibility-v1` protocol remains unchanged: eight synthetic DEVELOPMENT fixtures, evaluator truth separated from candidate-visible inputs, four fixed role prompts/response schemas, `F2 = 30`, `F3 = 45`, and `75` logical calls per candidate. Generation settings remain `context=8192`, `max_output=4096`, `temperature=0.7`, `top_p=0.8`, `top_k=20`, `seed=null`, non-streaming, zero automatic retries, tools disabled, grounding disabled, and a 600-second request timeout.
 
-Structured feedback is derived internally from only the immediately previous attempt (`N-1 -> N`) using typed verification evidence. Raw stdout/stderr, pytest output, traceback text, shell output, unrestricted exception text, and unrestricted patch diffs are not forwarded to the model. Under the current evidence model, `regression_failure_ids` remains empty; `original_replay_succeeded` means the original exploit replay completed without timeout and exploit evidence was observed.
+Candidate-set history remains explicit and immutable:
 
-The primary RQ3 second-attempt acceptance denominator is **all actual second attempts**, including `ACCEPTED`, `REJECTED`, `POLICY_BLOCKED`, `FAILED`, and genuinely interrupted/incomplete attempts. These outcomes remain separate in reporting. `repeated_failure_rate` means second-attempt `REJECTED` divided by all actual second attempts. Any evaluable-only acceptance rate is secondary and cannot replace the primary denominator.
+```text
+v1: L1/L2 failed semantic feasibility; C1 was quota-confounded; no candidate selected.
+v2: L3 readiness PASS; L4 readiness PASS; C2 NOT READY because observed RPD 20 < 75.
+v3: bounded 3-provider × 2-model documentation screen ended V3-DISCOVERY-NONE; v3 was never instantiated in repository assets.
+v4: exact L3 + exact L4 + C4 gemini-3.1-flash-lite (zero_cost_cloud).
+```
 
-Development-laptop TEST evidence: 56 focused M19 tests passed; 222 affected M12-M18 regression tests passed; the complete suite passed 313 tests with only the existing non-failing Starlette deprecation warning. Runtime VERIFY used disposable DEVELOPMENT research storage and disposable Git evidence only. It proved the actual `REJECTED -> PATCH_GENERATING` transition, real baseline restoration, shared budgets, NONE/STRUCTURED treatment separation, safe feedback linkage, begun-retry persistence, `NULL / NOT_REPORTED` token/cost telemetry, five-way second-attempt outcome retention, exactly 20 SQLAlchemy tables, unchanged M18 RQ2 dataset hashes, and zero actual `FINAL_EVALUATION` experiments.
+For C4, static schema readiness is resolved as `C4_SCHEMA_READINESS = PASS` under the already-frozen interpretation: the exact schemas remain unchanged, provider-native enforcement of every annotation keyword was never required, and deterministic local Pydantic validation remains authoritative. No provider-specialized schema transform was introduced.
+
+The approved v4 repository-support patch SHA-256 is:
+
+```text
+7494fbabd6d708302283e36cdcdbeeecec5e8fa71c3f848bd2cfb1e012bca10b
+```
+
+Focused v2+v4 TEST passed `20/20`. VERIFY confirmed the exact 10-file implementation scope, v4 descriptor bundle SHA-256 `6c7c83445d002a7b6b38c69933f826d472a51ff42a36aa2892f75db947d0455d`, exact L3/L4 identity carry-forward from v2 except for the explicit descriptor version, frozen v1/v2 repository-byte preservation, frozen feasibility-v1 hash/schedule equivalence, v3 remaining uninstantiated, zero provider/generation request literals, and no v4 global-readiness execution path.
+
+The approved C4 quota design is `15 RPM / 250K TPM / 500 RPD`; the already-frozen 20% headroom derivation is therefore `12 effective RPM / 200K effective TPM / 5-second fixed pacing`. This is representation only: **C4 zero-generation readiness has not been executed, provider requests remain 0, generation requests remain 0, no v4 global barrier has been implemented/evaluated, and no F2/F3 feasibility generation has begun.**
 
 The permanent M18 RQ2 dataset remains frozen and unchanged:
 
@@ -26,7 +41,7 @@ ground_truth.jsonl 376cac8cbf7963aa0630f0a2437f555d56861c945beda2a0ffdb63f473917
 manifest.json       8131e0ad2a40a6963fe9f405445352ce8af287f6ab41297f80ebba0735e31345
 ```
 
-No real RQ1/RQ2/RQ3 final experiment has been run. M20 remains locked pending explicit approval after M19 documentation, staged review, and commit.
+No real RQ1/RQ2/RQ3 final experiment has been run. C4 readiness, any v4 global barrier, B5/RQ1-K/RQ3 derivation, M21, and final experiments remain locked behind explicit later gates.
 
 ## Approved Scope
 
@@ -332,6 +347,6 @@ See `docs/SECURITY_TEST_HARNESS.md`.
 
 ## Next Task
 
-**Perform the exact final staged Git review for Milestone 18.**
+**Review and approve the Milestone 20 Candidate Set v4 DOCUMENT diff before any staging or commit.**
 
-Stage only the verified M18 implementation, the exact promoted `rq2-classification` / `v1` dataset artifacts, and this documentation finalization. Prove the exact staged path scope and dataset SHA-256 values, run staged whitespace/integrity checks and the final regression gate, and commit only after every staged Git gate passes. Do not run Rule/LLM/Hybrid classification, final experiments, or begin Milestone 19 before the M18 commit is confirmed.
+After documentation approval, perform only the exact staged Git review for the verified v4 implementation + documentation checkpoint. Preserve all v1/v2/v3 evidence including `V3-DISCOVERY-NONE`, prove the staged path scope and frozen protocol hashes, run staged whitespace/integrity checks, and commit only after that staged gate is explicitly approved. Do not run C4 zero-generation readiness, make provider calls, implement/evaluate a v4 global barrier, execute F2/F3, derive B5/RQ1-K/RQ3, begin M21, or run final experiments.

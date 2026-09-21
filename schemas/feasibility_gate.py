@@ -114,7 +114,7 @@ class FeasibilityCandidateDescriptor(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    descriptor_version: Literal["v1", "v2"] = "v1"
+    descriptor_version: Literal["v1", "v2", "v4"] = "v1"
     feasibility_only: Literal[True] = True
     spec: ProviderCandidateSpec
     runtime_kind: FeasibilityRuntimeKind

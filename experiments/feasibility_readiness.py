@@ -1,4 +1,4 @@
-"""Fail-closed zero-inference readiness for M20 DEVELOPMENT candidate-set v2."""
+"""Fail-closed zero-inference readiness for M20 DEVELOPMENT candidate sets."""
 
 from __future__ import annotations
 
@@ -9,18 +9,22 @@ from pathlib import Path
 
 from experiments.feasibility_assets import LoadedFeasibilityAssets
 from experiments.feasibility_role_calls import (
+    build_role_call_slots,
     canonical_model_sha256,
     generation_settings_sha256,
+    prepare_role_call,
     response_schema_sha256,
 )
-from schemas.feasibility_gate import FeasibilityRuntimeKind
+from schemas.feasibility_gate import FeasibilityCandidateDescriptor, FeasibilityRuntimeKind
 from schemas.feasibility_readiness import (
     CloudPacingPlan,
     CloudQuotaSnapshot,
+    CloudZeroGenerationReadinessV4,
     CloudZeroInferenceReadiness,
     EvidenceFileDigest,
     FrozenContractEvidence,
     GlobalReadinessDecision,
+    LocalReadinessCarryForwardReferenceV4,
     LocalZeroInferenceReadiness,
     RoundEvidenceProtectionManifest,
 )
@@ -41,6 +45,23 @@ ROUND2_CANDIDATE_IDS = (
     "l4-gemma3-12b-it-q4-k-m",
     "c2-gemini-2.5-flash-lite-free",
 )
+V4_CANDIDATE_IDS = (
+    "l3-qwen2.5-coder-7b-instruct-q4-k-m",
+    "l4-gemma3-12b-it-q4-k-m",
+    "c4-gemini-3.1-flash-lite-free",
+)
+V4_C4_CANDIDATE_ID = "c4-gemini-3.1-flash-lite-free"
+V4_C4_API_MODEL_ID = "gemini-3.1-flash-lite"
+V4_C4_API_ROUTE = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-3.1-flash-lite:generateContent"
+)
+V4_C4_OBSERVED_RPM = 15
+V4_C4_OBSERVED_TPM = 250_000
+V4_C4_OBSERVED_RPD = 500
+V4_C4_EFFECTIVE_RPM = 12
+V4_C4_EFFECTIVE_TPM = 200_000
+V4_C4_FIXED_INTERVAL_SECONDS = 5.0
 FROZEN_SELECTOR_FILE_SHA256 = (
     "2fcc1b5cf83ea36ff74b7b27c1fdfee8420ee13cd579735b269500568992151a"
 )
@@ -180,6 +201,163 @@ def expected_frozen_contract(
         logical_call_slots_per_candidate=assets.execution_plan.logical_call_slots_per_candidate,
     )
 
+
+
+def frozen_cloud_request_input_byte_lengths(
+    assets: LoadedFeasibilityAssets,
+) -> tuple[int, ...]:
+    """Return the frozen conservative model-visible byte bounds for all 75 slots."""
+    fixture_map = {item.fixture_id: item for item in assets.inputs}
+    lengths: list[int] = []
+    for slot in build_role_call_slots(assets.execution_plan):
+        call = prepare_role_call(
+            slot=slot,
+            fixture=fixture_map[slot.fixture_id],
+            prompt=assets.prompts_by_task[slot.task],
+            generation_settings=assets.execution_plan.generation_settings,
+        )
+        lengths.append(
+            len(call.prompt.system_prompt.encode("utf-8"))
+            + len(call.canonical_user_payload.encode("utf-8"))
+        )
+    return tuple(lengths)
+
+
+def _descriptor_identity_without_version(
+    descriptor: FeasibilityCandidateDescriptor,
+) -> dict[str, object]:
+    payload = descriptor.model_dump(mode="json")
+    payload.pop("descriptor_version")
+    return payload
+
+
+def validate_v4_local_carry_forward_reference(
+    *,
+    assets: LoadedFeasibilityAssets,
+    selector_file: Path,
+    source_descriptor: FeasibilityCandidateDescriptor,
+    reference: LocalReadinessCarryForwardReferenceV4,
+) -> None:
+    """Validate a v4 pointer to immutable v2 L3/L4 readiness evidence without relabeling it."""
+    if assets.candidate_manifest.manifest_version != "v4":
+        raise FeasibilityReadinessError("local carry-forward requires candidate-set v4 assets")
+    if assets.candidate_manifest.candidate_ids != V4_CANDIDATE_IDS:
+        raise FeasibilityReadinessError("v4 candidate IDs differ from the approved set")
+    if reference.candidate_id not in V4_CANDIDATE_IDS[:2]:
+        raise FeasibilityReadinessError("v4 carry-forward may reference only unchanged L3/L4")
+    target = next(
+        (item for item in assets.candidates if item.spec.candidate_id == reference.candidate_id),
+        None,
+    )
+    if target is None:
+        raise FeasibilityReadinessError("v4 carry-forward target descriptor is missing")
+    if source_descriptor.spec.candidate_id != reference.candidate_id:
+        raise FeasibilityReadinessError("v2 source descriptor candidate identity differs")
+    if source_descriptor.descriptor_version != "v2" or target.descriptor_version != "v4":
+        raise FeasibilityReadinessError("carry-forward must point from v2 readiness to v4")
+    if reference.source_candidate_descriptor_sha256 != canonical_model_sha256(source_descriptor):
+        raise FeasibilityReadinessError("v2 source descriptor SHA mismatch")
+    if reference.target_candidate_descriptor_sha256 != canonical_model_sha256(target):
+        raise FeasibilityReadinessError("v4 target descriptor SHA mismatch")
+    source_identity = _descriptor_identity_without_version(source_descriptor)
+    target_identity = _descriptor_identity_without_version(target)
+    if source_identity != target_identity:
+        raise FeasibilityReadinessError("v4 local descriptor differs from v2 beyond version tag")
+    expected_contract = expected_frozen_contract(assets=assets, selector_file=selector_file)
+    if reference.frozen_contract != expected_contract:
+        raise FeasibilityReadinessError("carry-forward frozen protocol hashes differ")
+    if not reference.source_readiness_passed:
+        raise FeasibilityReadinessError("source v2 readiness did not pass")
+    if not reference.source_evidence_immutable_verified:
+        raise FeasibilityReadinessError("source v2 evidence immutability is not verified")
+    if not reference.identity_equivalent_verified:
+        raise FeasibilityReadinessError(
+            "v2/v4 local candidate identity equivalence is not verified"
+        )
+
+
+def validate_v4_c4_zero_generation_readiness(
+    *,
+    assets: LoadedFeasibilityAssets,
+    selector_file: Path,
+    evidence: CloudZeroGenerationReadinessV4,
+) -> None:
+    """Fail closed on C4 zero-provider-request readiness; never dispatch model inference."""
+    if assets.candidate_manifest.manifest_version != "v4":
+        raise FeasibilityReadinessError("C4 readiness requires candidate-set v4 assets")
+    if assets.candidate_manifest.candidate_ids != V4_CANDIDATE_IDS:
+        raise FeasibilityReadinessError("v4 candidate IDs differ from the approved set")
+    if evidence.candidate_id != V4_C4_CANDIDATE_ID:
+        raise FeasibilityReadinessError("C4 readiness candidate identity differs")
+    descriptor = next(
+        (item for item in assets.candidates if item.spec.candidate_id == evidence.candidate_id),
+        None,
+    )
+    if descriptor is None or descriptor.runtime_kind != FeasibilityRuntimeKind.CLOUD_HTTP:
+        raise FeasibilityReadinessError("C4 readiness is not bound to the v4 cloud descriptor")
+    if evidence.candidate_descriptor_sha256 != canonical_model_sha256(descriptor):
+        raise FeasibilityReadinessError("C4 candidate descriptor SHA mismatch")
+    if evidence.api_model_id != V4_C4_API_MODEL_ID or descriptor.api_model_id != V4_C4_API_MODEL_ID:
+        raise FeasibilityReadinessError("C4 API model identity differs")
+    if evidence.api_route != V4_C4_API_ROUTE or descriptor.api_route != V4_C4_API_ROUTE:
+        raise FeasibilityReadinessError("C4 API route differs")
+
+    expected_contract = expected_frozen_contract(assets=assets, selector_file=selector_file)
+    if evidence.frozen_contract != expected_contract:
+        raise FeasibilityReadinessError("C4 frozen protocol hashes differ")
+
+    checks = {
+        "model active": evidence.model_active,
+        "stable endpoint": evidence.stable_endpoint_supported,
+        "free tier": evidence.free_tier_active,
+        "zero-cost input": evidence.zero_cost_input_verified,
+        "zero-cost output": evidence.zero_cost_output_verified,
+        "structured output": evidence.structured_output_supported,
+        "frozen schemas": evidence.frozen_response_schemas_accepted,
+        "temperature setting": evidence.temperature_accepted,
+        "top-p setting": evidence.top_p_accepted,
+        "top-k setting": evidence.top_k_accepted,
+        "max-output-tokens setting": evidence.max_output_tokens_accepted,
+        "non-streaming": evidence.streaming_disabled,
+        "tools disabled": evidence.tools_disabled,
+        "grounding disabled": evidence.grounding_disabled,
+        "automatic retries": evidence.automatic_retries_disabled,
+        "request counting": evidence.actual_request_count_observable,
+        "thinkingConfig omitted": evidence.thinking_config_omitted,
+        "prior attempt absent": evidence.prior_attempt_absent,
+    }
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise FeasibilityReadinessError("C4 readiness failed: " + ", ".join(failed))
+    if evidence.paid_billing_fallback_authorized:
+        raise FeasibilityReadinessError("C4 paid billing fallback is authorized")
+
+    quota = evidence.quota
+    if not quota.account_project_specific_verified or not quota.quota_current_verified:
+        raise FeasibilityReadinessError("C4 quota is not current account/project-specific evidence")
+    if (
+        quota.requests_per_minute != V4_C4_OBSERVED_RPM
+        or quota.tokens_per_minute != V4_C4_OBSERVED_TPM
+        or quota.requests_per_day != V4_C4_OBSERVED_RPD
+    ):
+        raise FeasibilityReadinessError(
+            "C4 observed project quota differs from approved readiness design"
+        )
+
+    lengths = frozen_cloud_request_input_byte_lengths(assets)
+    expected_pacing = derive_cloud_pacing(
+        quota=quota,
+        request_input_byte_lengths=lengths,
+        max_output_tokens=assets.execution_plan.generation_settings.max_output_tokens,
+    )
+    if evidence.pacing != expected_pacing:
+        raise FeasibilityReadinessError("C4 fixed pacing differs from frozen quota derivation")
+    if (
+        expected_pacing.effective_requests_per_minute != V4_C4_EFFECTIVE_RPM
+        or expected_pacing.effective_tokens_per_minute != V4_C4_EFFECTIVE_TPM
+        or expected_pacing.fixed_interval_seconds != V4_C4_FIXED_INTERVAL_SECONDS
+    ):
+        raise FeasibilityReadinessError("C4 approved 12-RPM/5-second pacing is not reproduced")
 
 def evaluate_global_round2_readiness(
     *,

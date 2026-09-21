@@ -1,4 +1,4 @@
-"""Zero-inference readiness and evidence-protection contracts for M20 candidate-set v2."""
+"""Zero-inference readiness and evidence-protection contracts for M20 candidate sets."""
 
 from __future__ import annotations
 
@@ -169,6 +169,64 @@ class CloudZeroInferenceReadiness(BaseModel):
     automatic_retries_disabled: bool
     actual_request_count_observable: bool
     prior_attempt_absent: bool
+    generation_requests_made: Literal[0] = 0
+    quota: CloudQuotaSnapshot
+    pacing: CloudPacingPlan
+    frozen_contract: FrozenContractEvidence
+
+
+class LocalReadinessCarryForwardReferenceV4(BaseModel):
+    """Immutable v4 reference to one unchanged v2 local readiness evidence package."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_id: Identifier
+    candidate_set_version: Literal["v4"] = "v4"
+    source_candidate_set_version: Literal["v2"] = "v2"
+    source_readiness_reference: str = Field(min_length=1, max_length=1000)
+    source_readiness_bundle_sha256: str = Field(pattern=_SHA256)
+    source_inspection_reference: str = Field(min_length=1, max_length=1000)
+    source_inspection_bundle_sha256: str = Field(pattern=_SHA256)
+    source_candidate_descriptor_sha256: str = Field(pattern=_SHA256)
+    target_candidate_descriptor_sha256: str = Field(pattern=_SHA256)
+    source_readiness_passed: bool
+    source_evidence_immutable_verified: bool
+    identity_equivalent_verified: bool
+    source_generation_requests_made: Literal[0] = 0
+    frozen_contract: FrozenContractEvidence
+
+
+class CloudZeroGenerationReadinessV4(BaseModel):
+    """Zero-provider-request readiness evidence for the v4 C4 cloud candidate."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate_id: Identifier
+    candidate_set_version: Literal["v4"] = "v4"
+    candidate_descriptor_sha256: str = Field(pattern=_SHA256)
+    api_model_id: str = Field(min_length=1, max_length=300)
+    api_route: str = Field(min_length=1, max_length=1000)
+    model_active: bool
+    stable_endpoint_supported: bool
+    free_tier_active: bool
+    zero_cost_input_verified: bool
+    zero_cost_output_verified: bool
+    paid_billing_fallback_authorized: bool
+    structured_output_supported: bool
+    c4_schema_readiness: Literal["PASS"] = "PASS"
+    frozen_response_schemas_accepted: bool
+    temperature_accepted: bool
+    top_p_accepted: bool
+    top_k_accepted: bool
+    max_output_tokens_accepted: bool
+    streaming_disabled: bool
+    tools_disabled: bool
+    grounding_disabled: bool
+    automatic_retries_disabled: bool
+    actual_request_count_observable: bool
+    thinking_config_omitted: bool
+    prior_attempt_absent: bool
+    provider_requests_made: Literal[0] = 0
     generation_requests_made: Literal[0] = 0
     quota: CloudQuotaSnapshot
     pacing: CloudPacingPlan

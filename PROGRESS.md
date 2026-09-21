@@ -4,13 +4,13 @@
 **An Autonomous Multi-Agent Red-Blue Framework for Web Application Vulnerability Detection and Remediation**
 
 ## Current Milestone
-**Milestone 19 - RQ3 Structured Feedback Retry**
+**Milestone 20 - Experiment Freeze / DEVELOPMENT Feasibility Candidate Selection**
 
 ## Status
 
-**TECHNICALLY VERIFIED - M19 IMPLEMENT, development-laptop TEST, runtime/integration VERIFY, safety checks, corrected RQ3 denominator semantics, and repository-integrity checks all PASS; DOCUMENT finalization is in progress. Staging and commit remain PENDING.**
+**CANDIDATE SET v4 IMPLEMENT / TEST / VERIFY PASS; DOCUMENT checkpoint updated locally. C4 zero-generation readiness has NOT been run, no v4 global-readiness barrier has been implemented or evaluated, and no F2/F3 feasibility inference or final RQ experiment has been run. Staging and commit remain PENDING.**
 
-Milestones 1-18 are permanently complete. Milestone 18 is committed at `aa58d89` (`aa58d8941cdca6cf371090b62236104e6967ff60`) as `Complete Milestone 18 frozen RQ2 classification dataset`. The frozen `rq2-classification` / `v1` dataset remains unchanged. No actual RQ1/RQ2/RQ3 final experiment has been run.
+Milestones 1-19 are permanently complete. Milestone 19 is committed at `8a62232` (`8a62232e256699cc6a5e385cbb6267a4a06ae01c`) as `Complete Milestone 19 structured feedback retry`. Milestone 20 work is isolated on branch `m20-work`; the preserved pre-v4 WIP checkpoint is `1b67c0c` (`1b67c0caee99e469ec1ab66818cb7c4cbb1668d6`) as `WIP: preserve M20 feasibility candidate work`. The permanent M18 `rq2-classification` / `v1` dataset remains unchanged. No actual RQ1/RQ2/RQ3 final experiment has been run.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -33,7 +33,121 @@ Milestones 1-18 are permanently complete. Milestone 18 is committed at `aa58d89`
 - [x] Milestone 16 — Dashboard and Scoring — runtime verified and committed (`927746e`)
 - [x] Milestone 17 — Experience Memory + RQ1 Single-Agent Baseline — runtime verified and committed (`25ebfdb`)
 - [x] Milestone 18 — RQ2 Frozen Classification Dataset — runtime verified and committed (`aa58d89`)
-- [x] Milestone 19 — RQ3 Structured Feedback Retry — runtime verified; documentation/staged review/commit pending
+- [x] Milestone 19 — RQ3 Structured Feedback Retry — runtime verified and committed (`8a62232`)
+- [ ] Milestone 20 — Experiment Freeze / DEVELOPMENT Feasibility Candidate Selection — Candidate Set v4 implementation checkpoint verified; C4 zero-generation readiness pending
+
+## Milestone 20 — Experiment Freeze / DEVELOPMENT Feasibility Candidate Selection (Current)
+
+Milestone 20 freezes provider/model feasibility before any final RQ experiment configuration is derived. The frozen `feasibility-v1` protocol remains unchanged across all candidate-set versions: eight synthetic DEVELOPMENT fixtures; evaluator truth kept separate from model-visible inputs; four frozen role prompts and response schemas; `F2 = 30` logical calls; `F3 = 45` logical calls; `75` logical calls per candidate; one provider request per logical slot; no automatic retries, regeneration, fallback, output chaining, adaptive pacing, tools, or grounding.
+
+Frozen generation settings remain:
+
+```text
+context_window = 8192
+max_output_tokens = 4096
+temperature = 0.7
+top_p = 0.8
+top_k = 20
+seed = null
+streaming = false
+automatic_retries = 0
+tools_enabled = false
+grounding_enabled = false
+request_timeout_seconds = 600
+```
+
+Frozen protocol hashes remain:
+
+```text
+fixture input bundle  fa8d1209710d7782f58395f8ffe678aa6abbd2590275fc63e15f95e433012595
+evaluator truth      c3927af2124361cc145dc766307059f904369ad3f86445e9124af88d92176e70
+prompt bundle         577c03e6bf47f1ba58ddce6b6e67404f37cfcb9d411e794555d4bf8ff0f79980
+generation settings   57953bfcfd8ea9e60276bfc1047a4b16e2011ee967745efe47ed2f30d42981f1
+selector              2fcc1b5cf83ea36ff74b7b27c1fdfee8420ee13cd579735b269500568992151a
+```
+
+Frozen response-schema hashes remain:
+
+```text
+test selection    2bedcb5c6d8a46ed49513ab404df4b199b6f57e163c3e0bcd49f4d4ce9e4b683
+classification    05ec9f408f03a559be02996e04cebfd60c3ef79f9edfdaacdeca680531c5d10b
+source analysis   e133a10d49677e2b3d7e19fe01fb441b0136313d529c8b084e957ad3c8f534cd
+patch generation  17046f642400f90a829a99ec6d3b72c50b5e3b84505778e41e2f797dda33a28f
+```
+
+Candidate-set history is preserved rather than rewritten:
+
+```text
+Candidate Set v1
+  L1 Qwen3-8B Q4_K_M: hard/resource PASS; F2 FAIL; F3 FAIL; ineligible
+  L2 Qwen3-4B Q4_K_M: hard/resource PASS; F2 FAIL; F3 FAIL; ineligible
+  C1 Gemini 3.5 Flash-Lite: quota-confounded semantic run; 33 HTTP 200 / 42 HTTP 429; ineligible
+  outcome: no provider/model candidate passed all feasibility gates
+
+Candidate Set v2
+  L3 Qwen2.5-Coder-7B-Instruct Q4_K_M: zero-generation readiness PASS
+  L4 Gemma-3-12B-IT Q4_K_M: zero-generation readiness PASS
+  C2 Gemini 2.5 Flash-Lite Free: zero-request readiness FAIL / NOT READY
+      decisive reason: observed project RPD 20 < frozen 75-request requirement
+  Round-2 inference started: NO
+  global barrier evaluated: NO
+
+Candidate Set v3
+  exact L3 + exact L4 + one replacement zero-cost cloud slot
+  bounded documentation-only discovery: 3 providers × 2 models
+  outcome: V3-DISCOVERY-NONE
+  candidate selected/frozen: NO
+  provider inference requests: 0
+  repository candidate set instantiated: NO
+
+Candidate Set v4
+  L3 = exact v2 L3 identity
+  L4 = exact v2 L4 identity
+  C4 = gemini-3.1-flash-lite
+  category = zero_cost_cloud
+  C4_SCHEMA_READINESS = PASS
+  C4 zero-generation readiness run: NO
+  provider requests made for C4 readiness: 0
+  generation requests made for C4 readiness: 0
+```
+
+The accepted frozen schema interpretation remains: exact frozen schemas are sent unchanged; provider-native enforcement of every annotation keyword is not required; deterministic local Pydantic validation remains the authoritative acceptance layer. Gemini's ignored annotation-only `default` keyword is therefore not, by itself, a compatibility failure. No schema was rewritten, flattened, normalized, simplified, or provider-specialized.
+
+The separately versioned v4 repository support is implemented but not yet committed. The exact approved implementation patch SHA-256 is:
+
+```text
+7494fbabd6d708302283e36cdcdbeeecec5e8fa71c3f848bd2cfb1e012bca10b
+```
+
+The v4 implementation adds only the versioned candidate descriptors/manifest/execution-plan binding, explicit immutable L3/L4 v2-to-v4 carry-forward references, and the C4 zero-provider-request readiness representation/validator. It deliberately does **not** implement a v4 global-readiness barrier or any F2/F3 execution path. V3 remains uninstantiated in repository assets.
+
+Authoritative v4 implementation checkpoint evidence:
+
+```text
+Approved patch apply --check: PASS
+Approved patch application: PASS
+git diff --check after apply: PASS
+Focused v2+v4 TEST gate: 20 passed
+VERIFY exact changed-file set: PASS — 10 implementation files
+V4 descriptor bundle SHA-256: 6c7c83445d002a7b6b38c69933f826d472a51ff42a36aa2892f75db947d0455d
+L3 v2 -> v4 identity equivalence except descriptor_version: PASS
+L4 v2 -> v4 identity equivalence except descriptor_version: PASS
+V1/V2 frozen repository bytes: PASS
+V3 candidate directory/execution plan: ABSENT
+Frozen feasibility-v1 contract equivalence v1/v2/v4: PASS
+Frozen request envelope: 75 calls / 171687 input upper-bound / 307200 output upper-bound
+Observed C4 project quota design: 15 RPM / 250000 TPM / 500 RPD
+Frozen 20% headroom derivation: 12 effective RPM / 200000 effective TPM / 5.0 s fixed interval
+C4 schema readiness literal: PASS
+C4 readiness provider_requests_made invariant: 0
+C4 readiness generation_requests_made invariant: 0
+V4 global readiness implementation: ABSENT
+C4 zero-generation readiness execution: NOT RUN
+F2/F3 feasibility inference: NOT RUN
+Final RQ experiments: NOT RUN
+```
+
+The current v4 DOCUMENT gate records this checkpoint only. It does not authorize C4 live readiness, any provider call, a v4 global barrier, the 75-request feasibility run, B5/RQ1-K/RQ3 derivation, M21, or final experiments.
 
 ## Milestone 19 Technically Verified
 
@@ -1233,23 +1347,26 @@ See `docs/PATCH_VERIFICATION_PIPELINE.md`.
 
 ## Still Locked
 
-Do not implement until the appropriate later milestone:
+Do not advance without the appropriate explicit gate approval:
 
-- Milestone 20 — Experiment Freeze;
+- C4 live zero-generation / zero-provider-request readiness execution;
+- implementation or evaluation of a Candidate Set v4 global-readiness barrier;
+- any C4/L3/L4 F2/F3 feasibility generation, including the 75-request C4 run;
+- B5, RQ1-K, RQ3 inclusion, or any other final-setting derivation;
 - Milestone 21 — Final Controlled Experiments;
 - Milestone 22 — Results Analysis;
 - automatic merge or remote Git publication;
 - unrestricted HTTP, Docker, shell, filesystem, database, or Git authority for LLM agents;
 - new vulnerability classes or real/public/production targets.
 
-Final RQ experiments remain unrun. M16 scores remain separate from RQ metrics; M17 may use the stored Blue `red-blue-v1` score only as one bounded development/exploratory selection signal, while final RQ1/RQ2 evaluations keep experience disabled.
+Final RQ experiments remain unrun. M16 scores remain separate from RQ metrics; M17 may use the stored Blue `red-blue-v1` score only as one bounded development/exploratory selection signal, while final primary RQ1/RQ2 evaluations keep experience disabled.
 
 ## Next Gate
 
-**Perform the M19 exact staged Git review only after explicit approval.**
+**Review and approve the Milestone 20 Candidate Set v4 DOCUMENT diff before any staging or commit.**
 
-M19 is technically verified and documented locally. Before any commit, prove the exact implementation + documentation scope, keep the permanent M18 dataset hashes unchanged, run staged whitespace/integrity checks and the approved final regression gate, and commit only after every staged Git gate passes. Do not begin M20 or run any actual final RQ experiment before the M19 commit is confirmed.
+After DOCUMENT approval, perform only the exact staged Git review for the verified v4 implementation + documentation checkpoint. Prove the staged path scope, preserve all v1/v2/v3 evidence including `V3-DISCOVERY-NONE`, re-run staged whitespace/integrity checks, and commit only after the staged gate is explicitly approved. Do not run C4 readiness, make provider calls, implement/evaluate a v4 global barrier, execute F2/F3, begin M21, derive final settings, or run final experiments.
 
 ## Last Updated
 
-2026-09-13
+2026-09-21

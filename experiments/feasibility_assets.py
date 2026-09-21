@@ -93,7 +93,7 @@ def load_feasibility_assets(
     asset_root: Path, *, candidate_set_version: str = "v1"
 ) -> LoadedFeasibilityAssets:
     """Load frozen v1 fixtures/prompts with an explicitly versioned candidate set."""
-    if candidate_set_version not in {"v1", "v2"}:
+    if candidate_set_version not in {"v1", "v2", "v4"}:
         raise FeasibilityAssetError("unsupported feasibility candidate-set version")
     root = asset_root.resolve(strict=True)
     input_root = root / "m20-feasibility-fixtures" / "v1" / "candidate_input"
