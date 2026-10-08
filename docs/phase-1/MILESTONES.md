@@ -1015,6 +1015,19 @@ Any later change requires:
 - a new experiment version; or
 - repetition of affected runs.
 
+## As-Run M20 Outcome
+
+The original M20 specification above remains unchanged. The as-run DEVELOPMENT feasibility cycle is terminally closed with no eligible candidate.
+
+- Candidate Sets v1-v4 produced no eligible candidate.
+- A post-v4 fine-tuned Qwen2.5-Coder-3B specialist was evaluated as a DEVELOPMENT feasibility artifact.
+- Q4_K_M showed a representation-dependent registered-test-selection regression; F16, Q8 and Q6_K restored the affected SQL selector behavior.
+- Q6_K achieved artifact-specific `PILOT_GO` only under a predeclared one-time infrastructure-recovery amendment; the original timeout remains preserved.
+- The sealed Q6_K 75-call DEVELOPMENT `feasibility-v1` exposure completed all 75 provider requests with zero provider failures and zero retries, but the frozen selector returned **INELIGIBLE** because patch verification accepted only `2/6` cases and did not cover every vulnerability class.
+- The official 75-call exposure must not be rerun to improve the result.
+- The final experiment freeze is not established and M21 remains blocked pending an explicit pre-final-evaluation design decision.
+- Detailed evidence: `docs/M20_DEVELOPMENT_FEASIBILITY.md`.
+
 ---
 
 # MILESTONE 21 — FINAL CONTROLLED EXPERIMENTS

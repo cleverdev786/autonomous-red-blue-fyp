@@ -8,9 +8,9 @@
 
 ## Status
 
-**CANDIDATE SET v4 IMPLEMENT / TEST / VERIFY PASS; DOCUMENT checkpoint updated locally. C4 zero-generation readiness has NOT been run, no v4 global-readiness barrier has been implemented or evaluated, and no F2/F3 feasibility inference or final RQ experiment has been run. Staging and commit remain PENDING.**
+**M20 DEVELOPMENT feasibility execution is terminally closed with no eligible candidate. The official Q6_K 75-call DEVELOPMENT feasibility-v1 decision is INELIGIBLE. The final experiment freeze is not established, M21 remains blocked, and no final RQ1/RQ2/RQ3 experiment has been run. Staging and commit remain PENDING.**
 
-Milestones 1-19 are permanently complete. Milestone 19 is committed at `8a62232` (`8a62232e256699cc6a5e385cbb6267a4a06ae01c`) as `Complete Milestone 19 structured feedback retry`. Milestone 20 work is isolated on branch `m20-work`; the preserved pre-v4 WIP checkpoint is `1b67c0c` (`1b67c0caee99e469ec1ab66818cb7c4cbb1668d6`) as `WIP: preserve M20 feasibility candidate work`. The permanent M18 `rq2-classification` / `v1` dataset remains unchanged. No actual RQ1/RQ2/RQ3 final experiment has been run.
+Milestones 1-19 are permanently complete. Milestone 19 is committed at `8a62232` (`8a62232e256699cc6a5e385cbb6267a4a06ae01c`). Milestone 20 work is isolated on branch `m20-work`. Existing WIP checkpoints remain part of repository history and are not rewritten. The permanent M18 `rq2-classification` / `v1` dataset remains unchanged.
 
 ## Completed Milestones
 - [x] Phase 1 foundation
@@ -34,13 +34,13 @@ Milestones 1-19 are permanently complete. Milestone 19 is committed at `8a62232`
 - [x] Milestone 17 — Experience Memory + RQ1 Single-Agent Baseline — runtime verified and committed (`25ebfdb`)
 - [x] Milestone 18 — RQ2 Frozen Classification Dataset — runtime verified and committed (`aa58d89`)
 - [x] Milestone 19 — RQ3 Structured Feedback Retry — runtime verified and committed (`8a62232`)
-- [ ] Milestone 20 — Experiment Freeze / DEVELOPMENT Feasibility Candidate Selection — Candidate Set v4 implementation checkpoint verified; C4 zero-generation readiness pending
+- [ ] Milestone 20 — DEVELOPMENT feasibility cycle terminally closed with no eligible candidate; final experiment freeze not established; M21 blocked
 
 ## Milestone 20 — Experiment Freeze / DEVELOPMENT Feasibility Candidate Selection (Current)
 
-Milestone 20 freezes provider/model feasibility before any final RQ experiment configuration is derived. The frozen `feasibility-v1` protocol remains unchanged across all candidate-set versions: eight synthetic DEVELOPMENT fixtures; evaluator truth kept separate from model-visible inputs; four frozen role prompts and response schemas; `F2 = 30` logical calls; `F3 = 45` logical calls; `75` logical calls per candidate; one provider request per logical slot; no automatic retries, regeneration, fallback, output chaining, adaptive pacing, tools, or grounding.
+The frozen `feasibility-v1` protocol remained unchanged throughout the as-run DEVELOPMENT cycle: eight synthetic fixtures; evaluator truth kept separate from model-visible inputs; four frozen role prompts and response schemas; `F2 = 30`; `F3 = 45`; `75` logical calls per official exposure; one provider request per slot; no automatic retries, regeneration, fallback, output chaining, adaptive pacing, tools, or grounding.
 
-Frozen generation settings remain:
+Frozen authority:
 
 ```text
 context_window = 8192
@@ -54,100 +54,195 @@ automatic_retries = 0
 tools_enabled = false
 grounding_enabled = false
 request_timeout_seconds = 600
-```
 
-Frozen protocol hashes remain:
-
-```text
 fixture input bundle  fa8d1209710d7782f58395f8ffe678aa6abbd2590275fc63e15f95e433012595
-evaluator truth      c3927af2124361cc145dc766307059f904369ad3f86445e9124af88d92176e70
-prompt bundle         577c03e6bf47f1ba58ddce6b6e67404f37cfcb9d411e794555d4bf8ff0f79980
-generation settings   57953bfcfd8ea9e60276bfc1047a4b16e2011ee967745efe47ed2f30d42981f1
-selector              2fcc1b5cf83ea36ff74b7b27c1fdfee8420ee13cd579735b269500568992151a
+evaluator truth       c3927af2124361cc145dc766307059f904369ad3f86445e9124af88d92176e70
+prompt bundle          577c03e6bf47f1ba58ddce6b6e67404f37cfcb9d411e794555d4bf8ff0f79980
+generation settings    57953bfcfd8ea9e60276bfc1047a4b16e2011ee967745efe47ed2f30d42981f1
+selector               2fcc1b5cf83ea36ff74b7b27c1fdfee8420ee13cd579735b269500568992151a
+direct verifier        a69bcc057b1d23bfa043c898b91668e632bb1ab74f58a43cdf5fa078610370aa
 ```
 
-Frozen response-schema hashes remain:
+### Candidate-set chronology
 
 ```text
-test selection    2bedcb5c6d8a46ed49513ab404df4b199b6f57e163c3e0bcd49f4d4ce9e4b683
-classification    05ec9f408f03a559be02996e04cebfd60c3ef79f9edfdaacdeca680531c5d10b
-source analysis   e133a10d49677e2b3d7e19fe01fb441b0136313d529c8b084e957ad3c8f534cd
-patch generation  17046f642400f90a829a99ec6d3b72c50b5e3b84505778e41e2f797dda33a28f
+v1: L1/L2 INELIGIBLE; C1 quota-confounded; no candidate selected.
+v2: L3/L4 readiness PASS; C2 NOT READY; round-2 inference did not start.
+v3: V3-DISCOVERY-NONE; no repository v3 instantiated.
+v4: L3 INELIGIBLE; L4 INELIGIBLE; C4 INELIGIBLE.
+    C4 preserved outcome: 59 HTTP 200 / 16 HTTP 503 / 0 HTTP 429 / zero retries.
+    outcome: no candidate selected.
 ```
 
-Candidate-set history is preserved rather than rewritten:
+### Historical v4 repository-support checkpoint
+
+The earlier repository-support checkpoint remains historical evidence rather than being rewritten. At that checkpoint live C4 readiness and F2/F3 generation had not yet run.
 
 ```text
-Candidate Set v1
-  L1 Qwen3-8B Q4_K_M: hard/resource PASS; F2 FAIL; F3 FAIL; ineligible
-  L2 Qwen3-4B Q4_K_M: hard/resource PASS; F2 FAIL; F3 FAIL; ineligible
-  C1 Gemini 3.5 Flash-Lite: quota-confounded semantic run; 33 HTTP 200 / 42 HTTP 429; ineligible
-  outcome: no provider/model candidate passed all feasibility gates
-
-Candidate Set v2
-  L3 Qwen2.5-Coder-7B-Instruct Q4_K_M: zero-generation readiness PASS
-  L4 Gemma-3-12B-IT Q4_K_M: zero-generation readiness PASS
-  C2 Gemini 2.5 Flash-Lite Free: zero-request readiness FAIL / NOT READY
-      decisive reason: observed project RPD 20 < frozen 75-request requirement
-  Round-2 inference started: NO
-  global barrier evaluated: NO
-
-Candidate Set v3
-  exact L3 + exact L4 + one replacement zero-cost cloud slot
-  bounded documentation-only discovery: 3 providers × 2 models
-  outcome: V3-DISCOVERY-NONE
-  candidate selected/frozen: NO
-  provider inference requests: 0
-  repository candidate set instantiated: NO
-
-Candidate Set v4
-  L3 = exact v2 L3 identity
-  L4 = exact v2 L4 identity
-  C4 = gemini-3.1-flash-lite
-  category = zero_cost_cloud
-  C4_SCHEMA_READINESS = PASS
-  C4 zero-generation readiness run: NO
-  provider requests made for C4 readiness: 0
-  generation requests made for C4 readiness: 0
-```
-
-The accepted frozen schema interpretation remains: exact frozen schemas are sent unchanged; provider-native enforcement of every annotation keyword is not required; deterministic local Pydantic validation remains the authoritative acceptance layer. Gemini's ignored annotation-only `default` keyword is therefore not, by itself, a compatibility failure. No schema was rewritten, flattened, normalized, simplified, or provider-specialized.
-
-The separately versioned v4 repository support is implemented but not yet committed. The exact approved implementation patch SHA-256 is:
-
-```text
+approved v4 repository-support patch SHA-256
 7494fbabd6d708302283e36cdcdbeeecec5e8fa71c3f848bd2cfb1e012bca10b
+
+focused v2+v4 TEST                       20/20 PASS
+v4 descriptor bundle SHA-256            6c7c83445d002a7b6b38c69933f826d472a51ff42a36aa2892f75db947d0455d
+L3/L4 v2 -> v4 identity carry-forward   PASS
+frozen feasibility-v1 equivalence       PASS
+v3 repository candidate set             ABSENT
 ```
 
-The v4 implementation adds only the versioned candidate descriptors/manifest/execution-plan binding, explicit immutable L3/L4 v2-to-v4 carry-forward references, and the C4 zero-provider-request readiness representation/validator. It deliberately does **not** implement a v4 global-readiness barrier or any F2/F3 execution path. V3 remains uninstantiated in repository assets.
+Historical `NOT RUN` statements from that checkpoint are not the current M20 status.
 
-Authoritative v4 implementation checkpoint evidence:
+### Fine-tuned specialist lineage
 
 ```text
-Approved patch apply --check: PASS
-Approved patch application: PASS
-git diff --check after apply: PASS
-Focused v2+v4 TEST gate: 20 passed
-VERIFY exact changed-file set: PASS — 10 implementation files
-V4 descriptor bundle SHA-256: 6c7c83445d002a7b6b38c69933f826d472a51ff42a36aa2892f75db947d0455d
-L3 v2 -> v4 identity equivalence except descriptor_version: PASS
-L4 v2 -> v4 identity equivalence except descriptor_version: PASS
-V1/V2 frozen repository bytes: PASS
-V3 candidate directory/execution plan: ABSENT
-Frozen feasibility-v1 contract equivalence v1/v2/v4: PASS
-Frozen request envelope: 75 calls / 171687 input upper-bound / 307200 output upper-bound
-Observed C4 project quota design: 15 RPM / 250000 TPM / 500 RPD
-Frozen 20% headroom derivation: 12 effective RPM / 200000 effective TPM / 5.0 s fixed interval
-C4 schema readiness literal: PASS
-C4 readiness provider_requests_made invariant: 0
-C4 readiness generation_requests_made invariant: 0
-V4 global readiness implementation: ABSENT
-C4 zero-generation readiness execution: NOT RUN
-F2/F3 feasibility inference: NOT RUN
-Final RQ experiments: NOT RUN
+base model       Qwen/Qwen2.5-Coder-3B-Instruct
+base revision    488639f1ff808d1d3d0ba301aef8c11461451ec5
+
+dataset          576 synthetic fixtures
+train            384 fixtures / 1440 role records
+validation       192 fixtures / 720 role records
+classes          SQL injection / XSS / Path Traversal / benign
+
+adapter config
+a714a51d466536087eec121622cafab60eb686884f0fde75cc2f5b11edf0c0d9
+
+adapter safetensors
+cd662452f70ed76de669d3c3a2183694aca77bcc10d3fe85e84645595108fef3
+
+F16 GGUF
+298fa5f7ecb6fba3acf27c9c2b44ac902d2d77a471b562587748174eb69b12aa
+
+Q4_K_M GGUF
+c7642912e943e3a5507caedcf11ea06a5cbea20ce507af313f9c08b04c83dbaf
+
+Q6_K GGUF
+07bcec4047a457766a92c9737fd0ac8045e328ccf703baf43768c2ea962bf7a9
 ```
 
-The current v4 DOCUMENT gate records this checkpoint only. It does not authorize C4 live readiness, any provider call, a v4 global barrier, the 75-request feasibility run, B5/RQ1-K/RQ3 derivation, M21, or final experiments.
+The training corpus excluded the frozen feasibility-v1 candidate-input and evaluator-truth records. The design was nevertheless knowingly informed by the frozen DEVELOPMENT task interface, bounded fixture structure, response contracts and verifier-compatible remediation idioms. The official 75-call result is therefore a DEVELOPMENT artifact-qualification gate, not a fully blind external benchmark.
+
+### Quantization diagnosis
+
+```text
+Q4_K_M CPU full selector       168/192
+Q4_K_M CPU SQL selector         24/48
+Q4_K_M T4 SQL screen             8/48
+F16 T4 SQL screen               48/48
+Q8 T4 SQL screen                48/48
+Q6_K T4 SQL screen              48/48
+```
+
+Prompt/token parity and sampler diagnostics did not explain the error pattern. Representation/quantization sensitivity was the leading diagnosis. Q6_K was the smallest tested representation restoring the affected selector capability. Its accepted CPU selector result was `192/192` with `48/48` per class, zero provider failures, zero parse failures, zero retries and `ExperienceMode.DISABLED`.
+
+### Q6_K CPU artifact-specific pilot
+
+The original CPU completion attempt established all 144 patch calls and 146 measured classification responses before classification position 147 timed out after 600 seconds with no HTTP response and no assistant content. The event remains an unmeasured provider/infrastructure failure, not a semantic misclassification.
+
+A one-time infrastructure-recovery amendment was frozen before any replacement output. The exact timed-out request was executed once after a fresh server start under unchanged artifact/request settings and completed correctly in 47.958 seconds. The remaining calls completed.
+
+```text
+schema validity                 720/720
+benign no-action                144/144
+classification                  192/192
+source/function localization    192/192
+registered-test selection       192/192
+independent patch gate          144/144
+corrected frozen-aligned gate    72/72
+
+PILOT_GO_UNDER_INFRASTRUCTURE_RECOVERY_AMENDMENT = true
+clean_original_frozen_run_pass = false
+```
+
+The original timeout and original failed attempt remain permanently preserved.
+
+### Official Q6_K frozen DEVELOPMENT feasibility-v1
+
+The official exposure was preregistered with no recovery amendment. It used the direct repository verifier, not pilot bridge v1.1.
+
+```text
+logical calls dispatched       75/75
+HTTP 200                       75/75
+provider failures                  0
+automatic retries                  0
+catastrophic failures               0
+
+classification                   PASS
+source/function localization     PASS
+registered-test selection        PASS
+benign handling                  PASS
+stability                        PASS
+local-resource feasibility       PASS
+
+patch verification              2/6
+required                        >=4/6 and >=1 accepted patch per vulnerability class
+
+semantic_pass                   false
+eligible                        false
+```
+
+Formal decision:
+
+```text
+Q6_K frozen DEVELOPMENT feasibility-v1: INELIGIBLE
+```
+
+The official exposure must not be rerun to improve the result.
+
+### Patch-generation root cause
+
+```text
+SQL member lookup       REJECTED  - still concatenated tainted data into SQL
+SQL invoice load        REJECTED  - parameterized intent, but %s/f-string incompatible with frozen ?/constant-string contract
+XSS badge preview       ACCEPTED  - html.escape remediation satisfied frozen verification
+XSS note render         ACCEPTED  - html.escape remediation satisfied frozen verification
+Path export download    REJECTED  - no canonical resolve() and defective containment logic
+Path asset open         REJECTED  - no canonical resolve() and defective containment logic
+```
+
+Corrected bridge v1.1 and the official direct path use the same frozen `synthetic_verification.py` bytes. The official/pilot discrepancy is therefore not a bridge-versus-direct semantic difference. The verifier is deliberately narrow, but the failure cannot be dismissed as verifier incompatibility: one SQL patch remained genuinely vulnerable and both Path Traversal patches were functionally defective.
+
+### Evidence preservation
+
+```text
+official evidence root
+/home/zain/Documents/RED FYP/.cache/autonomous-red-blue-fyp/m20-feasibility-v1/evidence/q6-official-feasibility75-v1/20261008T065441Z
+
+official tree files
+35
+
+official tree inventory SHA-256
+231f3677940a42cb6cfec62fab0bd7b8c67e06c83d66f7561a7edee7ccc3736d
+
+official-result.json SHA-256
+f9e1ddf22ed97e71be79aee7062cd4e467f097f6ed2782efc8d1ef868296f841
+```
+
+The original post-run manifest has one known packaging-order mismatch limited to `seal.log` and remains unchanged. A sibling preservation-only correction records the final quiescent tree without modifying the official root.
+
+```text
+detached final-tree manifest
+4e4f9082fe613e1881c0ad06fb1e9c66bde0bc6e260a128314dcf2dc80b17cd0
+
+correction record
+68adfe2a114c23c3f7b96ee561d6cbc78fd1ddba9333ecc941c01c0341b2ec19
+
+protection sidecar
+51e3797dce1719dc3c57ba7685c633f571439b4c56520169fbef13386a91238d
+```
+
+### M20 decision
+
+```text
+M20 DEVELOPMENT feasibility cycle     CLOSED
+eligible candidate selected           NO
+Q6_K official decision                INELIGIBLE
+official Q6_K 75-call rerun           FORBIDDEN
+final experiment freeze established   NO
+M21 final experiments authorized      NO
+```
+
+M20 closes as a preserved negative DEVELOPMENT feasibility result, not as a successful final experiment freeze. An explicit pre-final-evaluation design decision is required before any M21 work.
+
+Detailed evidence: `docs/M20_DEVELOPMENT_FEASIBILITY.md`.
 
 ## Milestone 19 Technically Verified
 
