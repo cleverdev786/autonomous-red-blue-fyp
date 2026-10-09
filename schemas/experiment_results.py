@@ -22,6 +22,7 @@ class ArtifactType(str, Enum):
     RED_TEAM_RUN_RESULT = "red_team_run_result"
     BLUE_TEAM_ANALYSIS_RESULT = "blue_team_analysis_result"
     PATCH_GENERATION_RESULT = "patch_generation_result"
+    REMEDIATION_ATTEMPT_RESULT = "remediation_attempt_result"
     PATCH_BRANCH_RESULT = "patch_branch_result"
     PATCH_VERIFICATION_RESULT = "patch_verification_result"
     PATCH_RETRY_FEEDBACK = "patch_retry_feedback"

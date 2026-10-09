@@ -488,6 +488,71 @@ class PolicyEngine:
             f"Transition {current.value!r} -> {requested.value!r} is permitted."
         )
 
+    def validate_no_patch_termination(
+        self,
+        *,
+        analysis: "BlueTeamAnalysisResult",
+        result: "RemediationAttemptResult",
+    ) -> PolicyDecision:
+        """Separate, tightly scoped non-patch gate; does not alter normal transitions."""
+        from schemas.common import ClassificationLabel
+        from schemas.remediation import RemediationDisposition, NoActionReason
+
+        def invalid(message: str) -> PolicyDecision:
+            return self._deny(PolicyReasonCode.INVALID_STATE, message)
+
+        if result.run_id != analysis.run_id or result.target_id != analysis.target_id:
+            return invalid("run/target identity mismatch")
+        if not self.validate_target(analysis.target_id).allowed:
+            return self._deny(PolicyReasonCode.UNKNOWN_TARGET, "unregistered target")
+        if analysis.triage.run_id != analysis.run_id:
+            return invalid("triage run identity mismatch")
+        if analysis.code_finding is not None and analysis.code_finding.run_id != analysis.run_id:
+            return invalid("code finding run identity mismatch")
+        if result.disposition == RemediationDisposition.PREPARED:
+            return invalid("prepared patches must use ordinary verification")
+        benign = (
+            analysis.triage.classification == ClassificationLabel.BENIGN
+            and analysis.final_state == WorkflowState.TRIAGE
+            and analysis.code_finding is None
+        )
+        actionable = (
+            analysis.triage.classification in {
+                ClassificationLabel.SQL_INJECTION,
+                ClassificationLabel.XSS,
+                ClassificationLabel.PATH_TRAVERSAL,
+            }
+            and analysis.final_state == WorkflowState.CODE_ANALYSIS
+            and analysis.code_finding is not None
+            and bool(analysis.code_finding.supporting_lines)
+        )
+        if result.disposition == RemediationDisposition.NO_ACTION:
+            if benign:
+                if result.decision is not None and result.decision.no_action_reason != NoActionReason.BENIGN:
+                    return invalid("benign decision reason mismatch")
+            elif actionable:
+                if result.decision is None or result.decision.no_action_reason != NoActionReason.INSUFFICIENT_EVIDENCE:
+                    return invalid("malicious no-patch requires explicit insufficient-evidence refusal")
+            else:
+                return invalid("no-patch requires supported benign or actionable analysis")
+        elif result.disposition == RemediationDisposition.UNSUPPORTED:
+            if not actionable:
+                return invalid("unsupported requires actionable malicious analysis")
+        elif result.disposition in {
+            RemediationDisposition.COMPILER_REJECTED,
+            RemediationDisposition.INVALID_OUTPUT,
+            RemediationDisposition.PROVIDER_FAILED,
+            RemediationDisposition.POLICY_BLOCKED,
+        }:
+            if not actionable:
+                return invalid("remediation error requires actionable malicious analysis")
+        else:
+            return invalid("unrecognized terminal remediation disposition")
+        if result.decision is not None and result.decision.vulnerability_class is not None:
+            if result.decision.vulnerability_class.value != analysis.triage.classification.value:
+                return invalid("decision vulnerability class disagrees with triage")
+        return self._allow("Bounded remediation termination with no patch is permitted")
+
     def validate_strategy_selection(
         self,
         *,

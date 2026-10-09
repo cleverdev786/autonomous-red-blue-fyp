@@ -10,6 +10,10 @@
 
 **M20 DEVELOPMENT feasibility execution is terminally closed with no eligible candidate. The official Q6_K 75-call DEVELOPMENT feasibility-v1 decision is INELIGIBLE. The final experiment freeze is not established, M21 remains blocked, and no final RQ1/RQ2/RQ3 experiment has been run. Staging and commit remain PENDING.**
 
+### Separate Recovery Compatibility Checkpoint (2026-10-09)
+
+On `recovery/remediation-outcome-compat-20261009`, the versioned remediation-decision and outcome/storage compatibility layer passed the authorized implementation, TEST and VERIFY gates. Focused tests: 123 passed. Full suite: 418 passed, one non-failing Starlette warning. The SQLAlchemy schema remains at 20 tables. The four frozen evidence files listed in [the recovery verification record](docs/REMEDIATION_COMPATIBILITY_RECOVERY.md) retained their hashes. This checkpoint adds no model inference, patch compiler, final experiment execution or M20 requalification. M21 remains blocked.
+
 Milestones 1-19 are permanently complete. Milestone 19 is committed at `8a62232` (`8a62232e256699cc6a5e385cbb6267a4a06ae01c`). Milestone 20 work is isolated on branch `m20-work`. Existing WIP checkpoints remain part of repository history and are not rewritten. The permanent M18 `rq2-classification` / `v1` dataset remains unchanged.
 
 ## Completed Milestones

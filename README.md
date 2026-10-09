@@ -47,6 +47,10 @@ manifest.json       8131e0ad2a40a6963fe9f405445352ce8af287f6ab41297f80ebba0735e3
 
 No real RQ1/RQ2/RQ3 final experiment has been run. No final experiment configuration is admitted from this feasibility cycle, and M21 remains locked pending an explicit pre-final-evaluation design decision.
 
+## Remediation Compatibility Recovery (2026-10-09)
+
+The additive remediation decision/outcome compatibility layer is verified on the separate `recovery/remediation-outcome-compat-20261009` branch. It introduces safe no-patch finalization and RQ1 development-mode compatibility without changing legacy patch artifacts or the 20-table database. Focused verification passed (123 tests); the full Python 3.12 suite passed (418 tests, one non-failing deprecation warning). No remediation compiler or model inference is included. See [Recovery compatibility verification](docs/REMEDIATION_COMPATIBILITY_RECOVERY.md) for exact scope, test commands, evidence hashes, limitations and next gates. This is **not** a final experiment freeze or an M20 qualification change.
+
 ## Approved Scope
 
 The MVP is limited to a deliberately vulnerable local dummy application and three controlled vulnerability categories:
