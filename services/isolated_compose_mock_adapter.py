@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 import yaml
 
 BASE_COMPOSE = "compose.yaml"
-ISOLATED_COMPOSE = "compose.r4c4f-isolated.yaml"
+ISOLATED_COMPOSE = "compose.isolated.yaml"
 BASE_COMPOSE_SHA256 = "be1271771fbc54b906b4d42e1dbff0f6525701108a41c2fb04a61f18466dd92f"
 ORIGINAL_ROUTES_SHA256 = "f8675d5bed857138f49cdf717bd4c696aad7e4e42c5f14cd41b4623b140a6e5d"
 ORIGINAL_IMAGE = "fyp-red-blue-lab:local"
@@ -65,7 +65,7 @@ class MockOptionBAdmission(BaseModel):
     source_parent: str = Field(pattern=HEX40)
     source_sha256: dict[str, str]
     context: Literal["default"] = "default"
-    compose_path: Literal["compose.r4c4f-isolated.yaml"] = ISOLATED_COMPOSE
+    compose_path: Literal["compose.isolated.yaml"] = ISOLATED_COMPOSE
     project: Literal["fyp-r4c4f-red-blue-lab"] = PROJECT
     image: Literal["fyp-r4c4f-red-blue-lab:local"] = IMAGE
     app_container: Literal["fyp-r4c4f-vulnerable-store"] = APP_CONTAINER

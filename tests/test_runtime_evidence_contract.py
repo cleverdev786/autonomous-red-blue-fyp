@@ -9,18 +9,18 @@ import shutil
 
 import pytest
 
-from schemas.r4c3a_admission import (
+from schemas.execution_admission import (
     AdmissionBlocked, R4C3AAdmission, INITIAL_SCENARIO_SHA256,
     read_external_admission,
 )
-from services.r4c3a_runtime import (
+from services.runtime_evidence_contract import (
     MockGitState, MockRuntimeState, R4C3ABlocked,
     R4C3AMockedRuntimeCollector, StreamedMockProcess,
 )
 from services.trusted_remediation_compiler import SOURCE
 from services.target_registry import TargetRegistry
 from security_tests.registry import SecurityTestRegistry
-from test_r4a_prelive_readiness import _R4B1_CASES, _r4b1_actual_executor_result
+from test_security_preflight import _R4B1_CASES, _r4b1_actual_executor_result
 
 REPO=Path(__file__).resolve().parents[1]
 APPROVED="6ead7a2203bd0c22000a8b5d9af47c40bccbb7a9"
@@ -206,7 +206,7 @@ def test_r4c3a_git_baseline_fails_closed(env,field,value):
     ("executor_container_id","foreign-executor"),("image_id","other-image"),
     ("deployed_source_sha256","0"*64),
 ])
-def test_r4c3a_runtime_mismatch_before_dispatch_blocks(env,field,value):
+def test_runtime_evidence_contract_mismatch_before_dispatch_blocks(env,field,value):
     col,calls,*rest=setup_case(
         env,CASE_IDS[0],"vulnerable_baseline",
         mutate_runtime=lambda x,n:x.model_copy(update={field:value}))
@@ -221,7 +221,7 @@ def test_r4c3a_runtime_mismatch_before_dispatch_blocks(env,field,value):
     ("image_id","other-image"),("executor_container_id","foreign-executor"),
     ("deployed_source_sha256","0"*64),
 ])
-def test_r4c3a_runtime_drift_after_dispatch_not_a_success(env,field,value):
+def test_runtime_evidence_contract_drift_after_dispatch_not_a_success(env,field,value):
     col,calls,*rest=setup_case(
         env,CASE_IDS[0],"vulnerable_baseline",
         mutate_runtime=lambda x,n:x if n==1 else x.model_copy(update={field:value}))

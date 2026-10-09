@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from schemas.r4a_red_observation import REGISTERED
+from schemas.registered_red_observation import REGISTERED
 
 SHA40 = r"^[0-9a-f]{40}$"
 SHA64 = r"^[0-9a-f]{64}$"

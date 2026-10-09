@@ -14,7 +14,7 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from schemas.r4c4a_readiness_request import (
+from schemas.readiness_request import (
     C4AReadinessRequest, DISPOSABLE_NAMES,
 )
 

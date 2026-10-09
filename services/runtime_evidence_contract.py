@@ -14,9 +14,9 @@ from typing import Callable, Iterable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from schemas.r4c3a_admission import R4C3AAdmission, INITIAL_SCENARIO_SHA256
-from schemas.r4a_red_observation import REGISTERED, observe_registered_result
-from services.r4c1_executor_capture import TEST_POLICY, PINNED_REGISTERED_HASHES, SOURCE
+from schemas.execution_admission import R4C3AAdmission, INITIAL_SCENARIO_SHA256
+from schemas.registered_red_observation import REGISTERED, observe_registered_result
+from services.executor_evidence_capture import TEST_POLICY, PINNED_REGISTERED_HASHES, SOURCE
 from services.target_registry import TargetRegistry
 from security_tests.registry import SecurityTestRegistry
 

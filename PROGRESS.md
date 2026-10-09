@@ -8,7 +8,29 @@
 
 ## Status
 
-**M20 DEVELOPMENT feasibility execution is terminally closed with no eligible candidate. The official Q6_K 75-call DEVELOPMENT feasibility-v1 decision is INELIGIBLE. The final experiment freeze is not established, M21 remains blocked, and no final RQ1/RQ2/RQ3 experiment has been run. Staging and commit remain PENDING.**
+**M20 DEVELOPMENT feasibility execution is terminally closed with no eligible candidate. The official Q6_K 75-call DEVELOPMENT feasibility-v1 decision is INELIGIBLE. The final experiment freeze is not established, M21 remains blocked, and no final RQ1/RQ2/RQ3 experiment has been run. No final evaluation configuration is admitted.**
+
+### Primary Repository Integration and Naming Cleanup (2026-10-09)
+
+**Active branch:** `integration/r4c4f-primary-20261009` in the original
+repository, not merged into `main`.
+
+Four pre-verified R3/R4 commits were imported unmodified. Integration commit
+`8949a44ca6bdc9e12fc219648373dd0962a4da9d` added the isolated Compose
+file, injected-only mock adapter, and tests. Before filename cleanup, primary
+offline tests passed 337 focused and 755 full (one nonfatal warning).
+
+Historical 20 SHA-256 evidence hashes, original RQ1/RQ2 runners and 20
+SQLAlchemy tables were verified unchanged. Previous development workspaces and
+three old experiment Git checkouts remain historical and untouched.
+
+New stage-coded filenames are being changed to descriptive names; historic
+JSON evidence protocol-version strings remain unchanged. `compose.yaml` is
+the legacy default lab, `compose.isolated.yaml` the standalone safe-name
+alternative (host port 18080). Real Docker operation and genuine registered
+Red evidence on the newly integrated version still require separate gates.
+M20 remains INELIGIBLE; M21 remains BLOCKED. See
+`docs/CURRENT_DEVELOPMENT_GUIDE.md`.
 
 ### Separate Recovery Compatibility Checkpoint (2026-10-09)
 
@@ -1460,12 +1482,19 @@ Do not advance without the appropriate explicit gate approval:
 
 Final RQ experiments remain unrun. M16 scores remain separate from RQ metrics; M17 may use the stored Blue `red-blue-v1` score only as one bounded development/exploratory selection signal, while final primary RQ1/RQ2 evaluations keep experience disabled.
 
-## Next Gate
+## Historical Next Gate (2026-09-21; superseded)
 
 **Review and approve the Milestone 20 Candidate Set v4 DOCUMENT diff before any staging or commit.**
 
 After DOCUMENT approval, perform only the exact staged Git review for the verified v4 implementation + documentation checkpoint. Prove the staged path scope, preserve all v1/v2/v3 evidence including `V3-DISCOVERY-NONE`, re-run staged whitespace/integrity checks, and commit only after the staged gate is explicitly approved. Do not run C4 readiness, make provider calls, implement/evaluate a v4 global barrier, execute F2/F3, begin M21, derive final settings, or run final experiments.
 
+## Current Next Gate (2026-10-09)
+
+Pass regressions after descriptive file renaming and publish the integration
+branch only, without merging into `main`. Separately approve read-only
+isolated Docker normalization and resource checks. Independently resolve
+M20 eligibility before M21 final research.
+
 ## Last Updated
 
-2026-09-21
+2026-10-09

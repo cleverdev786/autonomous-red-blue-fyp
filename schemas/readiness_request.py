@@ -12,8 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from schemas.r4c3a_admission import INITIAL_SCENARIO_SHA256
-from schemas.r4a_red_observation import REGISTERED
+from schemas.execution_admission import INITIAL_SCENARIO_SHA256
+from schemas.registered_red_observation import REGISTERED
 
 REQUIRED_HASH_PATHS = (
     "compose.yaml",

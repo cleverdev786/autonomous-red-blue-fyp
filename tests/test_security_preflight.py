@@ -14,12 +14,12 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from schemas.red_team import HttpExchangeEvidence, TestExecutionResult as RegisteredExecutionResult
-from schemas.r4a_red_observation import (
+from schemas.registered_red_observation import (
     DeterministicRedObservation, DeterministicRedEvidenceError,
     observe_registered_result, REGISTERED,
 )
 from security_tests.registry import SecurityTestRegistry
-from services.r4a_static_preflight import (
+from services.security_preflight import (
     R4AStaticPlan, R4AStaticReadiness, inspect_static_plan,
 )
 from services.target_registry import TargetRegistry
@@ -31,7 +31,7 @@ from storage.trusted_prepared_loader import (
 from storage.repositories import canonical_sha256
 
 # Reuse an existing disposable SQLite fixture; all its databases are tmp-local.
-from test_r3_trusted_storage_and_rq1_adapter import setup, seed, counts, CHOICES
+from test_trusted_storage_and_rq1_adapter import setup, seed, counts, CHOICES
 from orchestrator.limits import RunLimitTracker
 
 REPO=Path(__file__).resolve().parents[1]

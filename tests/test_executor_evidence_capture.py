@@ -12,11 +12,11 @@ import shutil
 
 import pytest
 
-from services.r4c1_executor_capture import (
+from services.executor_evidence_capture import (
     APPROVED_COMMIT, BinaryProcessResult, R4C1CaptureBlocked,
     R4C1CaptureCollector, SOURCE, EXPECTED_SOURCE_SHA256,
 )
-from services.r4c1_readiness import (
+from services.environment_readiness import (
     APPROVED_TREE, DOCKER_CMDS, GIT_CMDS, ObservedProcess,
     inspect_docker_mock, inspect_git_baseline_mock,
 )
@@ -25,7 +25,7 @@ from services.target_registry import TargetRegistry
 
 # This existing fixture exercises the REAL ControlledExecutor Python logic
 # with an inert in-memory HttpTransport seam. No external target is contacted.
-from test_r4a_prelive_readiness import _R4B1_CASES, _r4b1_actual_executor_result
+from test_security_preflight import _R4B1_CASES, _r4b1_actual_executor_result
 
 REPO = Path(__file__).resolve().parents[1]
 HASHED="a"*64

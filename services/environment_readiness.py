@@ -13,7 +13,7 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from services.r4c1_executor_capture import APPROVED_COMMIT
+from services.executor_evidence_capture import APPROVED_COMMIT
 
 APPROVED_TREE = "612cbe74627cfef1a736bb0506f038b3513c82db"
 EXPECTED_PROJECT = "fyp-red-blue-lab"

@@ -11,7 +11,7 @@ import yaml
 from pydantic import ValidationError
 import pytest
 
-from services.r4c4f_isolated_mock_adapter import (
+from services.isolated_compose_mock_adapter import (
     APP_CONTAINER, EXECUTOR_CONTAINER, PROJECT, IMAGE, NETWORK, VOLUME,
     BASE_COMPOSE_SHA256, ISOLATED_COMPOSE, ORIGINAL_IMAGE, OPERATIONS,
     REQUIRED_HASHES, MockOptionBAdmission, MockInventory, MockBinaryProcess,
@@ -409,9 +409,9 @@ def test_c4f_original_runner_bytes_stay_separate_and_unchanged():
     source=(REPO/"services/test_runner.py").read_text()
     assert '"docker", "compose", "exec"' in source
     assert "infrastructure.executor.run_verification_test" in source
-    isolated=(REPO/"services/r4c4f_isolated_mock_adapter.py").read_text()
+    isolated=(REPO/"services/isolated_compose_mock_adapter.py").read_text()
     assert '--project-directory' in isolated
-    assert 'compose.r4c4f-isolated.yaml' in isolated
+    assert 'compose.isolated.yaml' in isolated
     assert "subprocess.run(" not in isolated
 
 

@@ -47,6 +47,32 @@ manifest.json       8131e0ad2a40a6963fe9f405445352ce8af287f6ab41297f80ebba0735e3
 
 No real RQ1/RQ2/RQ3 final experiment has been run. No final experiment configuration is admitted from this feasibility cycle, and M21 remains locked pending an explicit pre-final-evaluation design decision.
 
+## Integrated Development Branch (2026-10-09)
+
+**Active local branch:** `integration/r4c4f-primary-20261009`. The original
+FYP code and four approved R3/R4 development commits are consolidated in this
+repository. Historical M20 and recovery branches remain intact; the project
+was **not** rebuilt from scratch.
+
+Two Docker Compose files are intentional:
+
+- `compose.yaml` is the original/default lab: image
+  `fyp-red-blue-lab:local`, host port `127.0.0.1:8000`.
+- `compose.isolated.yaml` is a **standalone** isolated lab configuration, with
+  independent image, containers, network and volume, host port
+  `127.0.0.1:18080`, and unchanged container port 8000.
+
+`services/isolated_compose_mock_adapter.py` is **mock-only**. It does not call
+Docker and is not wired into the original live execution pipeline. Modern
+source filenames describe module responsibilities; historical evidence schema
+version strings are retained for compatibility.
+
+The primary repository passed 337 focused and 755 complete offline tests
+before renaming (one benign warning). The renamed source must pass the tests
+again. M20 Q6_K remains INELIGIBLE and M21 final experiments BLOCKED.
+
+See [Current development guide](docs/CURRENT_DEVELOPMENT_GUIDE.md).
+
 ## Remediation Compatibility Recovery (2026-10-09)
 
 The additive remediation decision/outcome compatibility layer is verified on the separate `recovery/remediation-outcome-compat-20261009` branch. It introduces safe no-patch finalization and RQ1 development-mode compatibility without changing legacy patch artifacts or the 20-table database. Focused verification passed (123 tests); the full Python 3.12 suite passed (418 tests, one non-failing deprecation warning). No remediation compiler or model inference is included. See [Recovery compatibility verification](docs/REMEDIATION_COMPATIBILITY_RECOVERY.md) for exact scope, test commands, evidence hashes, limitations and next gates. This is **not** a final experiment freeze or an M20 qualification change.
@@ -201,7 +227,8 @@ Cloud-model credentials will be added only when a provider integration is implem
 ├── README.md
 ├── HANDOFF.md
 ├── pyproject.toml
-└── compose.yaml
+├── compose.yaml           # default, original Docker configuration
+└── compose.isolated.yaml  # isolated, standalone configuration
 ```
 
 The top-level `agents/` package is the frozen Phase 1 untrusted reasoning layer. It is distinct from `llm/` provider mechanics, `orchestrator/` coordination, and deterministic `services/`.
@@ -277,7 +304,14 @@ The path-traversal scenario is additionally bounded by a synthetic scenario-file
 
 ## Docker Lab
 
-Start on a machine with Docker:
+**Safety:** the legacy startup commands below select `compose.yaml` and
+existing fixed image/container names. They do not select
+`compose.isolated.yaml`. Do not run them on a shared/active daemon without
+separate authorization and ownership checks. The isolated adapter is
+mock-only, not a Docker runtime.
+
+
+Legacy default lab, only when specifically authorized:
 
 Linux:
 
@@ -298,6 +332,11 @@ The dummy app is published only at:
 ```text
 http://127.0.0.1:8000
 ```
+
+The isolated configuration uses loopback `127.0.0.1:18080` instead.
+It is a complete alternative file, **not** a YAML overlay to combine using
+multiple `-f` flags. Its normalized runtime configuration still needs an
+independent read-only verification before any Docker mutation.
 
 The controlled executor has no published port and uses only the externally
 isolated `security-lab` Docker network.
@@ -353,8 +392,20 @@ bash scripts/verify_registered_tests.sh
 
 See `docs/SECURITY_TEST_HARNESS.md`.
 
-## Next Task
+## Historical Next Task (superseded 2026-10-09)
 
 **Review and approve the Milestone 20 Candidate Set v4 DOCUMENT diff before any staging or commit.**
 
 After documentation approval, perform only the exact staged Git review for the verified v4 implementation + documentation checkpoint. Preserve all v1/v2/v3 evidence including `V3-DISCOVERY-NONE`, prove the staged path scope and frozen protocol hashes, run staged whitespace/integrity checks, and commit only after that staged gate is explicitly approved. Do not run C4 zero-generation readiness, make provider calls, implement/evaluate a v4 global barrier, execute F2/F3, derive B5/RQ1-K/RQ3, begin M21, or run final experiments.
+
+
+## Current Next Steps (2026-10-09)
+
+1. Verify renamed source with focused and full offline tests, then publish
+   the integration branch **only** (no `main` merge).
+2. Separately validate isolated Docker configuration and port 18080
+   read-only before any build/start/cleanup.
+3. Complete bounded genuine Red runtime capture and three registered
+   vulnerability verification scenarios under separate approval.
+4. Resolve M20 model/protocol eligibility in parallel, then conduct frozen
+   final RQ1/RQ2, analyze and finish the report, demo and viva.

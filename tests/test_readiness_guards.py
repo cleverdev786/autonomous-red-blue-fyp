@@ -9,12 +9,12 @@ import shutil
 from pydantic import ValidationError
 import pytest
 
-from schemas.r4a_red_observation import REGISTERED
-from schemas.r4c4a_readiness_request import (
+from schemas.registered_red_observation import REGISTERED
+from schemas.readiness_request import (
     C4AAdmissionBlocked, C4AReadinessRequest, REQUIRED_HASH_PATHS,
     DISPOSABLE_NAMES, load_mock_external_request,
 )
-from services.r4c4a_readiness_guards import (
+from services.readiness_guards import (
     MockFSState, MockProcessOutput, MockDockerOperatorClaim,
     inspect_private_root_mock, inspect_git_main_mock,
     inspect_docker_ownership_mock, C4AGuardBlocked,

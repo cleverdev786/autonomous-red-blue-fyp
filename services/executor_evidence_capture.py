@@ -14,7 +14,7 @@ from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from schemas.r4a_red_observation import REGISTERED, observe_registered_result
+from schemas.registered_red_observation import REGISTERED, observe_registered_result
 from security_tests.registry import SecurityTestRegistry
 from services.target_registry import TargetRegistry
 from services.trusted_remediation_compiler import EXPECTED_SOURCE_SHA256, SOURCE
