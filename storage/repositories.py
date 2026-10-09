@@ -26,6 +26,7 @@ from schemas.logging import AuditEvent, AuditExecutionStatus, AuditPolicyDecisio
 from schemas.patches import PatchGenerationResult, PatchRetryFeedback
 from schemas.red_team import RedTeamRunResult
 from schemas.remediation import RemediationAttemptResult, RemediationDisposition
+from schemas.trusted_compilation import TrustedCompilerStoredOutcome
 from schemas.scoring import ScoreResult
 from schemas.scenarios import ScenarioGroundTruth
 from schemas.verification import PatchVerificationResult, VerificationCheckStatus
@@ -67,6 +68,7 @@ _ARTIFACT_MODELS: dict[ArtifactType, type[BaseModel]] = {
     ArtifactType.BLUE_TEAM_ANALYSIS_RESULT: BlueTeamAnalysisResult,
     ArtifactType.PATCH_GENERATION_RESULT: PatchGenerationResult,
     ArtifactType.REMEDIATION_ATTEMPT_RESULT: RemediationAttemptResult,
+    ArtifactType.TRUSTED_COMPILER_OUTCOME: TrustedCompilerStoredOutcome,
     ArtifactType.PATCH_BRANCH_RESULT: PatchBranchResult,
     ArtifactType.PATCH_VERIFICATION_RESULT: PatchVerificationResult,
     ArtifactType.PATCH_RETRY_FEEDBACK: PatchRetryFeedback,
@@ -710,7 +712,11 @@ class ExperimentWriteRepository:
             attempt_number=attempt_number,
             artifact_type=artifact_type.value,
             schema_name=model.__class__.__name__,
-            schema_version="1.0",
+            schema_version=(
+                model.schema_version
+                if artifact_type == ArtifactType.TRUSTED_COMPILER_OUTCOME
+                else "1.0"
+            ),
             payload_json=payload,
             payload_sha256=canonical_sha256(payload),
             created_at=datetime.now(UTC),
