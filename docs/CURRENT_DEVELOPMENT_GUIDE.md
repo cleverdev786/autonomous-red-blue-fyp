@@ -31,6 +31,11 @@ module only constructs and verifies intended commands against **injected
 mock runners**. It does not call Docker, attest a live container, or perform
 Red testing.
 
+A separately gated real execution seam is now implemented in
+services/isolated_compose_executor.py. Its source and offline test
+boundary are described in docs/ISOLATED_DOCKER_EXECUTION_GATE.md.
+It has not been executed against real Docker containers.
+
 ## Descriptive module organization
 
 - `schemas/registered_red_observation.py`: typed registered Red observations.
