@@ -18,9 +18,12 @@ checkouts are archived references, not the active development repository.
 | File | Scope | Host endpoint |
 |---|---|---|
 | `compose.yaml` | Original/legacy FYP Docker configuration with historic fixed names and the old image tag | `127.0.0.1:8000` |
-| `compose.isolated.yaml` | **Standalone** isolated Compose configuration with independent project, image, container, network and volume identities | `127.0.0.1:18080` |
+| `compose.isolated.yaml` | **Standalone** isolated Compose configuration with independent project, image, container, network and volume identities | None (internal DNS only) |
 
-The container's internal port remains 8000. These files should **not** be
+The executor is configured to reach the isolated application at
+`http://vulnerable-store:8000` over the internal bridge, without publishing
+any host port. Gate 5C-D independently confirmed that Docker Engine did not
+publish `127.0.0.1:18080` on an internal-only bridge. These files should **not** be
 combined with multiple `-f` arguments: the isolated file is complete, not a
 partial override. The original Docker images/containers are historical
 resources and must not be automatically pruned, overwritten or cleaned up.

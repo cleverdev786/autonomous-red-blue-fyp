@@ -71,8 +71,7 @@ def compose_config():
         "name": PROJECT,
         "services": {
             "vulnerable-store": {"image": IMAGE, "container_name": APP_CONTAINER,
-                "ports": [{"host_ip": "127.0.0.1", "mode": "ingress",
-                           "protocol": "tcp", "published": "18080", "target": 8000}]},
+                "ports": []},
             "controlled-executor": {"image": IMAGE, "container_name": EXECUTOR_CONTAINER},
         },
         "networks": {"security-lab": {"name": NETWORK}},
@@ -96,8 +95,9 @@ def container_config(name):
             "Memory": 268435456 if app else 134217728,
             "PidsLimit": 128 if app else 64,
             "SecurityOpt": ["no-new-privileges:true"],
-            "PortBindings": {"8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18080"}]} if app else {}},
-        "NetworkSettings": {"Networks": {NETWORK: {"NetworkID": "net123"}}},
+            "PortBindings": {}},
+        "NetworkSettings": {"Networks": {NETWORK: {"NetworkID": "net123"}},
+                            "Ports": {"8000/tcp": None} if app else {}},
     }
 
 
@@ -145,7 +145,13 @@ def configured(environment, *, scenario="sqli-login-001", fault=None, process=No
         elif argv[-3:] == ("config", "--format", "json"):
             item = compose_config()
             if fault == "config":
-                item["services"]["vulnerable-store"]["ports"][0]["published"] = "8000"
+                item["services"]["vulnerable-store"]["ports"] = [
+                    {"host_ip": "127.0.0.1", "mode": "ingress",
+                     "protocol": "tcp", "published": "18080", "target": 8000}]
+            if fault == "config_executor_port":
+                item["services"]["controlled-executor"]["ports"] = [
+                    {"host_ip": "0.0.0.0", "mode": "ingress",
+                     "protocol": "tcp", "published": "18081", "target": 8000}]
         elif argv[3] == "network":
             item = {
                 "Name": NETWORK, "Id": "net123", "Driver": "bridge",
@@ -186,6 +192,29 @@ def configured(environment, *, scenario="sqli-login-001", fault=None, process=No
                 item["HostConfig"]["NanoCpus"] = 0
             if fault == "labels":
                 item["Config"]["Labels"]["com.docker.compose.project"] = "wrong"
+            if fault == "requested_ports_missing" and argv[-1] == APP_CONTAINER:
+                del item["HostConfig"]["PortBindings"]
+            if fault == "requested_port_app" and argv[-1] == APP_CONTAINER:
+                item["HostConfig"]["PortBindings"] = {
+                    "8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18080"}]}
+            if fault == "requested_port_executor" and argv[-1] == EXECUTOR_CONTAINER:
+                item["HostConfig"]["PortBindings"] = {
+                    "8000/tcp": [{"HostIp": "0.0.0.0", "HostPort": "18080"}]}
+            if fault == "effective_port_app" and argv[-1] == APP_CONTAINER:
+                item["NetworkSettings"]["Ports"] = {
+                    "8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18080"}]}
+            if fault == "effective_port_executor" and argv[-1] == EXECUTOR_CONTAINER:
+                item["NetworkSettings"]["Ports"] = {
+                    "8000/tcp": [{"HostIp": "0.0.0.0", "HostPort": "18080"}]}
+            if fault == "effective_port_unrelated" and argv[-1] == APP_CONTAINER:
+                item["NetworkSettings"]["Ports"]["9999/tcp"] = [
+                    {"HostIp": "0.0.0.0", "HostPort": "19999"}]
+            if fault == "effective_ports_missing" and argv[-1] == APP_CONTAINER:
+                del item["NetworkSettings"]["Ports"]
+            if fault == "effective_ports_empty_list" and argv[-1] == APP_CONTAINER:
+                item["NetworkSettings"]["Ports"]["8000/tcp"] = []
+            if fault == "effective_ports_null_object" and argv[-1] == APP_CONTAINER:
+                item["NetworkSettings"]["Ports"] = None
         else:
             raise AssertionError("unexpected command " + str(argv))
         return BinaryResult(0, json.dumps(item).encode(), b"")
@@ -234,6 +263,11 @@ def test_bounded_registered_flow_from_actual_executor_fixture(environment, scena
     "image", "container_id", "privileged", "labels",
     "extra_mount", "cpu", "network_owner", "third_party",
     "volume_owner", "image_owner", "network_binding",
+    "config_executor_port", "requested_ports_missing",
+    "requested_port_app", "requested_port_executor",
+    "effective_port_app", "effective_port_executor", "effective_port_unrelated",
+    "effective_ports_missing", "effective_ports_empty_list",
+    "effective_ports_null_object",
 ])
 def test_preflight_fail_closed_before_registered_execution(environment, fault):
     seam, _calls, dispatches, _ = configured(environment, fault=fault)
@@ -338,6 +372,7 @@ def test_evidence_directory_replacement_fails_without_dispatch(environment):
 
 
 @pytest.mark.parametrize("value", [
+    {"schema_version": "isolated-registered-live-admission-v1"},
     {"allow_single_registered_execution": False},
     {"final_evaluation": True},
     {"attempt_number": 2},

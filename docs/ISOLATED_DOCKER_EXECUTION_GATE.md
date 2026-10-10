@@ -1,6 +1,6 @@
 # Isolated Docker Registered Execution Seam
 
-**Gate:** Gate 2, source implementation and offline testing only, 2026-10-10.
+**Gate:** Gate 2 implementation, with Gate 5C-S internal-only correction (offline only), 2026-10-10.
 
 ## Scope
 
@@ -30,10 +30,17 @@ Before any future live invocation, an operator must separately approve:
   running container IDs must be pinned in the external admission.
 - Verified exclusive ownership and healthy state of both isolated
   containers, dedicated project/network, resource limits, restrictions,
-  127.0.0.1:18080 binding, and exact in-container source-file hashes.
+  absence of both requested and effective host publication, and exact
+  in-container source-file hashes.
 - Explicit one-case/one-run development-only authorization to dispatch
   one of the three registered deterministic tests, with outside-repository
   evidence parent already created.
+
+Gate 5C-D verified that the original localhost publication attempt on
+an internal-only bridge was ineffective. The active v2 admission now requires
+no host publication; historical v1 mock receipts remain unchanged and cannot
+authorize the new runtime contract. The already running application uses the
+previous Compose configuration until separately approved replacement.
 
 **Limitation:** Matching selected source files inside containers and a
 pinned image ID does not by itself prove the entire image was built from
@@ -46,7 +53,7 @@ The adapter verifies Git HEAD/tree, clean branch, frozen Compose YAML,
 normalized effective Compose configuration, Docker context/daemon/image
 identity, Compose labels, bridge network ownership and membership, isolated
 image and volume Compose ownership, running container health, mounts, read-only
-protections, port binding, CPU/memory/PID
+protections, forbidden host-port publication, CPU/memory/PID
 limits, and approved source-file hashes both on host and in each container.\nThe default binary runner streams process output within fixed byte limits and\nuses per-command deadlines; it kills a process that exceeds the limits.
 
 It retains dispatch-intent.json, bounded byte-preserving stdout.raw and

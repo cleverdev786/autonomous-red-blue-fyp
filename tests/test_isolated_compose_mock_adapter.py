@@ -56,7 +56,6 @@ def valid_inventory(**updates):
         "existing_images":(ORIGINAL_IMAGE,"hello-world:latest"),
         "existing_networks":("bridge","host","none"),
         "existing_volumes":(),
-        "occupied_host_ports":(),
     }
     original.update(updates)
     return MockInventory(**original)
@@ -120,7 +119,8 @@ def test_c4f_overlay_changes_only_expected_isolation_names():
     assert over["services"]["controlled-executor"]["image"]==IMAGE
     assert over["services"]["vulnerable-store"]["container_name"]==APP_CONTAINER
     assert over["services"]["controlled-executor"]["container_name"]==EXECUTOR_CONTAINER
-    assert over["services"]["vulnerable-store"]["ports"]==["127.0.0.1:18080:8000"]
+    assert "ports" not in over["services"]["vulnerable-store"]
+    assert "ports" not in over["services"]["controlled-executor"]
     assert over["services"]["vulnerable-store"]["expose"]==base["services"]["vulnerable-store"]["expose"]
     assert over["networks"]["security-lab"]["name"]==NETWORK
     assert over["volumes"]["store-runtime"]["name"]==VOLUME
@@ -152,7 +152,8 @@ def test_c4f_external_manifest_canonical_and_not_live(fixture):
     {"project":"fyp-red-blue-lab"},
     {"app_container":"fyp-vulnerable-store"},
     {"executor_container":"fyp-controlled-executor"},
-    {"host_port":8000},
+    {"host_port":18080},
+    {"schema_version":"r4c4f-option-b-isolation-v1"},
     {"context":"unknown"},
     {"source_commit":PARENT,"source_parent":PARENT},
 ])
@@ -189,7 +190,7 @@ def test_c4f_source_hash_mutation_detected(fixture,file):
     ("fyp-r4c4f-vulnerable-store","fyp-vulnerable-store"),
     ("fyp-r4c4f-controlled-executor","fyp-controlled-executor"),
     ("fyp-r4c4f-red-blue-lab:local","fyp-red-blue-lab:local"),
-    ("127.0.0.1:18080:8000","127.0.0.1:8000:8000"),
+    ("    expose:", '    ports:\n      - "127.0.0.1:18080:8000"\n    expose:'),
     ("fyp-r4c4f-security-lab","fyp-red-blue-lab_security-lab"),
     ("fyp-r4c4f-store-runtime","fyp-red-blue-lab_store-runtime"),
     ("internal: true","internal: false"),
@@ -281,7 +282,6 @@ def test_c4f_duplicate_attempt_count_rejected(fixture,value):
     {"existing_images":(ORIGINAL_IMAGE,IMAGE)},
     {"existing_networks":(NETWORK,)},
     {"existing_volumes":(VOLUME,)},
-    {"occupied_host_ports":(18080,)},
     {"daemon_id":""},
     {"context":"unexpected-context"},
 ])
@@ -297,7 +297,6 @@ def test_c4f_collisions_refuse_dispatch(fixture,collision):
     {"existing_containers":(EXECUTOR_CONTAINER,)},
     {"existing_networks":(NETWORK,)},
     {"existing_volumes":(VOLUME,)},
-    {"occupied_host_ports":(18080,)},
     {"context":"switched-context"},
     {"daemon_id":"changed-daemon"},
 ])
@@ -313,7 +312,7 @@ def test_c4f_post_dispatch_inventory_mismatch_is_not_success(fixture,collision):
 
 @pytest.mark.parametrize("tamper",[
     "name","image","app_container","executor_container",
-    "port","network","volume","read_only","cap_drop",
+    "port","executor_port","network","volume","read_only","cap_drop",
 ])
 def test_c4f_wrong_normalized_compose_rejected(fixture,tamper):
     obj=fake_normalized()
@@ -321,7 +320,9 @@ def test_c4f_wrong_normalized_compose_rejected(fixture,tamper):
     if tamper=="image":obj["services"]["controlled-executor"]["image"]=ORIGINAL_IMAGE
     if tamper=="app_container":obj["services"]["vulnerable-store"]["container_name"]="fyp-vulnerable-store"
     if tamper=="executor_container":obj["services"]["controlled-executor"]["container_name"]="fyp-controlled-executor"
-    if tamper=="port":obj["services"]["vulnerable-store"]["ports"]=["127.0.0.1:8000:8000"]
+    if tamper=="port":obj["services"]["vulnerable-store"]["ports"]=["127.0.0.1:18080:8000"]
+    if tamper=="executor_port":
+        obj["services"]["controlled-executor"]["ports"]=["0.0.0.0:8000:8000"]
     if tamper=="network":obj["networks"]["security-lab"]["name"]="legacy-network"
     if tamper=="volume":obj["volumes"]["store-runtime"]["name"]="legacy-volume"
     if tamper=="read_only":obj["services"]["vulnerable-store"]["read_only"]=False

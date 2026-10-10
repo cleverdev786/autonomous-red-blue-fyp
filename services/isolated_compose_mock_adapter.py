@@ -25,7 +25,6 @@ APP_CONTAINER = "fyp-r4c4f-vulnerable-store"
 EXECUTOR_CONTAINER = "fyp-r4c4f-controlled-executor"
 NETWORK = "fyp-r4c4f-security-lab"
 VOLUME = "fyp-r4c4f-store-runtime"
-PUBLISHED_PORT = 18080
 INTERNAL_PORT = 8000
 APPROVED_TESTS = (
     "sqli-login-bypass-001",
@@ -55,7 +54,7 @@ class R4C4FBlocked(RuntimeError):
 
 class MockOptionBAdmission(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    schema_version: Literal["r4c4f-option-b-isolation-v1"] = "r4c4f-option-b-isolation-v1"
+    schema_version: Literal["r4c4f-option-b-isolation-v2"] = "r4c4f-option-b-isolation-v2"
     scope: Literal["offline_injected_mock_only"] = "offline_injected_mock_only"
     authorizes_real_docker: Literal[False] = False
     authorizes_cleanup: Literal[False] = False
@@ -72,7 +71,6 @@ class MockOptionBAdmission(BaseModel):
     executor_container: Literal["fyp-r4c4f-controlled-executor"] = EXECUTOR_CONTAINER
     network: Literal["fyp-r4c4f-security-lab"] = NETWORK
     volume: Literal["fyp-r4c4f-store-runtime"] = VOLUME
-    host_port: Literal[18080] = PUBLISHED_PORT
     protected_old_image: Literal["fyp-red-blue-lab:local"] = ORIGINAL_IMAGE
     run_id: str = Field(min_length=1, max_length=64)
 
@@ -149,7 +147,7 @@ def verify_isolation_yaml(root: Path) -> dict:
         expected["services"][service]["image"] = IMAGE
         expected["services"][service]["container_name"] = cname
     expected["x-lab-image"]["image"] = IMAGE
-    expected["services"]["vulnerable-store"]["ports"] = ["127.0.0.1:18080:8000"]
+    expected["services"]["vulnerable-store"].pop("ports")
     expected["networks"]["security-lab"]["name"] = NETWORK
     expected["volumes"]["store-runtime"] = {"name": VOLUME}
     if actual != expected:
@@ -179,7 +177,6 @@ class MockInventory(BaseModel):
     existing_images: tuple[str, ...] = ()
     existing_networks: tuple[str, ...] = ()
     existing_volumes: tuple[str, ...] = ()
-    occupied_host_ports: tuple[int, ...] = ()
 
 
 class MockBinaryProcess(BaseModel):
@@ -217,9 +214,7 @@ def _mock_inventory_valid(expected: MockInventory, observed: MockInventory,
         return False
     if IMAGE in expected.existing_images or NETWORK in expected.existing_networks:
         return False
-    if VOLUME in expected.existing_volumes or PUBLISHED_PORT in expected.occupied_host_ports:
-        return False
-    return True
+    return VOLUME not in expected.existing_volumes
 
 
 def _check_normalized_config(raw: bytes) -> bool:
@@ -239,7 +234,7 @@ def _check_normalized_config(raw: bytes) -> bool:
             and x.get("cap_drop") == ["ALL"] and y.get("cap_drop") == ["ALL"]
             and obj["networks"]["security-lab"]["name"] == NETWORK
             and obj["volumes"]["store-runtime"]["name"] == VOLUME
-            and x.get("ports") == ["127.0.0.1:18080:8000"]
+            and x.get("ports", []) == [] and y.get("ports", []) == []
         )
     except (ValueError, TypeError, KeyError, AttributeError):
         return False

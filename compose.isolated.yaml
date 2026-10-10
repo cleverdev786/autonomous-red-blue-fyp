@@ -32,8 +32,6 @@ services:
       VULNERABLE_STORE_DATABASE_URL: sqlite:////runtime/vulnerable_store.db
       VULNERABLE_STORE_SEED_FILES_DIR: /runtime/seed_files
       VULNERABLE_STORE_SCENARIO_FILES_DIR: /runtime/scenario_files
-    ports:
-      - "127.0.0.1:18080:8000"
     expose:
       - "8000"
     networks:

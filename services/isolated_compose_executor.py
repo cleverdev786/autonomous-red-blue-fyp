@@ -68,7 +68,7 @@ class IsolatedExecutionBlocked(RuntimeError):
 
 class RealExecutionAdmission(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    schema_version: Literal["isolated-registered-live-admission-v1"] = "isolated-registered-live-admission-v1"
+    schema_version: Literal["isolated-registered-live-admission-v2"] = "isolated-registered-live-admission-v2"
     purpose: Literal["development_registered_observation"] = "development_registered_observation"
     final_evaluation: Literal[False] = False
     allow_single_registered_execution: Literal[True] = True
@@ -317,12 +317,12 @@ class IsolatedDockerExecutor:
                 raise IsolatedExecutionBlocked("application runtime volume ownership mismatch")
         elif mounts:
             raise IsolatedExecutionBlocked("executor has an unexpected mounted volume")
-        ports = host.get("PortBindings") or {}
-        if service == "vulnerable-store":
-            if ports != {"8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18080"}]}:
-                raise IsolatedExecutionBlocked("application host port binding mismatch")
-        elif ports:
-            raise IsolatedExecutionBlocked("executor exposes a host port")
+        requested = host.get("PortBindings")
+        effective = (c.get("NetworkSettings") or {}).get("Ports")
+        if ("PortBindings" not in host or requested not in (None, {})
+                or type(effective) is not dict
+                or any(binding is not None for binding in effective.values())):
+            raise IsolatedExecutionBlocked("host publication is forbidden on the internal network")
         return {"id": c["Id"], "image": c["Image"], "network": NETWORK,
                 "service": service, "healthy": True}
 
@@ -375,9 +375,7 @@ class IsolatedDockerExecutor:
                 or app.get("image") != IMAGE or executor.get("image") != IMAGE
                 or app.get("container_name") != APP_CONTAINER
                 or executor.get("container_name") != EXECUTOR_CONTAINER
-                or app.get("ports") != [{"host_ip": "127.0.0.1", "mode": "ingress",
-                                         "protocol": "tcp", "published": "18080", "target": 8000}]
-                or executor.get("ports")):
+                or app.get("ports", []) != [] or executor.get("ports", []) != []):
             raise IsolatedExecutionBlocked("Docker context, image, network or normalized Compose drift")
         network_id = network.get("Id")
         if not isinstance(network_id, str) or not network_id:
