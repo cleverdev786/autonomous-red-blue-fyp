@@ -12,7 +12,7 @@
 
 ### Primary Repository Integration and Naming Cleanup (2026-10-09)
 
-**Active branch:** `integration/r4c4f-primary-20261009` in the original
+**Active branch:** `development` in the original
 repository, not merged into `main`.
 
 Four pre-verified R3/R4 commits were imported unmodified. Integration commit

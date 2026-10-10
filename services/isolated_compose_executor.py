@@ -73,7 +73,7 @@ class RealExecutionAdmission(BaseModel):
     final_evaluation: Literal[False] = False
     allow_single_registered_execution: Literal[True] = True
     context: Literal["default"] = "default"
-    source_branch: Literal["integration/r4c4f-primary-20261009"] = "integration/r4c4f-primary-20261009"
+    source_branch: Literal["development"] = "development"
     source_head: str = Field(pattern=HEX40)
     source_tree: str = Field(pattern=HEX40)
     source_hashes: dict[str, str]

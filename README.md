@@ -49,7 +49,7 @@ No real RQ1/RQ2/RQ3 final experiment has been run. No final experiment configura
 
 ## Integrated Development Branch (2026-10-09)
 
-**Active local branch:** `integration/r4c4f-primary-20261009`. The original
+**Active local branch:** `development`. The original
 FYP code and four approved R3/R4 development commits are consolidated in this
 repository. Historical M20 and recovery branches remain intact; the project
 was **not** rebuilt from scratch.

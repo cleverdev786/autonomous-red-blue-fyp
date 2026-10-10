@@ -5,7 +5,7 @@
 ## Main working repository
 
 The primary project is at `/home/zain/Documents/RED FYP/autonomous-red-blue-fyp`.
-The current integration branch is `integration/r4c4f-primary-20261009`.
+The current integration branch is `development`.
 It contains the existing FYP foundation, four unchanged historic R3/R4
 development commits, and the isolated Compose/mock-adapter integration.
 
