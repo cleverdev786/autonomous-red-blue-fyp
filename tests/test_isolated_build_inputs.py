@@ -72,6 +72,7 @@ def test_verified_source_pins_and_allowlist_are_consistent(fixture):
     ("dummy_apps/vulnerable_store/Dockerfile", "https://pypi.org/simple", "http://example.invalid/simple"),
     (".dockerignore", "!services/**", "!secrets/**"),
     (".dockerignore", "**/.env.*", "**/unsafe"),
+    (".dockerignore", "/models/", "/models/*.gguf"),
     ("requirements/isolated-py313-linux-amd64.lock", "--hash=sha256:", "--hash=sha512:"),
     ("pyproject.toml", "fastapi>=0.115,<1.0", "fastapi>=0.100,<1.0"),
 ])

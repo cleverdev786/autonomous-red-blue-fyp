@@ -100,7 +100,10 @@ def test_valid_structured_response_one_dispatch_and_hash_evidence(tmp_path):
         == json.dumps(request, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     )
     assert request["messages"][1]["content"] == '{"event_id":"safe-fixture"}'
-    assert request["stream"] is False and request["response_format"]["type"] == "json_object"
+    assert request["stream"] is False
+    assert request["response_format"]["type"] == "json_object"
+    assert request["response_format"]["schema"] == RQ2ClassificationDecision.model_json_schema()
+    assert request["response_format"]["schema"]["additionalProperties"] is False
     assert json.loads((evidence / "call-000001-receipt.json").read_text())["status"] == "COMPLETED"
     assert (evidence / "call-000001-response.raw").read_bytes() == raw
     usage = provider.take_last_usage()
@@ -228,3 +231,54 @@ def test_refuse_symlink_aliases_before_using_file_or_evidence_dir(tmp_path):
             prompts=valid.prompts,
             evidence_dir=link_evidence,
         )
+
+
+def test_rejected_extra_keys_retains_real_usage_and_never_coerces_output(tmp_path):
+    provider, evidence, _ = client(tmp_path)
+    invalid = json.dumps({
+        "classification": "sql_injection",
+        "confidence": 0.91,
+        "reason": "test synthetic event",
+        "case": "forbidden-extra-key",
+    })
+    raw = response(invalid, {"prompt_tokens": 37, "completion_tokens": 18})
+    with (
+        patch("llm.local_gguf_provider.urlopen", return_value=FakeResponse(raw)) as mock,
+        pytest.raises(LocalGgufProviderError),
+    ):
+        provider.generate_structured(
+            role=AgentRole.BLUE_TRIAGE,
+            input_data={"event_id": "safe-fixture"},
+            response_model=RQ2ClassificationDecision,
+        )
+    assert mock.call_count == 1
+    receipt = json.loads((evidence / "call-000001-receipt.json").read_text())
+    assert receipt["status"] == "FAILED"
+    assert receipt["error_type"] == "ValidationError"
+    assert receipt["usage"]["input_tokens"] == 37
+    assert receipt["usage"]["output_tokens"] == 18
+    assert receipt["usage"]["token_usage_status"] == "reported"
+    assert (evidence / "call-000001-response.raw").read_bytes() == raw
+    usage = provider.take_last_usage()
+    assert (usage.input_tokens, usage.output_tokens) == (37, 18)
+    assert usage.token_usage_status == TokenUsageStatus.REPORTED
+
+
+def test_incomplete_completion_preserves_reported_token_usage(tmp_path):
+    provider, evidence, _ = client(tmp_path)
+    raw = response('{"classification":"benign","confidence":0.95,"reason":"no danger"}',
+                   {"prompt_tokens": 12, "completion_tokens": 7}, reason="length")
+    with (
+        patch("llm.local_gguf_provider.urlopen", return_value=FakeResponse(raw)),
+        pytest.raises(LocalGgufProviderError),
+    ):
+        provider.generate_structured(
+            role=AgentRole.BLUE_TRIAGE,
+            input_data={"event_id": "safe-fixture"},
+            response_model=RQ2ClassificationDecision,
+        )
+    receipt = json.loads((evidence / "call-000001-receipt.json").read_text())
+    assert receipt["status"] == "FAILED"
+    assert receipt["usage"]["token_usage_status"] == "reported"
+    usage = provider.take_last_usage()
+    assert (usage.input_tokens, usage.output_tokens) == (12, 7)

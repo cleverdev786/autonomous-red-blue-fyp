@@ -28,6 +28,7 @@ DENY_PATTERNS = (
     "**/*.egg-info/**", "**/scenario_files", "**/scenario_files/**",
     "**/generated_patches", "**/generated_patches/**",
     "**/experiment-results", "**/experiment-results/**", "**/.DS_Store",
+    "/models/",
 )
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 

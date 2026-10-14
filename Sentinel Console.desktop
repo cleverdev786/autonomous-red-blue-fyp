@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Sentinel Red-Blue Console
+GenericName=FYP Operator Dashboard
+Comment=Launch the local synthetic Red-Blue research console
+Exec=/usr/bin/env bash "/home/zain/Documents/RED FYP/autonomous-red-blue-fyp/launch-sentinel.sh"
+Icon=security-high
+Terminal=false
+Categories=Development;Education;
+StartupNotify=true

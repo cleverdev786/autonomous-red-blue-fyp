@@ -50,3 +50,6 @@
 **/experiment-results
 **/experiment-results/**
 **/.DS_Store
+
+# Prevent local model artifacts entering Docker build contexts.
+/models/

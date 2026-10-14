@@ -133,7 +133,7 @@ class LocalGgufDevelopmentProvider:
                 {
                     "role": "system",
                     "content": asset.system_prompt
-                    + "\nReturn a single valid JSON object; schema:\n"
+                    + "\nReturn exactly the required schema keys, no additional keys; schema:\n"
                     + json.dumps(response_schema, sort_keys=True, separators=(",", ":")),
                 },
                 {"role": "user", "content": user_payload},
@@ -143,7 +143,9 @@ class LocalGgufDevelopmentProvider:
             "top_k": self.top_k,
             "max_tokens": self.configuration.max_output_tokens,
             "stream": False,
-            "response_format": {"type": "json_object"},
+            # Use schema-constrained json_object for pinned llama.cpp compatibility.
+            # Keep strict Pydantic validation regardless of server behavior.
+            "response_format": {"type": "json_object", "schema": response_schema},
         }
         if self.configuration.seed is not None:
             body["seed"] = self.configuration.seed
@@ -170,6 +172,20 @@ class LocalGgufDevelopmentProvider:
             if len(raw_response) > 2 * 1024 * 1024:
                 raise LocalGgufProviderError("model response exceeds bounded capture size")
             reply = json.loads(raw_response)
+            # Account for a real provider response before completion and Pydantic checks.
+            # A rejected generated object still consumes measured tokens.
+            if not isinstance(reply, dict):
+                raise LocalGgufProviderError("non-object response envelope")
+            token_usage = reply.get("usage")
+            if isinstance(token_usage, dict):
+                inp = token_usage.get("prompt_tokens")
+                out = token_usage.get("completion_tokens")
+                if type(inp) is int and type(out) is int and inp >= 0 and out >= 0:
+                    self._usage = ProviderCallUsage(
+                        input_tokens=inp,
+                        output_tokens=out,
+                        token_usage_status=TokenUsageStatus.REPORTED,
+                    )
             choices = reply["choices"]
             if len(choices) != 1 or choices[0].get("finish_reason") != "stop":
                 raise LocalGgufProviderError("model did not stop normally")
@@ -177,15 +193,6 @@ class LocalGgufDevelopmentProvider:
             if message.get("tool_calls") or not isinstance(message.get("content"), str):
                 raise LocalGgufProviderError("tool call or non-text completion rejected")
             parsed = response_model.model_validate(json.loads(message["content"]))
-            token_usage = reply.get("usage")
-            if isinstance(token_usage, dict):
-                inp, out = token_usage.get("prompt_tokens"), token_usage.get("completion_tokens")
-                if type(inp) is int and type(out) is int and inp >= 0 and out >= 0:
-                    self._usage = ProviderCallUsage(
-                        input_tokens=inp,
-                        output_tokens=out,
-                        token_usage_status=TokenUsageStatus.REPORTED,
-                    )
             status = "COMPLETED"
             return parsed.model_dump(mode="json")
         except Exception as exc:

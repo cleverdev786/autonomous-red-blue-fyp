@@ -409,3 +409,23 @@ After documentation approval, perform only the exact staged Git review for the v
    vulnerability verification scenarios under separate approval.
 4. Resolve M20 model/protocol eligibility in parallel, then conduct frozen
    final RQ1/RQ2, analyze and finish the report, demo and viva.
+
+## Sentinel Operator Console (additive browser UI)
+
+A new professional browser dashboard is available through the original FastAPI
+package without replacing the existing read-only React dashboard or any Red/Blue
+agent logic. It provides a localhost overview, guided registered-scenario Red–Blue
+pipeline, real deterministic trusted-patch preparation **without application**,
+model selection (local memory-capped GGUF or approved HTTPS API), four synthetic
+structured capability probes, stored experiment runs, and audit views.
+
+For the original Linux checkout, open `Sentinel Console.desktop` from a file manager
+(or run `launch-sentinel.sh`) and visit `http://127.0.0.1:8090/`. The launcher
+auto-detects the original local Q6 model cache when present. See
+[`docs/OPERATOR_CONSOLE.md`](docs/OPERATOR_CONSOLE.md) for installation, model
+configuration, boundaries, and demonstration instructions. The demo is
+**development only**: neither its previews nor its model capability screens
+count as security replays, M20 qualification, or final RQ1/RQ2 observations.
+
+Read [`docs/IMPLEMENTATION_AND_RESEARCH_STATUS.md`](docs/IMPLEMENTATION_AND_RESEARCH_STATUS.md)
+for a precise handoff checklist reconciliation and uncompleted scientific gates.
