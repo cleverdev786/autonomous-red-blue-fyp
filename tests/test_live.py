@@ -52,7 +52,7 @@ def admitted(staged):  # noqa: F811
     return info, parent, pins, built, approved, location
 
 
-def fake_runner(approved, built, *, attack=401, unhealthy=False, drift=False, wrong_executor=False):
+def fake_runner(approved, built, *, attack=401, unhealthy=False, drift=False, wrong_executor=False, error_mismatch=False):
     from security_tests.registry import SecurityTestRegistry
     from services.isolated_compose_executor import CONTAINER_FILES
     calls = []
@@ -74,6 +74,8 @@ def fake_runner(approved, built, *, attack=401, unhealthy=False, drift=False, wr
         test_id="sqli-login-bypass-001", attempt_number=1, request_count=2,
         completed=True, exchanges=exchanges, duration_ms=2,
         evidence=SecurityTestRegistry.default().get("sqli-login-bypass-001").evaluate(exchanges),
+        error_code=("transport-error" if error_mismatch else
+                    "evidence-not-observed" if attack == 401 else None),
     ).model_dump_json().encode()
     def response(args, root):
         cmd = tuple(args)
@@ -208,3 +210,18 @@ def test_unprivileged_executor_identity_cannot_be_skipped(admitted):
     with pytest.raises(BlueLiveBlocked):
         execute(admitted,runner)
     assert not any("infrastructure.executor.run_verification_test" in a for a in calls)
+
+
+
+def test_completed_docker_replay_rejects_mismatched_error_code(admitted):
+    _, _, _, built, approved, _ = admitted
+    runner, calls = fake_runner(approved, built, error_mismatch=True)
+    with pytest.raises(BlueLiveBlocked, match="error code conflicts"):
+        execute(admitted, runner)
+    stage = Path(built["build_context"]).parent
+    assert (stage / "docker-replay.intent").is_file()
+    assert (stage / "docker-stdout.raw").is_file()
+    assert not (stage / "docker-replay.json").exists()
+    assert sum("infrastructure.executor.run_verification_test" in a for a in calls) == 1
+    with pytest.raises(BlueLiveBlocked, match="already"):
+        execute(admitted, runner)

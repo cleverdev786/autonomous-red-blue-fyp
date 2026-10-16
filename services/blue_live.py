@@ -292,7 +292,7 @@ def run_patched_replay(
         if (result.run_id != admitted.run_id or
                 result.target_id != "vulnerable-store" or
                 result.test_id != admitted.test_id or result.attempt_number != 1 or
-                not result.completed or result.timed_out or result.error_code is not None or
+                not result.completed or result.timed_out or
                 result.request_count != 2 or len(observed) != 2 or len(steps) != 2 or
                 any(x.step_id != s.step_id or x.endpoint_id != s.endpoint_id or
                     x.method != s.method.value for x,s in zip(observed,steps,strict=True))):
@@ -300,6 +300,12 @@ def run_patched_replay(
         expected_evidence = test.evaluate(observed)
         if tuple(result.evidence) != expected_evidence:
             raise BlueLiveBlocked("Executor claim differs from recomputed registered evidence")
+        # The registered executor marks a completed test with no exploit
+        # evidence as "evidence-not-observed". That is the expected outcome
+        # for a repaired target, not a transport or execution error.
+        expected_code = None if expected_evidence else "evidence-not-observed"
+        if result.error_code != expected_code:
+            raise BlueLiveBlocked("Registered test error code conflicts with evidence")
         success = observed[0].status_code == 401 and observed[1].status_code == 401 and not expected_evidence
         real = runner is run_local_binary
         report = {

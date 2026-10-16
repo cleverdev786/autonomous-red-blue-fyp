@@ -266,3 +266,32 @@ passing Docker replay does not grant repair acceptance or research
 qualification without independently assessed functionality and replay evidence.
 The baseline-only `IsolatedDockerExecutor` and its original approvals are
 unchanged; they must not be reused as patched-target approval.
+
+### Author-authorized patched SQLi Docker smoke (2026-10-16)
+
+An actual, isolated, non-research Docker smoke test of the **trusted
+deterministic SQLi repair** was completed. The cached vulnerable base image
+(`sha256:2f3d8290709fb13e193075fd2c7f555fc08f959d7d58c899dda74cbb2a6029ea`)
+was verified to contain the pinned unmodified source
+(`f8675d5bed857138f49cdf717bd4c696aad7e4e42c5f14cd41b4623b140a6e5d`).
+A separate local image used the exact trusted deterministic replacement
+(`c98aaccb4577804a7606b3e7059b5669e15ced05004c3ae9ba3a2ff14931fe98`),
+which was verified inside **both** containers.
+
+The real registered `sqli-login-bypass-001` control and injection steps both
+returned HTTP 401; legitimate scenario and application logins, invalid-password
+refusals, and health all passed (five functional checks). The registered
+executor correctly reported `error_code=evidence-not-observed`, not a
+transport failure. `blue_live` now accepts this expected completed,
+non-exploited result only when its recomputed registered evidence is empty,
+and rejects contradictory error codes.
+
+The author-authorized smoke report and raw outputs are retained outside Git
+under `~/.local/state/sentinel-fyp/blue-docker-smoke-20261016/`.
+The final `smoke-report.json` SHA-256 is
+`5df68156ef407140bd6f074f3d097b9f1a4f9579b8857969d42aeb61d47d2687`.
+Only smoke-specific containers were started and subsequently stopped; the
+separate image remains cached. This result does **not** show actual Q8 model
+inference, a model-driven job assessment, independent research evaluation,
+or final FYP remediation qualification. Historical baseline evidence and
+protected research holdouts were not modified.
