@@ -19,6 +19,7 @@ from services.isolated_compose_executor import (
     IsolatedDockerExecutor, load_real_admission,
 )
 from services.mars_dispatch_intent import reserve_once
+from services.receipt_record import record_receipt
 from services.registered_assessment_plan import registered_catalog
 from services.target_registry import TargetRegistry
 
@@ -97,7 +98,9 @@ def dispatch_reviewed_job(
     seam._source_snapshot()
     seam._runtime_snapshot()
     reserve_once(database, canonical_id, scope_hash, admission_sha256)
-    return seam.run_registered()
+    receipt = seam.run_registered()
+    record_receipt(database, canonical_id, Path(evidence_root), receipt)
+    return receipt
 
 
 def main() -> None:

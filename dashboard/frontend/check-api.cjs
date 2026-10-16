@@ -8,7 +8,7 @@ const built=esbuild.buildSync({entryPoints:["src/api.ts"],bundle:true,platform:"
 const compiled={exports:{}};
 new Function("module","exports","require",built.outputFiles[0].text)(
   compiled,compiled.exports,createRequire(path.resolve("package.json")));
-const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight}=compiled.exports;
+const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution}=compiled.exports;
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json"}});
 const check=async(kind,promise)=>{
   await assert.rejects(promise,error=>error instanceof ApiRequestError && error.kind===kind);
@@ -66,5 +66,14 @@ const check=async(kind,promise)=>{
   await check("schema",getMarsRedPreflight("fixture-job"));
   global.fetch=async()=>response({...safePreflight,checks:{...safePreflight.checks,runner_enabled:true}});
   await check("schema",getMarsRedPreflight("fixture-job"));
-  console.log("M14 API tests: health schema, HTTP, network, JSON, timeout, abort, run schema, unsafe status/preview refusal = PASS");
+  const unknownExecution = {job_id:"fixture-job",status:"outcome_unknown",
+    scope:"development_only_not_final_research"};
+  global.fetch=async()=>response(unknownExecution);
+  assert.equal((await getMarsJobExecution("fixture-job")).status,"outcome_unknown");
+  global.fetch=async()=>response({...unknownExecution,scope:"final_research"});
+  await check("schema",getMarsJobExecution("fixture-job"));
+  global.fetch=async()=>response({...unknownExecution,status:"receipt_recorded",
+    outcome:"baseline_exploit_confirmed"});
+  await check("schema",getMarsJobExecution("fixture-job"));
+  console.log("M14 API tests: health, HTTP, network, abort, preview refusal, receipt validation = PASS");
 })().catch(error=>{console.error(error);process.exitCode=1});

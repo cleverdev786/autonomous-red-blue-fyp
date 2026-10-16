@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from services.registered_assessment_plan import AssessmentPlanBlocked, registered_catalog
 from schemas.registered_red_observation import REGISTERED
 from services.mars_dispatch_intent import ensure_intent_table
+from services.receipt_record import ensure_receipt_table, read_receipt
 
 SCENARIO_ROUTES = {
     "sql": "/sql-injection/login",
@@ -75,6 +76,7 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
                 PRIMARY KEY(job_id, sequence)
             )""")
             ensure_intent_table(conn)
+            ensure_receipt_table(conn)
             yield conn
             conn.commit()
         except Exception:
@@ -207,6 +209,12 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
     def get_job(job_id: UUID) -> dict:
         with connect() as conn:
             return display_job(current_job(conn, job_id))
+
+    @router.get("/jobs/{job_id}/execution")
+    def job_execution(job_id: UUID) -> dict:
+        with connect() as conn:
+            current_job(conn, job_id)
+            return read_receipt(conn, str(job_id))
 
     @router.get("/jobs/{job_id}/events")
     def job_events(job_id: UUID) -> list[dict]:

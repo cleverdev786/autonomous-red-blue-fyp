@@ -351,6 +351,43 @@ export type MarsJob = {
 
 export type MarsJobEvent = { sequence: number; event: string; occurred_at: string };
 
+export type MarsJobExecution =
+  | { job_id: string; scope: "development_only_not_final_research";
+      status: "not_dispatched" | "outcome_unknown" }
+  | { job_id: string; scope: "development_only_not_final_research";
+      status: "receipt_recorded"; outcome: string; reason: string;
+      admission_sha256: string; receipt_sha256: string;
+      observation_sha256: string | null; run_id: string; case_id: string;
+      recorded_at: string };
+
+export function getMarsJobExecution(id: string): Promise<MarsJobExecution> {
+  return requestJson<unknown>("/api/mars/jobs/" + encodeURIComponent(id) + "/execution")
+    .then(value => {
+      if (!isRecord(value) || value.job_id !== id ||
+          value.scope !== "development_only_not_final_research") {
+        throw new ApiRequestError("schema", "Untrusted execution response");
+      }
+      if (value.status === "not_dispatched" || value.status === "outcome_unknown") {
+        if ("outcome" in value) throw new ApiRequestError("schema", "Untrusted execution outcome");
+        return value as MarsJobExecution;
+      }
+      const outcomes = ["baseline_exploit_confirmed", "baseline_exploit_not_observed",
+        "inconclusive", "executor_failed", "provenance_failed"];
+      if (value.status !== "receipt_recorded" ||
+          !outcomes.includes(value.outcome as string) ||
+          !["reason", "run_id", "case_id", "recorded_at"].every(key => stringField(value, key)) ||
+          !["admission_sha256", "receipt_sha256"].every(key =>
+            stringField(value, key) && /^[a-f0-9]{64}$/.test(value[key] as string)) ||
+          (value.observation_sha256 !== null &&
+            !(typeof value.observation_sha256 === "string" &&
+              /^[a-f0-9]{64}$/.test(value.observation_sha256)))) {
+        throw new ApiRequestError("schema", "Untrusted execution receipt");
+      }
+      return value as MarsJobExecution;
+    });
+}
+
+
 function isMarsJob(value: unknown): value is MarsJob {
   return isRecord(value) &&
     ["id", "plan_id", "name", "scenario", "target_id", "registered_test_id",

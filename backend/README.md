@@ -22,7 +22,8 @@ stable entrypoint without copying backend logic or introducing a second server.
 | Deterministic registered executor | `services/controlled_executor.py` |
 | Isolated Docker execution verification | `services/isolated_compose_executor.py` |
 | Durable single-attempt safety store | `services/mars_dispatch_intent.py` |
-| Externally admitted SQLi job handoff | `services/mars_admitted_dispatch.py` |
+| Externally admitted SQLi job handoff | `services/job_dispatch.py` |
+| Receipt evidence reconciliation | `services/receipt_record.py` |
 | Red/Blue workflow orchestration | `orchestrator/`, `agents/` |
 | Persistent local MARS workspace | `~/.local/state/mars/workspace.sqlite3` |
 | React web application | `dashboard/frontend/` |
@@ -32,7 +33,7 @@ stable entrypoint without copying backend logic or introducing a second server.
 A backend package is not a new authorization mechanism. No new execution
 permission is conferred by this entrypoint. The existing `/api/mars/jobs/{id}/start`
 route intentionally refuses launch. The admitted development-only SQLi handoff is
-instead explicitly invoked with `python -m services.mars_admitted_dispatch`,
+instead explicitly invoked with `python -m services.job_dispatch`,
 using `--help` to inspect its required arguments. It accepts an existing
 scope-reviewed MARS job, an independently reviewed external admission file and
 SHA-256, and an external evidence directory. Its case/run identifier must be
@@ -43,8 +44,14 @@ retried automatically**.
 
 **This is not independent admission itself.** Do not invoke the real worker
 without separately reviewed Docker/source pins and permitted synthetic runtime.
-It does not yet reconcile execution receipts into the MARS job API, provide
-a Blue/patch verification flow, or qualify an RQ1/RQ2 research result.
+A returned executor receipt must match the saved external receipt bytes,
+registered SQLi observation (when present), and durable admission reference
+before one audited receipt summary is persisted. The React Assessments view can
+read `GET /api/mars/jobs/{id}/execution`, which distinguishes
+`not_dispatched`, `outcome_unknown`, and `receipt_recorded` with the actual
+reported outcome. The durable intent stays unknown to forbid unsafe retries.
+No Blue/patch verification is connected yet, and this does not qualify an
+RQ1/RQ2 research result.
 
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with

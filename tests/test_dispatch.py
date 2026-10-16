@@ -8,7 +8,7 @@ from uuid import UUID
 import pytest
 
 from services.mars_dispatch_intent import DispatchIntentBlocked, read_intent
-from services.isolated_compose_executor import RealExecutionAdmission
+from services.isolated_compose_executor import (RealExecutionAdmission, RealExecutionReceipt, load_real_admission)
 from test_isolated_compose_executor import environment
 from test_mars_dispatch_intent import seeded_job
 
@@ -29,12 +29,13 @@ def approved_inputs(tmp_path, environment, job):
 
 
 def fake_executor(monkeypatch, *, fail=False):
-    import services.mars_admitted_dispatch as worker
+    import services.job_dispatch as worker
     calls = []
 
     class InertExecutor:
         def __init__(self, **kwargs):
             calls.append(("created", kwargs))
+            self.kwargs = kwargs
 
         def _source_snapshot(self):
             calls.append(("source_checked",))
@@ -46,18 +47,39 @@ def fake_executor(monkeypatch, *, fail=False):
             calls.append(("run_registered",))
             if fail:
                 raise RuntimeError("simulated uncertain external outcome")
-            return "inert-receipt-only"
+            pin = load_real_admission(
+                self.kwargs["source_root"], self.kwargs["admission_path"],
+                self.kwargs["admission_sha256"],
+            )
+            from pathlib import Path
+            receipt = RealExecutionReceipt(
+                case_id=pin.case_id, run_id=pin.run_id, scenario_id=pin.scenario_id,
+                source_head=pin.source_head, source_tree=pin.source_tree,
+                daemon_id=pin.daemon_id, image_id=pin.image_id,
+                app_container_id=pin.app_container_id,
+                executor_container_id=pin.executor_container_id,
+                admission_sha256=self.kwargs["admission_sha256"],
+                dispatch_argv=("inert",), stdout_sha256=sha256(b"").hexdigest(),
+                stderr_sha256=sha256(b"").hexdigest(), returncode=-1,
+                timed_out=False, outcome="executor_failed", reason="inert test failure",
+            )
+            case = Path(self.kwargs["evidence_root"]) / pin.case_id
+            case.mkdir()
+            (case / "receipt.json").write_bytes(
+                (receipt.model_dump_json(indent=2) + "\n").encode()
+            )
+            return receipt
 
     monkeypatch.setattr(worker, "IsolatedDockerExecutor", InertExecutor)
     return calls
 
 
 def test_reviewed_sqli_job_reaches_existing_executor_once(tmp_path, environment, monkeypatch):
-    from services.mars_admitted_dispatch import dispatch_reviewed_job
+    from services.job_dispatch import dispatch_reviewed_job
     db, job = seeded_job(tmp_path)
     args, pin = approved_inputs(tmp_path, environment, job)
     calls = fake_executor(monkeypatch)
-    assert dispatch_reviewed_job(**args) == "inert-receipt-only"
+    assert dispatch_reviewed_job(**args).outcome == "executor_failed"
     assert [c[0] for c in calls] == ["created", "source_checked", "runtime_checked", "run_registered"]
     intent = read_intent(db, job["id"])
     assert intent["state"] == "outcome_unknown"
@@ -71,7 +93,7 @@ def test_reviewed_sqli_job_reaches_existing_executor_once(tmp_path, environment,
 def test_mismatched_pins_or_scope_never_dispatch(
     tmp_path, environment, monkeypatch, change
 ):
-    from services.mars_admitted_dispatch import dispatch_reviewed_job, AdmittedDispatchBlocked
+    from services.job_dispatch import dispatch_reviewed_job, AdmittedDispatchBlocked
     db, job = seeded_job(tmp_path)
     args, pin = approved_inputs(tmp_path, environment, job)
     if change in ("scenario", "run_id"):
@@ -93,7 +115,7 @@ def test_mismatched_pins_or_scope_never_dispatch(
 
 
 def test_unknown_outcome_is_never_retried(tmp_path, environment, monkeypatch):
-    from services.mars_admitted_dispatch import dispatch_reviewed_job
+    from services.job_dispatch import dispatch_reviewed_job
     db, job = seeded_job(tmp_path)
     args, _ = approved_inputs(tmp_path, environment, job)
     calls = fake_executor(monkeypatch, fail=True)
@@ -106,7 +128,7 @@ def test_unknown_outcome_is_never_retried(tmp_path, environment, monkeypatch):
 
 
 def test_missing_scope_review_refuses_before_executor(tmp_path, environment, monkeypatch):
-    from services.mars_admitted_dispatch import dispatch_reviewed_job, AdmittedDispatchBlocked
+    from services.job_dispatch import dispatch_reviewed_job, AdmittedDispatchBlocked
     db, job = seeded_job(tmp_path, reviewed=False)
     args, _ = approved_inputs(tmp_path, environment, job)
     calls = fake_executor(monkeypatch)
@@ -117,8 +139,8 @@ def test_missing_scope_review_refuses_before_executor(tmp_path, environment, mon
 
 
 def test_failed_runtime_preflight_must_not_consume_attempt(tmp_path, environment, monkeypatch):
-    from services.mars_admitted_dispatch import dispatch_reviewed_job
-    import services.mars_admitted_dispatch as worker
+    from services.job_dispatch import dispatch_reviewed_job
+    import services.job_dispatch as worker
     db, job = seeded_job(tmp_path)
     args, _ = approved_inputs(tmp_path, environment, job)
     calls = []
@@ -147,7 +169,7 @@ def test_failed_runtime_preflight_must_not_consume_attempt(tmp_path, environment
 def test_sql_job_cannot_be_rebound_to_registered_xss_route(
     tmp_path, environment, monkeypatch
 ):
-    from services.mars_admitted_dispatch import dispatch_reviewed_job, AdmittedDispatchBlocked
+    from services.job_dispatch import dispatch_reviewed_job, AdmittedDispatchBlocked
     from services.registered_assessment_plan import registered_catalog
     import sqlite3
     import json

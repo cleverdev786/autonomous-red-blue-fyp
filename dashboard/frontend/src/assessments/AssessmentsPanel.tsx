@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsRedPreflight,
+import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsRedPreflight,
   listMarsJobs, listMarsPlans, updateMarsJob,
-  type MarsJob, type MarsJobEvent, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
+  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
 import { LoadingState } from "../ui";
 
 type CatalogState =
@@ -35,6 +35,8 @@ export function AssessmentsPanel() {
   const [jobBusy, setJobBusy] = useState(false);
   const [jobMessage, setJobMessage] = useState("");
   const [history, setHistory] = useState<{ id: string; events: MarsJobEvent[] } | null>(null);
+  const [execution, setExecution] = useState<{ id: string; data: MarsJobExecution } | null>(null);
+  const [executionError, setExecutionError] = useState<{ id: string; message: string } | null>(null);
   const [preflight, setPreflight] = useState<MarsRedPreflight | null>(null);
   const [preflightError, setPreflightError] = useState("");
   const [preflightBusy, setPreflightBusy] = useState(false);
@@ -141,6 +143,17 @@ export function AssessmentsPanel() {
     } catch {
       setPreflightError("Readiness could not be verified. No execution is permitted.");
     } finally { setPreflightBusy(false); }
+  }
+
+  async function showExecution(job: MarsJob) {
+    if (execution?.id === job.id) { setExecution(null); return; }
+    setExecutionError(null);
+    try {
+      const data = await getMarsJobExecution(job.id);
+      setExecution({ id: job.id, data });
+    } catch {
+      setExecutionError({ id: job.id, message: "Could not verify execution status. No result is being claimed." });
+    }
   }
 
   async function showJobHistory(job: MarsJob) {
@@ -274,6 +287,8 @@ export function AssessmentsPanel() {
             </button>
             <button type="button" onClick={() => void showJobHistory(job)}>
               {history?.id === job.id ? "Hide history" : "View history"}</button>
+            <button type="button" onClick={() => void showExecution(job)}>
+              {execution?.id === job.id ? "Hide result" : "View result"}</button>
           </div>
           {preflight?.job_id === job.id && <div className="mars-preflight" role="status">
             <strong>Execution preflight</strong>
@@ -287,6 +302,22 @@ export function AssessmentsPanel() {
             <p>Dispatch blocked. {preflight.note}</p>
           </div>}
           {preflightError && <p className="draft-feedback" role="alert">{preflightError}</p>}
+          {execution?.id === job.id && <div className="mars-preflight" role="status">
+            <strong>Registered Red execution</strong>
+            {execution.data.status === "not_dispatched" ?
+              <p>No dispatched attempt has been recorded for this job.</p> :
+              execution.data.status === "outcome_unknown" ?
+              <p>One attempt was reserved. Its outcome is unknown. Do not retry automatically.</p> :
+              execution.data.status === "receipt_recorded" ? <dl>
+                <div><dt>Observed outcome</dt><dd>{execution.data.outcome.replaceAll("_", " ")}</dd></div>
+                <div><dt>Reason</dt><dd>{execution.data.reason}</dd></div>
+                <div><dt>Receipt SHA-256</dt><dd><code>{execution.data.receipt_sha256}</code></dd></div>
+                <div><dt>Observation captured</dt><dd>{execution.data.observation_sha256 ? "Yes" : "No"}</dd></div>
+              </dl> : null}
+            <p>Development-only Red evidence. No Blue remediation or final research
+              success is implied by this status.</p>
+          </div>}
+          {executionError?.id === job.id && <p className="draft-feedback" role="alert">{executionError.message}</p>}
           {history?.id === job.id && <ol className="mars-job-history">
             {history.events.map(event => <li key={event.sequence}>
               <span>{event.event.replaceAll("_", " ")}</span>
@@ -299,7 +330,7 @@ export function AssessmentsPanel() {
     </section>
     <div className="soft-banner"><span className="banner-symbol" aria-hidden="true">i</span>
       <div><strong>Assessment planning is available</strong>
-        <p>View registered scope here. Execution will appear once the trusted runner and approval gates are integrated.</p></div>
+        <p>View registered scope here. Execution requires separately admitted Docker evidence. A recorded Red result can be viewed from the job queue; no Blue repair is claimed.</p></div>
       <a href="/dashboard/system">System status <span aria-hidden="true">↗</span></a>
     </div>
   </div>;
