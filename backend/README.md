@@ -218,3 +218,51 @@ build/deployment, pin image and daemon/container identities, verify isolation,
 and explicitly admit a single registered replay. Until those actions occur,
 `image_built=false`, `docker_executed=false`,
 `independent_admission_granted=false`, and `final_repair_accepted=false`.
+
+### Independently admitted patched Docker replay
+
+The offline `blue_docker` candidate **does not authorize live execution**.
+A separately reviewed image build and previously started, isolated Docker
+services must exist before using the operator-only
+`python -m services.blue_live` command. This command does not build, start,
+stop, reset, or remove any Docker resources.
+
+The operator supplies two externally reviewed, SHA-256-pinned artifacts:
+
+1. A canonical `BlueLiveAdmission` JSON containing the candidate SHA-256,
+   independent image-build attestation SHA-256 and its path, pinned Docker
+   daemon, image, application/executor container IDs, network ID, and the one
+   allowed registered SQLi run. The admission file's SHA-256 **must be pinned
+   independently**; do not discover and then trust its hash in the same
+   process. An approval flag alone is not proof of reviewer authorization.
+2. A separately retained JSON image-build attestation binding the reviewed
+   candidate SHA-256 to the image and Docker daemon identities, the patched
+   source hash, and the independently preserved build-log SHA-256. Its
+   contents and provenance require an independent human review.
+
+After independent approval, the authorized operator can invoke:
+
+```bash
+python -m services.blue_live \
+  --candidate-dir /absolute/external/docker-context \
+  --candidate-sha256 <externally-pinned-candidate-sha256> \
+  --admission-path /absolute/reviewer/admission.json \
+  --admission-sha256 <independently-pinned-admission-sha256>
+```
+
+The worker verifies the complete candidate-file inventory and frozen
+isolation policy; checks the approved build attestation, active Docker daemon,
+image, network, and both container identities and isolation controls; and
+hashes registered implementation/source bytes **inside each container**.
+Only after those checks does it create a no-retry intent and use the frozen
+`infrastructure.executor.run_verification_test` command for
+`sqli-login-bypass-001`. It saves raw registered output externally and
+rechecks runtime identities afterward. Forged or incomplete results never
+count as a passed replay.
+
+The output explicitly separates `evidence_scope=live_pinned_docker` from
+`injected_offline_runner` (the latter is used by unit tests only). Even a
+passing Docker replay does not grant repair acceptance or research
+qualification without independently assessed functionality and replay evidence.
+The baseline-only `IsolatedDockerExecutor` and its original approvals are
+unchanged; they must not be reused as patched-target approval.
