@@ -184,3 +184,37 @@ remediation acceptance. The report always states
 `docker_replayed=false`, `final_repair_accepted=false`, and
 `final_research_qualified=false`. Neither application-level success nor
 a simulated Red fixture should be promoted to final research evidence.
+
+### Patched Docker review candidate (offline, not deployment)
+
+The previous `blue_replay` result must have `status=passed`. From the
+operator-owned external directory, use:
+
+```bash
+python -m services.blue_docker \
+  --branch-receipt /absolute/external/branch-receipt.json \
+  --output-parent /absolute/external/patch-artifacts \
+  --source-root /absolute/pinned/source-checkout \
+  --replay-sha256 /the/64-character/sha256/from/blue_replay
+```
+
+The SHA-256 argument is a **digest string**, not a filename. The command
+validates the staged Git patch and the recorded in-process SQLi checks, then
+reads only committed Dockerfile inputs from the development Git tree. It
+creates an external `docker-context/` with the exact trusted SQLi source
+replacement and a `compose.blue.yaml` whose project/image/container/network/
+volume names are unique to the job. The frozen Compose isolation verifier must
+pass, including no published ports, internal-only bridge, read-only containers,
+dropped capabilities, and CPU/memory/PID restrictions. The output
+`candidate.json` inventories SHA-256 of every build-context file and records
+both the development source Git commit and staged patch fingerprint.
+
+Neither producing `candidate.json` nor hashing it grants runtime permission.
+No Docker CLI is invoked, no image is built, and no containers are started or
+stopped. The existing baseline-only `IsolatedDockerExecutor` explicitly
+requires the **original vulnerable route SHA-256** and cannot be reused for a
+patched image. An independent reviewer must approve a separate patched-image
+build/deployment, pin image and daemon/container identities, verify isolation,
+and explicitly admit a single registered replay. Until those actions occur,
+`image_built=false`, `docker_executed=false`,
+`independent_admission_granted=false`, and `final_repair_accepted=false`.
