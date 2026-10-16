@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsJobProposal, getMarsRedPreflight,
+import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsJobProposal, getMarsJobClassification, classifyMarsJob, getMarsRedPreflight,
   listMarsJobs, listMarsPlans, updateMarsJob,
-  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsJobProposal, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
+  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsJobProposal, type MarsJobClassification, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
 import { LoadingState } from "../ui";
 
 type CatalogState =
@@ -37,6 +37,10 @@ export function AssessmentsPanel() {
   const [history, setHistory] = useState<{ id: string; events: MarsJobEvent[] } | null>(null);
   const [execution, setExecution] = useState<{ id: string; data: MarsJobExecution } | null>(null);
   const [executionError, setExecutionError] = useState<{ id: string; message: string } | null>(null);
+  const [classification, setClassification] = useState<{ id: string; data: MarsJobClassification } | null>(null);
+  const [q8Ready, setQ8Ready] = useState(false);
+  const [classifyBusy, setClassifyBusy] = useState(false);
+  const [classifyError, setClassifyError] = useState<{ id: string; message: string } | null>(null);
   const [proposal, setProposal] = useState<{ id: string; data: MarsJobProposal } | null>(null);
   const [proposalError, setProposalError] = useState<{ id: string; message: string } | null>(null);
   const [preflight, setPreflight] = useState<MarsRedPreflight | null>(null);
@@ -44,6 +48,9 @@ export function AssessmentsPanel() {
   const [preflightBusy, setPreflightBusy] = useState(false);
   useEffect(() => {
     let active = true;
+    getConsoleJson<{ status: string }>("/q8/status").then(value => {
+      if (active) setQ8Ready(value.status === "ready");
+    }).catch(() => { if (active) setQ8Ready(false); });
     getConsoleJson<Scope>("/assessment/registry").then(receipt => {
       if (!active) return;
       if (receipt.target_id !== "vulnerable-store" || !Array.isArray(receipt.registered_assessments) ||
@@ -145,6 +152,37 @@ export function AssessmentsPanel() {
     } catch {
       setPreflightError("Readiness could not be verified. No execution is permitted.");
     } finally { setPreflightBusy(false); }
+  }
+
+  async function showClassification(job: MarsJob) {
+    if (classification?.id === job.id) { setClassification(null); return; }
+    setClassifyError(null);
+    try {
+      setClassification({ id: job.id, data: await getMarsJobClassification(job.id) });
+    } catch {
+      setClassifyError({ id: job.id, message: "Could not verify the saved Q8 result." });
+    }
+  }
+
+  async function classifyJob(job: MarsJob) {
+    if (classifyBusy || !window.confirm(
+      "Run one local Q8 classification over verified SQLi Red observations? " +
+      "The model and independent evidence pins must be configured. " +
+      "An interrupted attempt is not automatically retried and cannot authorize a patch."
+    )) return;
+    setClassifyBusy(true);
+    setClassifyError(null);
+    try {
+      const data = await classifyMarsJob(job.id);
+      setClassification({ id: job.id, data });
+      if (history?.id === job.id)
+        setHistory({ id: job.id, events: await getMarsJobEvents(job.id) });
+    } catch {
+      setClassifyError({ id: job.id, message:
+        "Q8 classification was refused or interrupted. Check loaded model, evidence pins and job history." });
+    } finally {
+      setClassifyBusy(false);
+    }
   }
 
   async function showProposal(job: MarsJob) {
@@ -304,6 +342,12 @@ export function AssessmentsPanel() {
               {execution?.id === job.id ? "Hide result" : "View result"}</button>
             <button type="button" onClick={() => void showProposal(job)}>
               {proposal?.id === job.id ? "Hide proposal" : "View proposal"}</button>
+            <button type="button" onClick={() => void showClassification(job)}>
+              {classification?.id === job.id ? "Hide Blue result" : "View Blue result"}</button>
+            {job.scenario === "sql" && job.state === "scope_reviewed" &&
+              <button type="button" disabled={classifyBusy || jobBusy || !q8Ready}
+                title={!q8Ready ? "Load the verified Q8 model before classification" : undefined}
+                onClick={() => void classifyJob(job)}>Classify with Q8</button>}
           </div>
           {preflight?.job_id === job.id && <div className="mars-preflight" role="status">
             <strong>Execution preflight</strong>
@@ -333,6 +377,28 @@ export function AssessmentsPanel() {
               success is implied by this status.</p>
           </div>}
           {executionError?.id === job.id && <p className="draft-feedback" role="alert">{executionError.message}</p>}
+          {classification?.id === job.id && <div className="mars-preflight" role="status">
+            <strong>Local Q8 model classification</strong>
+            {classification.data.status === "not_requested" ?
+              <p>No Q8 classification has been requested for this job.</p> :
+              classification.data.status === "outcome_unknown" ?
+              <p>An inference attempt was reserved but its outcome is unknown.
+                Do not assume a model decision or retry it automatically.</p> :
+              classification.data.status === "recorded" ? <>
+                <dl>
+                  <div><dt>Model predicted</dt><dd>{classification.data.classification.replaceAll("_", " ")}</dd></div>
+                  <div><dt>Confidence</dt><dd>{Math.round(classification.data.confidence * 100)}%</dd></div>
+                  <div><dt>Next step</dt><dd>{classification.data.preliminary_action.replaceAll("_", " ")}</dd></div>
+                  <div><dt>Source analysis approved</dt><dd>No</dd></div>
+                </dl>
+                <p>{classification.data.reason}</p>
+                <p>Input reconstructed from registered SQLi steps and recorded HTTP responses.
+                  The Q8 model is not independently research-qualified; this prediction
+                  does not authorize a source edit, patch, or security test.</p>
+              </> : null}
+          </div>}
+          {classifyError?.id === job.id &&
+            <p className="draft-feedback" role="alert">{classifyError.message}</p>}
           {proposal?.id === job.id && <div className="mars-preflight" role="status">
             <strong>Deterministic Blue patch proposal</strong>
             {proposal.data.status === "not_prepared" ?
@@ -360,7 +426,11 @@ export function AssessmentsPanel() {
           </ol>}
         </li>)}
       </ul>}
-      <p className="mars-job-note">Scope review is not execution authorization. Jobs here never dispatch security tests or qualify research.</p>
+      <p className="mars-job-note">
+        {q8Ready ? "Q8 is loaded; independent Red evidence pins are still required." :
+          "Q8 is not loaded. The classify action remains unavailable until the verified model is ready."}
+        {" "}Scope review is not execution authorization. No action on this page launches Red tests or qualifies research.
+      </p>
     </section>
     <div className="soft-banner"><span className="banner-symbol" aria-hidden="true">i</span>
       <div><strong>Assessment planning is available</strong>

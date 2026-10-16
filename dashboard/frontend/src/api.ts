@@ -351,6 +351,52 @@ export type MarsJob = {
 
 export type MarsJobEvent = { sequence: number; event: string; occurred_at: string };
 
+export type MarsJobClassification =
+  | { job_id: string; status: "not_requested" | "outcome_unknown" }
+  | { job_id: string; status: "recorded"; classification: string;
+      confidence: number; reason: string; model_origin: "q8_0_cpu_model";
+      model_sha256: string; model_input_origin: "registered_steps_plus_captured_responses";
+      model_input_sha256: string; model_raw_sha256: string;
+      model_evidence_id: string; preliminary_action: string;
+      model_independently_qualified: false; source_analysis_authorized: false;
+      patch_preparation_authorized: false; final_research_qualified: false };
+
+function verifiedClassification(value: unknown, id: string): MarsJobClassification {
+  if (!isRecord(value) || value.job_id !== id)
+    throw new ApiRequestError("schema", "Untrusted Blue classification");
+  if (value.status === "not_requested" || value.status === "outcome_unknown") {
+    if (["classification", "source_analysis_authorized", "patch_preparation_authorized",
+      "model_origin"].some(key => key in value))
+      throw new ApiRequestError("schema", "Untrusted incomplete Blue decision");
+    return value as MarsJobClassification;
+  }
+  const choices = ["sql_injection", "xss", "path_traversal", "benign", "unknown"];
+  if (value.status !== "recorded" || !choices.includes(value.classification as string) ||
+      typeof value.confidence !== "number" || value.confidence < 0 || value.confidence > 1 ||
+      value.model_origin !== "q8_0_cpu_model" ||
+      value.model_input_origin !== "registered_steps_plus_captured_responses" ||
+      !["reason", "model_evidence_id", "preliminary_action"].every(k => stringField(value, k)) ||
+      !["model_sha256", "model_input_sha256", "model_raw_sha256"].every(k =>
+        stringField(value, k) && /^[0-9a-f]{64}$/.test(value[k] as string)) ||
+      value.model_independently_qualified !== false ||
+      value.source_analysis_authorized !== false ||
+      value.patch_preparation_authorized !== false ||
+      value.final_research_qualified !== false)
+    throw new ApiRequestError("schema", "Untrusted Blue model result");
+  return value as MarsJobClassification;
+}
+
+export function getMarsJobClassification(id: string): Promise<MarsJobClassification> {
+  return requestJson<unknown>("/api/mars/jobs/" + encodeURIComponent(id) + "/classification")
+    .then(value => verifiedClassification(value, id));
+}
+
+export function classifyMarsJob(id: string): Promise<MarsJobClassification> {
+  return requestJson<unknown>("/api/mars/jobs/" + encodeURIComponent(id) + "/classify", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+  }).then(value => verifiedClassification(value, id));
+}
+
 export type MarsJobProposal =
   | { job_id: string; status: "not_prepared"; model_decision_used: false;
       patch_applied: false; security_replayed: false; final_research_qualified: false }

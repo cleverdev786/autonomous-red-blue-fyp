@@ -25,6 +25,8 @@ stable entrypoint without copying backend logic or introducing a second server.
 | Externally admitted SQLi job handoff | `services/job_dispatch.py` |
 | Receipt evidence reconciliation | `services/receipt_record.py` |
 | Independently bound SQLi patch preview | `services/blue_preview.py` |
+| Captured Red to model input | `services/blue_input.py` |
+| Explicit local Q8 job classification | `services/blue_classify.py` |
 | Red/Blue workflow orchestration | `orchestrator/`, `agents/` |
 | Persistent local MARS workspace | `~/.local/state/mars/workspace.sqlite3` |
 | React web application | `dashboard/frontend/` |
@@ -65,9 +67,39 @@ show the resulting diff with explicit `model_decision_used=false`,
 `patch_applied=false`, `security_replayed=false`, and
 `final_research_qualified=false`. This is a source-grounded deterministic
 development proposal, **not** a model-generated Blue classification or repair
-acceptance. The true model classification, isolated Git branch, legitimate
-regressions, and registered security replay remain to be integrated; the
-pre-existing disabled HTTP execution endpoint is unchanged.
+acceptance.
+
+### Local Q8 classification of independently bound Red observations
+
+`services.blue_input` reconstructs the registered SQLi pair using the
+**frozen registered request definitions** and **actual archived response
+excerpts**. The original HTTP request bodies were not captured, so this is
+a documented reconstruction, not a raw HTTP trace. Classification and source
+localization prompt inputs contain no exploit evaluator truth.
+
+The Assessments view includes **Classify with Q8** and **View Blue result**.
+The former calls `POST /api/mars/jobs/{id}/classify` (local-origin only).
+The server must have an actually loaded, SHA-verified C08B Q8 model and its
+independently validated external C12 prompt package. It also needs five
+operator-controlled environment variables, configured before server startup:
+
+- `MARS_SOURCE_ROOT`: exact registered archived source checkout
+- `MARS_EVIDENCE_DIR`: external registered Red case directory
+- `MARS_ADMISSION_PATH`: independently reviewed admission file
+- `MARS_ADMISSION_SHA256`: externally pinned admission digest
+- `MARS_RECEIPT_SHA256`: externally pinned case receipt digest
+
+The browser cannot supply paths or pins, and classification never launches
+Docker. Model request/response bytes are saved in the existing external,
+append-only Q8 evidence location. One classified job allows one attempt only;
+an interrupted inference is shown as `outcome_unknown`, never silently
+retried. The model's **actual label** is retained, even if benign, unknown,
+or wrong. All Q8 decisions remain development-only and
+**cannot authorize source analysis or patch application**.
+
+Next: model-backed source localization, Git branch materialization, legitimate
+regressions, and registered security replay. The protected baseline remains
+unchanged and the disabled HTTP Red execution endpoint stays disabled.
 
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with

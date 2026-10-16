@@ -8,7 +8,7 @@ const built=esbuild.buildSync({entryPoints:["src/api.ts"],bundle:true,platform:"
 const compiled={exports:{}};
 new Function("module","exports","require",built.outputFiles[0].text)(
   compiled,compiled.exports,createRequire(path.resolve("package.json")));
-const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution,getMarsJobProposal}=compiled.exports;
+const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution,getMarsJobProposal,getMarsJobClassification,classifyMarsJob}=compiled.exports;
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json"}});
 const check=async(kind,promise)=>{
   await assert.rejects(promise,error=>error instanceof ApiRequestError && error.kind===kind);
@@ -87,5 +87,28 @@ const check=async(kind,promise)=>{
     source_file:"dummy_apps/vulnerable_store/app/scenario_routes.py",
     diff_sha256:"a".repeat(64),diff_preview:"--- source",note:"Development only"});
   assert.equal((await getMarsJobProposal("fixture-job")).status,"prepared");
-  console.log("M14 API tests: health, HTTP, network, abort, preview refusal, receipt and proposal validation = PASS");
+  global.fetch=async()=>response({job_id:"fixture-job",status:"not_requested"});
+  assert.equal((await getMarsJobClassification("fixture-job")).status,"not_requested");
+  global.fetch=async()=>response({job_id:"fixture-job",status:"not_requested",
+    source_analysis_authorized:true});
+  await check("schema",getMarsJobClassification("fixture-job"));
+  global.fetch=async()=>response({job_id:"fixture-job",status:"recorded",
+    classification:"sql_injection",confidence:0.8,reason:"Model answer",
+    model_origin:"q8_0_cpu_model",model_sha256:"a".repeat(64),
+    model_input_origin:"registered_steps_plus_captured_responses",
+    model_evidence_id:"model-evidence",
+    model_input_sha256:"b".repeat(64),model_raw_sha256:"c".repeat(64),
+    preliminary_action:"select_registered_test",
+    model_independently_qualified:false,source_analysis_authorized:false,
+    patch_preparation_authorized:false,final_research_qualified:false});
+  assert.equal((await getMarsJobClassification("fixture-job")).classification,"sql_injection");
+  global.fetch=async()=>response({job_id:"fixture-job",status:"recorded",
+    classification:"sql_injection",patch_preparation_authorized:true});
+  await check("schema",getMarsJobClassification("fixture-job"));
+  let requestMethod;
+  global.fetch=async(_url,opts)=>{requestMethod=opts.method;
+    return response({job_id:"fixture-job",status:"outcome_unknown"});};
+  assert.equal((await classifyMarsJob("fixture-job")).status,"outcome_unknown");
+  assert.equal(requestMethod,"POST");
+  console.log("M14 API tests: health, HTTP, abort, receipts, proposals, model decision validation = PASS");
 })().catch(error=>{console.error(error);process.exitCode=1});
