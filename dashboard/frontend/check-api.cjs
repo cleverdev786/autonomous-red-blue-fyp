@@ -43,6 +43,21 @@ const check=async(kind,promise)=>{
   assert.equal(preview.applied,false);
   global.fetch=async()=>response({target:"local",execution_mode:"controlled",experience_mode:"DISABLED",model:{state:"unloaded",final_research_ready:"yes"}});
   await check("schema",getConsoleJson("/status"));
+  const activeModel={state:"running",filename:"c08b-nf4-effective-Q8_0.gguf",
+    model_name:"mars-q8-development",sha256:"51b63a132c73a592d954e96b15c1d28176f0cc3e5f05533304e92a6fb40ad304",
+    port:18083,concurrency:1,context_tokens:2048,final_research_ready:false};
+  const modelInventory={models:[{filename:activeModel.filename,bytes:3285473024}],
+    model_directory_configured:true,active:activeModel};
+  global.fetch=async()=>response(modelInventory);
+  assert.equal((await getConsoleJson("/models/local")).active.filename, activeModel.filename);
+  global.fetch=async()=>response({...modelInventory,active:{state:"running",final_research_ready:false}});
+  await check("schema",getConsoleJson("/models/local"));
+  global.fetch=async()=>response({...modelInventory,active:{...activeModel,sha256:"wrong"}});
+  await check("schema",getConsoleJson("/models/local"));
+  global.fetch=async()=>response({...modelInventory,active:{state:"unloaded",final_research_ready:false}});
+  assert.equal((await getConsoleJson("/models/local")).active.state,"unloaded");
+  global.fetch=async()=>response({...modelInventory,active:{...activeModel,filename:"different.gguf"}});
+  await check("schema",getConsoleJson("/models/local"));
   global.fetch=async()=>response({prepared:true,applied:false,verified:"false",final_research:false,
     scenario:"sql",title:"SQL injection",registered_test_id:"sqli-login-bypass-001",
     prepared_diff_sha256:"0".repeat(64),diff_preview:"",notice:"Unverified"});

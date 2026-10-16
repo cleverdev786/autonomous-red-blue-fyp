@@ -23,6 +23,35 @@ assert.match(show(EmptyState, { title: "No runs", description: "Unverified" }), 
 assert.match(show(LoadingState, { label: "Checking" }), /role="status" aria-live="polite"/);
 assert.match(show(ActionButton, { disabled: true, children: "Prepare" }), /disabled="".*Prepare/);
 assert.match(show(ActionButton, { variant: "secondary", children: "Refresh" }), /ui-button--secondary/);
+const modelBuilt = esbuild.buildSync({
+  entryPoints: ["src/system/ModelStatus.tsx"], bundle: true, platform: "node",
+  format: "cjs", packages: "external", write: false, jsx: "automatic",
+});
+const modelExports = { exports: {} };
+new Function("module","exports","require",modelBuilt.outputFiles[0].text)(
+  modelExports,modelExports.exports,createRequire(path.resolve("package.json")));
+const { ModelStatus } = modelExports.exports;
+const loadedModel = {
+  state:"running",filename:"c08b-nf4-effective-Q8_0.gguf",
+  model_name:"mars-q8-development",sha256:"51b63a132c73a592d954e96b15c1d28176f0cc3e5f05533304e92a6fb40ad304",
+  port:18083, concurrency:1,context_tokens:2048, final_research_ready:false,
+};
+const loadedHtml=show(ModelStatus,{active:loadedModel});
+assert.match(loadedHtml,/Currently loaded model/);
+assert.match(loadedHtml,/c08b-nf4-effective-Q8_0.gguf/);
+assert.match(loadedHtml,/running/);
+assert.match(loadedHtml,/mars-q8-development/);
+assert.match(loadedHtml,/51b63a132c73a592d954e96b15c1d28176f0cc3e5f05533304e92a6fb40ad304/);
+assert.match(loadedHtml,/Not research-qualified/);
+const unloadedHtml=show(ModelStatus,{active:{state:"unloaded",final_research_ready:false}});
+assert.match(unloadedHtml,/No model loaded/);
+assert.doesNotMatch(unloadedHtml,/c08b-nf4-effective-Q8_0.gguf/);
+const startingHtml=show(ModelStatus,{active:{...loadedModel,state:"starting"}});
+assert.match(startingHtml,/Model startup is in progress/);
+const stoppedHtml=show(ModelStatus,{active:{...loadedModel,state:"stopped"}});
+assert.match(stoppedHtml,/No model running/);
+assert.match(stoppedHtml,/Last session: c08b-nf4-effective-Q8_0.gguf/);
+assert.doesNotMatch(stoppedHtml,/Local model inference server is reachable/);
 const css = fs.readFileSync("src/tokens.css", "utf8");
 for (const key of ["canvas", "surface", "text", "muted", "action", "action-ink",
   "success", "warning", "danger", "focus", "red-path"]) {

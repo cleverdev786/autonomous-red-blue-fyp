@@ -21,6 +21,8 @@ import { RunTable } from "./overview/RunTable";
 import { ActionButton, EmptyState, LoadingState, Notice } from "./ui";
 import { MarsMark, NavIcon } from "./brand";
 import { AssessmentsPanel } from "./assessments/AssessmentsPanel";
+import { ModelStatus } from "./system/ModelStatus";
+import type { LocalModelSession } from "./api";
 
 type RunsState =
   | { kind: "loading"; runs: RunItem[] }
@@ -603,6 +605,7 @@ export function OperatorStatusPanel() {
   type Inventory = {
     model_directory_configured: boolean;
     models: { filename: string; bytes: number }[];
+    active: LocalModelSession;
   };
   const [version, refresh] = useState(0);
   const [result, setResult] = useState<{ runtime: Runtime; inventory: Inventory } | null>(null);
@@ -632,8 +635,12 @@ export function OperatorStatusPanel() {
   }
 
   useEffect(() => {
+    const interval = window.setInterval(() => refresh(n => n + 1), 15000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     let active = true;
-    setResult(null);
     setError("");
     Promise.all([
       getConsoleJson<Runtime>("/status"),
@@ -642,10 +649,15 @@ export function OperatorStatusPanel() {
       if (active) {
         setResult({ runtime, inventory });
         setSelectedFile(current => inventory.models.some(file => file.filename === current)
-          ? current : (inventory.models[0]?.filename ?? ""));
+          ? current : (inventory.active.state !== "unloaded"
+            ? inventory.active.filename : (inventory.models[0]?.filename ?? "")));
+        if (inventory.active.state !== "unloaded") setModelName(inventory.active.model_name);
       }
     }).catch(() => {
-      if (active) setError("Local runtime status unavailable. No model or research state has been verified.");
+      if (active) {
+        setResult(null);
+        setError("Local runtime status unavailable. No model or research state has been verified.");
+      }
     });
     return () => { active = false; };
   }, [version]);
@@ -664,8 +676,7 @@ export function OperatorStatusPanel() {
       {error && <Notice title="Operation unavailable" tone="danger">{error}</Notice>}
       {!result && !error && <LoadingState label="Checking local runtime…" />}
       {result && <dl className="runtime-rows" aria-label="Current system safeguards">
-        <div><dt>Model process</dt><dd>{result.runtime.model.state}</dd>
-          <small>Model execution status</small></div>
+        <ModelStatus active={result.inventory.active} />
         <div><dt>Research experience mode</dt><dd>{result.runtime.experience_mode}</dd>
           <small>Research runs require separate approval</small></div>
         <div><dt>Execution scope</dt><dd>{result.runtime.execution_mode}</dd>
@@ -682,7 +693,10 @@ export function OperatorStatusPanel() {
       {result.inventory.models.length ? <ul className="model-inventory">
         {result.inventory.models.map(file => <li key={file.filename}>
           <strong>{file.filename}</strong>
-          <span>{(file.bytes / 1024 ** 3).toFixed(2)} GiB · on disk only</span>
+          <span>{(file.bytes / 1024 ** 3).toFixed(2)} GiB · {result.inventory.active.state !== "unloaded" &&
+            result.inventory.active.filename === file.filename
+              ? result.inventory.active.state === "running" ? "Loaded and running" : "Session " + result.inventory.active.state
+              : "On disk, not loaded"}</span>
         </li>)}
       </ul> : <p className="muted">{result.inventory.model_directory_configured
         ? "No local GGUF files listed." : "Local model directory not configured."}</p>}
@@ -700,9 +714,10 @@ export function OperatorStatusPanel() {
             onChange={event => setModelName(event.target.value)} disabled={pending} />
         </div>
         <div className="model-operation-buttons">
-          <ActionButton disabled={pending || !selectedFile || !modelName.trim()}
+          <ActionButton disabled={pending || !selectedFile || !modelName.trim() ||
+            result.inventory.active.state === "running" || result.inventory.active.state === "starting"}
             onClick={() => void operate("load")}>{pending ? "Working…" : "Load model"}</ActionButton>
-          <ActionButton variant="secondary" disabled={pending || result.runtime.model.state === "unloaded"}
+          <ActionButton variant="secondary" disabled={pending || result.inventory.active.state === "unloaded"}
             onClick={() => void operate("unload")}>Unload model</ActionButton>
         </div>
       </div>

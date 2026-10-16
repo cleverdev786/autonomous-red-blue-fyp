@@ -109,6 +109,23 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const stringField = (value: Record<string, unknown>, field: string) => typeof value[field] === "string";
 const booleanField = (value: Record<string, unknown>, field: string) => typeof value[field] === "boolean";
+export type LocalModelSession =
+  | { state: "unloaded"; final_research_ready: boolean }
+  | { state: "starting" | "running" | "stopped"; filename: string; model_name: string;
+      sha256: string; port: number; concurrency: number; context_tokens: number;
+      final_research_ready: boolean };
+
+const isLocalModelSession = (value: unknown, models: Array<{ filename: string }>): value is LocalModelSession => {
+  if (!isRecord(value) || !booleanField(value, "final_research_ready")) return false;
+  if (value.state === "unloaded") return true;
+  if (!["starting", "running", "stopped"].includes(String(value.state))) return false;
+  return stringField(value, "filename") && models.some(item => item.filename === value.filename) &&
+    stringField(value, "model_name") && (value.model_name as string).length > 0 &&
+    stringField(value, "sha256") && /^[0-9a-f]{64}$/.test(value.sha256 as string) &&
+    Number.isInteger(value.port) && Number(value.port) > 0 && Number(value.port) <= 65535 &&
+    value.concurrency === 1 && Number.isSafeInteger(value.context_tokens) && Number(value.context_tokens) > 0;
+};
+
 const countMap = (value: unknown): boolean =>
   isRecord(value) && Object.values(value).every(n => Number.isSafeInteger(n) && (n as number) >= 0);
 
@@ -139,7 +156,8 @@ function validateResponse(url: string, data: unknown): boolean {
     return isRecord(data) && booleanField(data, "model_directory_configured") &&
       Array.isArray(data.models) && data.models.every((model: unknown) =>
         isRecord(model) && stringField(model, "filename") &&
-        typeof model.bytes === "number" && Number.isFinite(model.bytes) && model.bytes >= 0);
+        typeof model.bytes === "number" && Number.isFinite(model.bytes) && model.bytes >= 0) &&
+      isLocalModelSession(data.active, data.models as Array<{ filename: string }>);
   }
   if (path === "/api/console/scenarios") {
     return Array.isArray(data) && data.every((item: unknown) =>

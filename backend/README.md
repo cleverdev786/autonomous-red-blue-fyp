@@ -315,3 +315,15 @@ prompt is archived before inference as `q8-localization-prompt.json`; its
 profile and SHA-256 accompany any recorded finding. The isolated Git patch
 workflow independently reconstructs that prompt and refuses changed or
 unversioned evidence. Previous failed attempts are not reprocessed or retried.
+
+
+### Live local model identity in the dashboard
+
+The **System** page at `/dashboard/system` displays the active GGUF filename,
+session state (`unloaded`, `starting`, `running`, or `stopped`), model
+identifier, loaded SHA-256 fingerprint and local inference endpoint from the
+existing read-only `/api/console/models/local` response. It updates every 15
+seconds, or immediately on **Refresh status**, and labels non-active GGUF files
+as on disk rather than loaded. The page refuses missing or malformed active
+model identity metadata instead of guessing which model is running. A running
+model is **not** an independently research-qualified model.
