@@ -1,0 +1,51 @@
+/* MARS semantic foundation. Brand paths are not verification outcomes. */
+:root {
+  color-scheme: light;
+  color-scheme: dark;
+  --color-canvas: #f6f8fc;
+  --color-sidebar: #101c30;
+  --color-surface: #ffffff;
+  --color-surface-low: #ffffff;
+  --color-surface-sunken: #f5f7fb;
+  --color-border: #dce3ee;
+  --color-border-soft: #e8edf4;
+  --color-text: #17233b;
+  --color-muted: #55647d;
+  --color-action: #4f46e5;
+  --color-action-hover: #4338ca;
+  --color-action-ink: #ffffff;
+  --color-red-path: #b42318;
+  --color-success: #156b46;
+  --color-warning: #8a5600;
+  --color-danger: #b42318;
+  --color-focus: #b78300;
+  --color-link: #4f46e5;
+  --color-nav-active: #242f49;
+  --color-backdrop: #071325cc;
+  --radius-control: 9px;
+  --radius-card: 13px;
+  --radius-panel: 15px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
+
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #0c1425;
+  --color-surface: #182338;
+  --color-surface-low: #182338;
+  --color-surface-sunken: #111d30;
+  --color-border: #30405a;
+  --color-border-soft: #2b3c54;
+  --color-text: #edf2fc;
+  --color-muted: #b3c1d8;
+  --color-action: #918bff;
+  --color-action-hover: #aaa5ff;
+  --color-action-ink: #10182d;
+  --color-link: #b8b5ff;
+}

@@ -1,5 +1,5 @@
 {
-  "name": "fyp-red-blue-dashboard",
+  "name": "mars-security-dashboard",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,7 +7,14 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "test:evidence": "node check-development-evidence.cjs",
-    "preview": "vite preview --host 127.0.0.1"
+    "test:routes": "node check-routes.cjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:ui": "node check-ui.cjs",
+    "test:overview": "node check-overview.cjs",
+    "test:reports": "node check-reports.cjs",
+    "test:api": "node check-api.cjs",
+    "test:keyboard": "node check-keyboard.cjs",
+    "test": "npm run test:routes && npm run test:keyboard && npm run test:ui && npm run test:overview && npm run test:reports && npm run test:api && npm run test:evidence"
   },
   "dependencies": {
     "react": "18.3.1",

@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 const localApi = { "/api": "http://127.0.0.1:8090" };
 
 export default defineConfig({
-  base: "./",
+  base: "/dashboard/",
   plugins: [react()],
   server: {
     host: "127.0.0.1",

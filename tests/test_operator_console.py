@@ -313,18 +313,18 @@ def test_react_dashboard_static_mount_and_missing_build(tmp_path, monkeypatch):
     monkeypatch.setattr(console, "REACT_DIST", built)
     with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite")) as client:
         assert client.get("/").status_code == 200
-        home = client.get("/research-dashboard/")
+        home = client.get("/dashboard/")
         assert home.status_code == 200 and 'id="root"' in home.text
-        asset = client.get("/research-dashboard/assets/app.js")
+        asset = client.get("/dashboard/assets/app.js")
         assert asset.status_code == 200 and "read-only build" in asset.text
-        assert client.post("/research-dashboard/").status_code == 405
-        assert client.get("/research-dashboard/../../.env").status_code in (404, 405)
-        assert 'href="/research-dashboard/"' in client.get("/").text
+        assert client.post("/dashboard/").status_code == 405
+        assert client.get("/dashboard/../../.env").status_code in (404, 405)
+        assert 'href="/dashboard/"' in client.get("/").text
 
     monkeypatch.setattr(console, "REACT_DIST", tmp_path / "missing")
     with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite")) as client:
         assert client.get("/").status_code == 200
-        missing = client.get("/research-dashboard/")
+        missing = client.get("/dashboard/")
         assert missing.status_code == 503
         assert "npm run build" in missing.json()["detail"]
 

@@ -12,12 +12,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from dashboard.api.config import DashboardDatabaseError, resolve_database_path
 from dashboard.api.main import create_app
+from dashboard.api.mars_plans import register_mars_plans
 from dashboard.api.operator_service import (
     DemoRequest,
     LocalStart,
@@ -54,6 +56,31 @@ STATIC = Path(__file__).resolve().parent / "console_static"
 REACT_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
 
+
+class ReactRouteFiles(StaticFiles):
+    """Only extension-free React routes receive the SPA shell on a 404."""
+
+    async def get_response(self, path: str, scope: dict) -> Response:
+        try:
+            response = await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            response = None
+        if response is not None and response.status_code != 404:
+            return response
+        # Missing assets must remain 404; never return HTML as JavaScript or CSS.
+        segments = path.strip("/").split("/")
+        if (scope.get("method") not in {"GET", "HEAD"}
+                or not all(segment and segment.replace("-", "").replace("_", "").isalnum() for segment in segments)
+                or segments[0] == "assets"
+                or any("." in segment for segment in segments)):
+            raise HTTPException(status_code=404)
+        return FileResponse(
+            Path(self.directory) / "index.html", media_type="text/html",
+            headers={"Cache-Control": "no-store"},
+        )
+
 def require_local_origin(request: Request) -> None:
     origin = request.headers.get("origin")
     if origin and origin not in ALLOWED_ORIGINS:
@@ -64,7 +91,8 @@ def to_http_error(exc: OperatorError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
-def create_console_app(database_path: str | Path | None = None) -> FastAPI:
+def create_console_app(database_path: str | Path | None = None, *,
+                       mars_workspace_db: str | Path | None = None) -> FastAPI:
     """Construct the console even when no historical experiment DB exists."""
     try:
         resolved = resolve_database_path(database_path)
@@ -266,16 +294,35 @@ def create_console_app(database_path: str | Path | None = None) -> FastAPI:
             raise to_http_error(exc) from exc
 
     app.include_router(router)
+    # MARS user-authored draft plans live outside Git and outside the frozen research DB.
+    workspace_path = Path(mars_workspace_db) if mars_workspace_db is not None else (
+        Path.home() / ".local" / "state" / "mars" / "workspace.sqlite3"
+    )
+    app.include_router(register_mars_plans(
+        root=Path(__file__).resolve().parents[2],
+        database=workspace_path,
+        require_origin=require_local_origin,
+    ))
 
     # ponytail: built files only; rebuild with npm when React changes.
     # No second server, API proxy or package install is needed for deployment.
     if (REACT_DIST / "index.html").is_file():
-        app.mount("/research-dashboard", StaticFiles(directory=REACT_DIST, html=True))
+        app.mount("/dashboard", ReactRouteFiles(directory=REACT_DIST, html=True))
     else:
-        @app.get("/research-dashboard/")
+        @app.get("/dashboard/")
         def react_build_missing(response: Response) -> dict:
             response.status_code = 503
             return {"detail": "Build the React dashboard: cd dashboard/frontend && npm run build"}
+
+    # Old bookmarks go to the same MARS app; no second UI is mounted.
+    @app.get("/research-dashboard")
+    @app.get("/research-dashboard/{rest:path}")
+    def old_react_dashboard_redirect(request: Request) -> RedirectResponse:
+        suffix = request.url.path.removeprefix("/research-dashboard")
+        destination = "/dashboard" + (suffix or "/")
+        if request.url.query:
+            destination += "?" + request.url.query
+        return RedirectResponse(destination, status_code=307)
 
     @app.get("/")
     def index() -> FileResponse:

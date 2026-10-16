@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getConsoleJson,
   getJson,
@@ -8,45 +8,98 @@ import {
   PREVIEW_TEST_IDS,
   type TrustedPreview,
   prepareConsolePreview,
+  startLocalModel,
+  stopLocalModel,
   type Overview,
   type PatchVerification,
   type RunItem,
   type RunScores,
 } from "./api";
+import { BASE_PATH, primaryRoutes, resolveRoute, type View } from "./routes";
+import { OverviewPanel, type OverviewState } from "./overview/OverviewPanel";
+import { RunTable } from "./overview/RunTable";
+import { ActionButton, EmptyState, LoadingState, Notice } from "./ui";
+import { MarsMark, NavIcon } from "./brand";
+import { AssessmentsPanel } from "./assessments/AssessmentsPanel";
 
-type View =
-  | "Overview"
-  | "Runs"
-  | "Run Detail"
-  | "Findings"
-  | "Patch Verification"
-  | "Metrics"
-  | "Audit"
-  | "Development Evidence"
-  | "Trusted Preview"
-  | "Operator Status";
-
-const views: View[] = [
-  "Overview",
-  "Operator Status",
-  "Trusted Preview",
-  "Development Evidence",
-  "Runs",
-  "Run Detail",
-  "Findings",
-  "Patch Verification",
-  "Metrics",
-  "Audit",
-];
-
-function displayScore(value: string | number | null): string {
-  return value === null ? "—" : String(value);
-}
+type RunsState =
+  | { kind: "loading"; runs: RunItem[] }
+  | { kind: "unavailable"; runs: RunItem[] }
+  | { kind: "ready"; runs: RunItem[] };
 
 export default function App() {
-  const [view, setView] = useState<View>("Overview");
-  const [overview, setOverview] = useState<Overview | null>(null);
-  const [runs, setRuns] = useState<RunItem[]>([]);
+  const [route, setRoute] = useState(() => resolveRoute(window.location.pathname));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const saved = window.localStorage.getItem("mars-theme");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch { /* Private-browsing storage may be restricted. */ }
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    try { window.localStorage.setItem("mars-theme", theme); } catch { /* Storage is optional. */ }
+  }, [theme]);
+  const menuToggle = useRef<HTMLButtonElement>(null);
+  const navigation = useRef<HTMLElement>(null);
+  const initialRoute = useRef(true);
+  const view: View | null = route.view;
+
+  function navigate(path: string) {
+    if (path !== window.location.pathname) window.history.pushState(null, "", path);
+    setRoute(resolveRoute(window.location.pathname));
+    setMenuOpen(false);
+  }
+
+  function followLink(event: React.MouseEvent<HTMLAnchorElement>, path: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    navigate(path);
+  }
+
+  useEffect(() => {
+    const onPopState = () => { setRoute(resolveRoute(window.location.pathname)); setMenuOpen(false); };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    document.title = `${route.title} · MARS`;
+    // Initial keyboard navigation must begin at the skip link, not at main.
+    if (initialRoute.current) { initialRoute.current = false; return; }
+    document.getElementById("main-content")?.focus();
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [route.path]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    navigation.current?.querySelector<HTMLAnchorElement>("a")?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuToggle.current?.focus();
+      } else if (event.key === "Tab") {
+        const items = Array.from(document.querySelectorAll<HTMLElement>(
+          "#mars-navigation a[href], #mars-navigation select:not(:disabled), #mars-navigation button:not(:disabled)",
+        )).filter(element => element.getClientRects().length > 0);
+        if (!items.length) return;
+        const first = items[0], last = items[items.length - 1];
+        const inside = navigation.current?.parentElement?.contains(document.activeElement);
+        if (event.shiftKey && (document.activeElement === first || !inside)) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
+  const [overviewState, setOverviewState] = useState<OverviewState>({ kind: "loading" });
+  const [runsState, setRunsState] = useState<RunsState>({ kind: "loading", runs: [] });
+  const runs = runsState.runs;
   const [selectedRun, setSelectedRun] = useState<string>("");
   const [payload, setPayload] = useState<unknown>(null);
   const [scores, setScores] = useState<RunScores | null>(null);
@@ -55,202 +108,245 @@ export default function App() {
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    Promise.all([getJson<Overview>("/overview"), getJson<RunItem[]>("/runs")])
-      .then(([nextOverview, nextRuns]) => {
-        setOverview(nextOverview);
-        setRuns(nextRuns);
-        if (!selectedRun && nextRuns.length > 0) {
-          setSelectedRun(nextRuns[0].run_id);
+    let active = true;
+    // A single health gate prevents fallback zeros in both Overview and Reports.
+    getJson<{ status: string; database_read_only: boolean; database_available?: boolean }>("/health")
+      .then(health => {
+        if (health.status !== "ok" || health.database_read_only !== true) {
+          throw new Error("Local database health could not be verified.");
         }
+        if (health.database_available === false) {
+          if (active) {
+            setOverviewState({ kind: "unavailable", detail: "Historical run database is not configured in this local service." });
+            setRunsState({ kind: "unavailable", runs: [] });
+          }
+          return;
+        }
+        void getJson<Overview>("/overview")
+          .then(snapshot => {
+            if (!Number.isSafeInteger(snapshot.total_runs) || snapshot.total_runs < 0 ||
+                !snapshot.status_counts || !snapshot.research_question_counts ||
+                !Array.isArray(snapshot.recent_runs)) {
+              throw new Error("Unexpected stored-run summary.");
+            }
+            if (active) setOverviewState({ kind: "ready", overview: snapshot });
+          })
+          .catch(() => {
+            if (active) setOverviewState({ kind: "unavailable", detail: "The local run database could not be read or verified." });
+          });
+        void getJson<RunItem[]>("/runs")
+          .then(nextRuns => {
+            if (!Array.isArray(nextRuns)) throw new Error("Unexpected run-list response.");
+            if (!active) return;
+            setRunsState({ kind: "ready", runs: nextRuns });
+            setSelectedRun(current => nextRuns.some(run => run.run_id === current) ? current : (nextRuns[0]?.run_id ?? ""));
+          })
+          .catch(() => {
+            if (active) setRunsState({ kind: "unavailable", runs: [] });
+          });
       })
-      .catch((reason: unknown) => setError(String(reason)));
+      .catch(() => {
+        if (!active) return;
+        setOverviewState({ kind: "unavailable", detail: "The local run database could not be read or verified." });
+        setRunsState({ kind: "unavailable", runs: [] });
+      });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
+    let active = true;
+    const failed = () => { if (active) setError("The requested stored evidence is unavailable."); };
     setError("");
     setPayload(null);
     setScores(null);
     setPatches(null);
-    if (view === "Overview" || view === "Runs" || view === "Trusted Preview" || view === "Operator Status") return;
+    if (view === "Development Evidence") setDevelopment(null);
     if (view === "Development Evidence") {
-      setDevelopment(null);
-      let current = true;
-      Promise.all([
+      void Promise.all([
         getConsoleJson<DevelopmentEvidence["red"]>("/assessment/registered-red"),
         getConsoleJson<DevelopmentEvidence["blue"]>("/assessment/review"),
         getConsoleJson<DevelopmentEvidence["sqli"]>("/assessment/patched-replay"),
         getConsoleJson<DevelopmentEvidence["phase5"]>("/assessment/phase5-replays"),
       ]).then(([red, blue, sqli, phase5]) => {
-        if (current) setDevelopment({ red, blue, sqli, phase5 });
-      }).catch((reason: unknown) => {
-        if (current) setError(String(reason));
-      });
-      return () => { current = false; };
-    }
-    if (view === "Metrics") {
-      Promise.all([
-        getJson<unknown>("/metrics/rq1"),
-        getJson<unknown>("/metrics/rq2"),
-        getJson<unknown>("/metrics/rq3"),
-        getJson<unknown>("/metrics/red"),
+        if (active) setDevelopment({ red, blue, sqli, phase5 });
+      }).catch(failed);
+    } else if (view === "Metrics") {
+      void Promise.all([
+        getJson<unknown>("/metrics/rq1"), getJson<unknown>("/metrics/rq2"),
+        getJson<unknown>("/metrics/rq3"), getJson<unknown>("/metrics/red"),
         getJson<unknown>("/metrics/normal-application"),
-      ])
-        .then(([rq1, rq2, rq3, red, normal]) =>
-          setPayload({ rq1, rq2, rq3, red, normal }),
-        )
-        .catch((reason: unknown) => setError(String(reason)));
-      return;
+      ]).then(([rq1, rq2, rq3, red, normal]) => {
+        if (active) setPayload({ rq1, rq2, rq3, red, normal });
+      }).catch(failed);
+    } else if (selectedRun && runsState.kind === "ready") {
+      // Responses from a previous route or selected run cannot update the current screen.
+      if (view === "Run Detail") {
+        void Promise.all([
+          getJson<unknown>("/runs/" + selectedRun),
+          getJson<RunScores>("/runs/" + selectedRun + "/scores"),
+        ]).then(([detail, nextScores]) => {
+          if (active) { setPayload(detail); setScores(nextScores); }
+        }).catch(failed);
+      } else if (view === "Findings") {
+        void getJson<unknown>("/runs/" + selectedRun + "/findings")
+          .then(data => { if (active) setPayload(data); }).catch(failed);
+      } else if (view === "Patch Verification") {
+        void getJson<PatchVerification>("/runs/" + selectedRun + "/patch-verification")
+          .then(data => { if (active) setPatches(data); }).catch(failed);
+      } else if (view === "Audit") {
+        void getJson<unknown>("/runs/" + selectedRun + "/audit")
+          .then(data => { if (active) setPayload(data); }).catch(failed);
+      }
     }
-    if (!selectedRun) return;
-
-    if (view === "Run Detail") {
-      Promise.all([
-        getJson<unknown>(`/runs/${selectedRun}`),
-        getJson<RunScores>(`/runs/${selectedRun}/scores`),
-      ])
-        .then(([detail, nextScores]) => {
-          setPayload(detail);
-          setScores(nextScores);
-        })
-        .catch((reason: unknown) => setError(String(reason)));
-      return;
-    }
-    if (view === "Findings") {
-      getJson<unknown>(`/runs/${selectedRun}/findings`)
-        .then(setPayload)
-        .catch((reason: unknown) => setError(String(reason)));
-      return;
-    }
-    if (view === "Patch Verification") {
-      getJson<PatchVerification>(`/runs/${selectedRun}/patch-verification`)
-        .then(setPatches)
-        .catch((reason: unknown) => setError(String(reason)));
-      return;
-    }
-    if (view === "Audit") {
-      getJson<unknown>(`/runs/${selectedRun}/audit`)
-        .then(setPayload)
-        .catch((reason: unknown) => setError(String(reason)));
-    }
-  }, [view, selectedRun]);
+    return () => { active = false; };
+  }, [view, selectedRun, runsState.kind]);
 
   const selected = useMemo(
     () => runs.find((run) => run.run_id === selectedRun) ?? null,
     [runs, selectedRun],
   );
 
+  const inRunContext = view !== null && ["Runs", "Run Detail", "Findings", "Patch Verification", "Audit"].includes(view);
+  const related = route.section === "Reports" ? [
+    ["Stored runs", `${BASE_PATH}/reports/runs`],
+    ["Run detail", `${BASE_PATH}/reports/run-detail`],
+    ["Development evidence", `${BASE_PATH}/reports/development-evidence`],
+    ["Metrics", `${BASE_PATH}/reports/metrics`],
+    ["Audit", `${BASE_PATH}/reports/audit`],
+  ] : route.section === "Remediation" ? [
+    ["Trusted preview", `${BASE_PATH}/remediation`],
+    ["Patch verification", `${BASE_PATH}/remediation/patch-verification`],
+  ] : [];
+
   return (
     <>
-    <a className="skip-to-content" href="#main-content">Skip to main content</a>
-    <div className="shell">
-      <aside className="sidebar">
-        <div>
-          <div className="eyebrow">SENTINEL · LOCAL LAB</div>
-          <h1>Red–Blue FYP</h1>
-          <p className="muted">Research evidence, registered previews, and local safeguards.</p>
-        </div>
-        <nav>
-          {views.map((item) => (
-            <button
-              key={item}
-              className={view === item ? "nav active" : "nav"}
-              aria-current={view === item ? "page" : undefined}
-              onClick={() => { setView(item); document.getElementById("main-content")?.focus(); }}
-            >
-              {item}
+      <a className="skip-to-content" href="#main-content">Skip to main content</a>
+      <div className="mobile-bar">
+        <span className="mobile-brand"><MarsMark className="mobile-mark" /> <span>MARS <small>SECURITY PLATFORM</small></span></span>
+        <button ref={menuToggle} className="menu-button" type="button" aria-controls="mars-navigation"
+          aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
+          {menuOpen ? "Close menu" : "Menu"}
+        </button>
+      </div>
+      {menuOpen && <button type="button" className="menu-backdrop" aria-label="Close navigation menu"
+        onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }} />}
+      <div className="shell">
+        <aside className={`sidebar${menuOpen ? " menu-open" : ""}`} id="mars-navigation"
+          role={menuOpen ? "dialog" : undefined} aria-modal={menuOpen ? true : undefined}
+          aria-label={menuOpen ? "Navigation menu" : undefined}>
+          <div className="sidebar-brand">
+            <MarsMark className="brand-mark" />
+            <div className="brand-type"><h1>MARS</h1><p>Security workspace</p></div>
+          </div>
+          <div className="sidebar-workspace-label">WORKSPACE</div>
+          <nav aria-label="Primary navigation" ref={navigation}>
+            {primaryRoutes.filter(item => item.section !== "System").map((item) => (
+              <a key={item.path} href={item.path} className={route.section === item.section ? "nav active" : "nav"}
+                aria-current={route.section === item.section ? "page" : undefined}
+                onClick={(event) => followLink(event, item.path)}>
+                <NavIcon name={item.section!} /><span>{item.title}</span>
+                {route.section === item.section && <span className="nav-indicator" aria-hidden="true" />}
+              </a>
+            ))}
+          </nav>
+
+          {inRunContext && runsState.kind === "ready" && runs.length > 0 && (
+            <div className="run-picker">
+              <label htmlFor="run">Selected stored run</label>
+              <select id="run" value={selectedRun} onChange={(event) => setSelectedRun(event.target.value)}>
+                {runs.map((run) => <option key={run.run_id} value={run.run_id}>{run.run_id}</option>)}
+              </select>
+              {selected && <span className={`status ${selected.status}`}>{selected.status}</span>}
+            </div>
+          )}
+          <div className="sidebar-footer">
+            <a href="/dashboard/system" className={route.section === "System" ? "sidebar-system active" : "sidebar-system"}
+              aria-current={route.section === "System" ? "page" : undefined}
+              onClick={event => followLink(event, "/dashboard/system")}>
+              <NavIcon name="System" /><span>System</span>
+            </a>
+          </div>
+        </aside>
+        <main id="main-content" tabIndex={-1} aria-hidden={menuOpen ? true : undefined}>
+          <div className="utility-bar">
+            <span className="utility-path">Workspace <span className="utility-separator">/</span> {route.section ?? "Page"}</span>
+            <button type="button" className="theme-toggle"
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              aria-pressed={theme === "dark"} onClick={() => setTheme(current => current === "light" ? "dark" : "light")}>
+              <span aria-hidden="true">{theme === "light" ? "◐" : "☀"}</span>
+              {theme === "light" ? "Dark mode" : "Light mode"}
             </button>
-          ))}
-        </nav>
-        {!["Development Evidence", "Trusted Preview", "Operator Status"].includes(view) && (
-          <div className="run-picker">
-            <label htmlFor="run">Selected run</label>
-            <select id="run" value={selectedRun} onChange={(event) => setSelectedRun(event.target.value)}>
-              {runs.map((run) => (
-                <option key={run.run_id} value={run.run_id}>{run.run_id}</option>
-              ))}
-            </select>
-            {selected && <span className={`status ${selected.status}`}>{selected.status}</span>}
           </div>
-        )}
-      </aside>
-
-      <main id="main-content" tabIndex={-1}>
-        <header className="page-header">
-          <div>
-            <div className="eyebrow">Dashboard</div>
-            <h2>{view}</h2>
-          </div>
-          <div className="safety-badge">{view === "Trusted Preview" ? "Inert patch preview · no application" : view === "Operator Status" ? "Read-only local runtime" : "Stored evidence · development only"}</div>
-        </header>
-
-        {error && <div className="error">{error}</div>}
-        {view === "Overview" && <OverviewPanel overview={overview} />}
-        {view === "Runs" && <RunsPanel runs={runs} onSelect={(id) => { setSelectedRun(id); setView("Run Detail"); }} />}
-        {view === "Run Detail" && <RunDetailPanel payload={payload} scores={scores} />}
-        {view === "Findings" && <JsonPanel value={payload} />}
-        {view === "Patch Verification" && <PatchPanel value={patches} />}
-        {view === "Metrics" && <JsonPanel value={payload} />}
-        {view === "Audit" && <JsonPanel value={payload} />}
-        {view === "Development Evidence" && <DevelopmentEvidencePanel evidence={development} />}
-        {view === "Trusted Preview" && <TrustedPreviewPanel />}
-        {view === "Operator Status" && <OperatorStatusPanel />}
-      </main>
-    </div>
+          <header className="page-header">
+            <div>
+              <h2>{route.title === "Overview" ? "Workspace overview" : route.title}</h2>
+              <p className="page-description">{({
+                Overview: "Your security workspace at a glance.",
+                Assessments: "Review registered assessment scenarios.",
+                Findings: "Explore findings from saved assessment runs.",
+                Remediation: "Review and prepare trusted fixes.",
+                Reports: "Saved runs, evidence and reports.",
+                System: "Services, configuration and runtime status.",
+              } as Record<string, string>)[route.section ?? ""] ?? "Workspace"}</p>
+            </div>
+            {view === "Trusted Preview" && <span className="safety-badge">Preview only</span>}
+          </header>
+          {related.length > 0 && <nav className="section-links" aria-label={`${route.section} views`}>
+            {related.map(([title, path]) => <a key={path} href={path}
+              className={route.path === path ? "subnav active" : "subnav"}
+              aria-current={route.path === path ? "page" : undefined}
+              onClick={(event) => followLink(event, path)}>{title}</a>)}
+          </nav>}
+          {error && view !== "Overview" && <Notice title="This view could not load" tone="danger">{error}</Notice>}
+          {route.notFound && <section className="panel"><h3>Page not found</h3>
+            <p className="muted">This MARS page does not exist. No operation was started.</p>
+            <a href={`${BASE_PATH}/`} onClick={(event) => followLink(event, `${BASE_PATH}/`)}>Return to overview</a>
+          </section>}
+          {route.section === "Assessments" && <AssessmentsPanel />}
+          {view === "Overview" && <OverviewPanel state={overviewState} />}
+          {view === "Runs" && <RunsPanel state={runsState} selectedRunId={selectedRun} onSelect={(id) => { setSelectedRun(id); navigate(`${BASE_PATH}/reports/run-detail`); }} />}
+          {view === "Run Detail" && (selectedRun && runsState.kind === "ready" ? <RunDetailPanel payload={payload} scores={scores} /> : <EmptyStoredRuns state={runsState} />)}
+          {view === "Findings" && (selectedRun ? <JsonPanel value={payload} /> : <EmptyStoredRuns state={runsState} />)}
+          {view === "Patch Verification" && (selectedRun ? <PatchPanel value={patches} /> : <EmptyStoredRuns state={runsState} />)}
+          {view === "Metrics" && <JsonPanel value={payload} />}
+          {view === "Audit" && (selectedRun ? <JsonPanel value={payload} /> : <EmptyStoredRuns state={runsState} />)}
+          {view === "Development Evidence" && <DevelopmentEvidencePanel evidence={development} />}
+          {view === "Trusted Preview" && <TrustedPreviewPanel />}
+          {view === "Operator Status" && <OperatorStatusPanel />}
+        </main>
+      </div>
     </>
   );
 }
 
-function OverviewPanel({ overview }: { overview: Overview | null }) {
-  if (!overview) return <div className="panel">Loading stored overview…</div>;
-  return (
-    <>
-      <section className="stat-grid">
-        <article className="stat"><span>Total runs</span><strong>{overview.total_runs}</strong></article>
-        {Object.entries(overview.status_counts).map(([status, count]) => (
-          <article className="stat" key={status}><span>{status}</span><strong>{count}</strong></article>
-        ))}
-      </section>
-      <section className="panel">
-        <h3>Research-question coverage</h3>
-        <div className="chips">
-          {Object.entries(overview.research_question_counts).map(([rq, count]) => (
-            <span className="chip" key={rq}>{rq.toUpperCase()} · {count}</span>
-          ))}
+function EmptyStoredRuns({ state }: { state: RunsState }) {
+  const loading = state.kind === "loading";
+  const unavailable = state.kind === "unavailable";
+  return <section className="panel mars-empty">
+    <span className="mars-empty-icon" aria-hidden="true">▤</span>
+    <div><h3>{loading ? "Loading run history" : unavailable ? "Run history unavailable" : "Select a run to continue"}</h3>
+      <p>{loading ? "Checking your local run records…" :
+        unavailable ? "The local run database could not be reached. Saved findings cannot be displayed." :
+        "Choose a stored run in Reports to see its available evidence."}</p>
+      <a href="/dashboard/reports">Go to reports <span aria-hidden="true">↗</span></a>
+    </div>
+  </section>;
+}
+
+export function RunsPanel({ state, onSelect, selectedRunId }: {
+  state: RunsState; onSelect: (id: string) => void; selectedRunId?: string;
+}) {
+  return <section className="panel">
+    <div className="overview-recent-head"><h3>Stored runs</h3>
+      {state.kind === "ready" && <span className="section-count">{state.runs.length} records</span>}</div>
+    {state.kind === "loading" ? <LoadingState label="Loading stored run list…" /> :
+      state.kind === "unavailable" ? <div className="mars-empty">
+        <span className="mars-empty-icon" aria-hidden="true">▤</span>
+        <div><h3>Run history unavailable</h3>
+          <p>Stored run database unavailable. Run records could not be read, so no totals are shown.</p>
         </div>
-      </section>
-      <section className="panel">
-        <h3>Recent runs</h3>
-        <RunTable runs={overview.recent_runs} />
-      </section>
-    </>
-  );
-}
-
-function RunsPanel({ runs, onSelect }: { runs: RunItem[]; onSelect: (id: string) => void }) {
-  return (
-    <section className="panel">
-      <h3>All stored outcomes</h3>
-      <RunTable runs={runs} onSelect={onSelect} />
-    </section>
-  );
-}
-
-function RunTable({ runs, onSelect }: { runs: RunItem[]; onSelect?: (id: string) => void }) {
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead><tr><th>Run</th><th>RQ</th><th>Status</th><th>Red</th><th>Blue</th><th>Subject</th></tr></thead>
-        <tbody>
-          {runs.map((run) => (
-            <tr key={run.run_id} onClick={() => onSelect?.(run.run_id)} className={onSelect ? "clickable" : ""}>
-              <td>{run.run_id}</td><td>{run.research_question}</td><td><span className={`status ${run.status}`}>{run.status}</span></td>
-              <td>{displayScore(run.red_score)}</td><td>{displayScore(run.blue_score)}</td><td>{run.scenario_id ?? run.dataset_id}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+      </div> : <RunTable runs={state.runs} onSelect={onSelect} selectedRunId={selectedRunId} />}
+  </section>;
 }
 
 function RunDetailPanel({ payload, scores }: { payload: unknown; scores: RunScores | null }) {
@@ -293,7 +389,7 @@ function RunDetailPanel({ payload, scores }: { payload: unknown; scores: RunScor
 }
 
 function PatchPanel({ value }: { value: PatchVerification | null }) {
-  if (!value) return <div className="panel">Loading stored patch evidence…</div>;
+  if (!value) return <section className="panel"><LoadingState label="Loading stored patch evidence…" /></section>;
   return (
     <div className="stack">
       {value.attempts.map((attempt) => (
@@ -324,13 +420,13 @@ function JsonPanel({ value, title = "Stored data" }: { value: unknown; title?: s
   return (
     <section className="panel">
       <h3>{title}</h3>
-      <pre className="json">{value === null ? "Loading stored evidence…" : JSON.stringify(value, null, 2)}</pre>
+      {value === null ? <LoadingState label="Loading stored evidence…" /> : <pre className="json">{JSON.stringify(value, null, 2)}</pre>}
     </section>
   );
 }
 
 export function DevelopmentEvidencePanel({ evidence }: { evidence: DevelopmentEvidence | null }) {
-  if (!evidence) return <section className="panel">Loading pinned development evidence…</section>;
+  if (!evidence) return <section className="panel"><LoadingState label="Loading pinned development evidence…" /></section>;
 
   const { red, blue, sqli, phase5 } = evidence;
   const baseline = red.status === "verified_archived_red" &&
@@ -451,9 +547,8 @@ export function TrustedPreviewPanel() {
       <section className="panel">
         <h3>Registered vulnerability workbench</h3>
         <p className="muted">
-          This prepares an inert trusted patch diff for the owned synthetic lab.
-          It does not run Red tests, perform model inference, change source code,
-          apply a repair, or qualify scientific research.
+          Preview a registered remediation before applying any changes.
+          This action only prepares a diff and does not modify the application.
         </p>
         <div className="preview-controls">
           <label htmlFor="trusted-scenario">Registered scenario</label>
@@ -467,9 +562,9 @@ export function TrustedPreviewPanel() {
               <option key={item.id} value={item.id}>{item.title}</option>
             ))}
           </select>
-          <button type="button" disabled={!selected || busy} onClick={prepare}>
+          <ActionButton disabled={!selected || busy} onClick={prepare}>
             {busy ? "Preparing…" : "Prepare trusted preview"}
-          </button>
+          </ActionButton>
         </div>
         {selected ? (
           <p className="muted">
@@ -477,7 +572,7 @@ export function TrustedPreviewPanel() {
             Remediation: {selected.remediation}.
           </p>
         ) : <p className="muted">No approved scenarios loaded. Preview is unavailable.</p>}
-        {error && <p role="alert" className="error">{error}</p>}
+        {error && <Notice title="Operation unavailable" tone="danger">{error}</Notice>}
       </section>
       {preview && <section className="panel" aria-live="polite">
         <h3>{verifiedPreview ? "Trusted patch prepared" : "Preview withheld"}</h3>
@@ -490,7 +585,7 @@ export function TrustedPreviewPanel() {
           </>
         ) : <p role="alert">The returned preview did not match the registered scenario or safety state. No result is accepted.</p>}
       </section>}
-      <p className="muted">Need model controls or a registered replay? <a href="/">Open the original operator console</a>. Those actions are deliberately absent here.</p>
+      <p className="muted">Additional operator controls are available in the <a href="/">original console</a>.</p>
     </div>
   );
 }
@@ -512,6 +607,29 @@ export function OperatorStatusPanel() {
   const [version, refresh] = useState(0);
   const [result, setResult] = useState<{ runtime: Runtime; inventory: Inventory } | null>(null);
   const [error, setError] = useState("");
+  const [selectedFile, setSelectedFile] = useState("");
+  const [modelName, setModelName] = useState("local-security-model");
+  const [pending, setPending] = useState(false);
+  const [operationNotice, setOperationNotice] = useState("");
+
+  async function operate(action: "load" | "unload") {
+    if (pending || !result) return;
+    if (action === "load" && !result.inventory.models.some(file => file.filename === selectedFile)) return;
+    const confirmation = action === "load"
+      ? "Start local model " + selectedFile + "? This uses CPU and memory on this machine."
+      : "Stop the running local model session?";
+    if (!window.confirm(confirmation)) return;
+    setPending(true);
+    setOperationNotice("");
+    try {
+      if (action === "load") await startLocalModel(selectedFile, modelName.trim());
+      else await stopLocalModel();
+      setOperationNotice(action === "load" ? "Model launch requested. Check status for readiness." : "Model stop requested.");
+      refresh(n => n + 1);
+    } catch (reason) {
+      setOperationNotice("Operation refused: " + String(reason));
+    } finally { setPending(false); }
+  }
 
   useEffect(() => {
     let active = true;
@@ -521,7 +639,11 @@ export function OperatorStatusPanel() {
       getConsoleJson<Runtime>("/status"),
       getConsoleJson<Inventory>("/models/local"),
     ]).then(([runtime, inventory]) => {
-      if (active) setResult({ runtime, inventory });
+      if (active) {
+        setResult({ runtime, inventory });
+        setSelectedFile(current => inventory.models.some(file => file.filename === current)
+          ? current : (inventory.models[0]?.filename ?? ""));
+      }
     }).catch(() => {
       if (active) setError("Local runtime status unavailable. No model or research state has been verified.");
     });
@@ -532,28 +654,27 @@ export function OperatorStatusPanel() {
     <section className="panel">
       <div className="runtime-heading">
         <div>
-          <div className="eyebrow">LOCALHOST / LIVE SNAPSHOT</div>
-          <h3>Runtime and safeguards</h3>
-          <p className="muted">Current local API status, separate from archived development evidence.</p>
+          <h3>Runtime status</h3>
+          <p className="muted">Current state reported by the local service.</p>
         </div>
-        <button type="button" className="runtime-refresh" onClick={() => refresh(n => n + 1)}>
+        <ActionButton variant="secondary" className="runtime-refresh" onClick={() => refresh(n => n + 1)}>
           Refresh status
-        </button>
+        </ActionButton>
       </div>
-      {error && <p role="alert" className="error">{error}</p>}
-      {!result && !error && <p role="status" className="muted">Checking local runtime…</p>}
+      {error && <Notice title="Operation unavailable" tone="danger">{error}</Notice>}
+      {!result && !error && <LoadingState label="Checking local runtime…" />}
       {result && <dl className="runtime-rows" aria-label="Current system safeguards">
         <div><dt>Model process</dt><dd>{result.runtime.model.state}</dd>
-          <small>File availability does not mean a model is running</small></div>
+          <small>Model execution status</small></div>
         <div><dt>Research experience mode</dt><dd>{result.runtime.experience_mode}</dd>
-          <small>Primary experiments are not authorized here</small></div>
+          <small>Research runs require separate approval</small></div>
         <div><dt>Execution scope</dt><dd>{result.runtime.execution_mode}</dd>
           <small>Target: {result.runtime.target}</small></div>
         <div><dt>Final study qualification</dt><dd>{result.runtime.model.final_research_ready === true &&
           result.runtime.rq1_final_runs_verified_here !== null &&
           result.runtime.rq2_final_observations_verified_here !== null
             ? "Reported; independent review required" : "Not verified"}</dd>
-          <small>Never inferred from development previews</small></div>
+          <small>Independent validation required</small></div>
       </dl>}
     </section>
     {result && <section className="panel">
@@ -565,11 +686,28 @@ export function OperatorStatusPanel() {
         </li>)}
       </ul> : <p className="muted">{result.inventory.model_directory_configured
         ? "No local GGUF files listed." : "Local model directory not configured."}</p>}
-      <p className="muted">A listed file is not proof of approval, sufficient memory, or a loaded model.</p>
+      <p className="muted">Available files are not automatically loaded or research-approved.</p>
+      <div className="model-operations">
+        <div><label htmlFor="model-file">Model file</label>
+          <select id="model-file" value={selectedFile} onChange={event => setSelectedFile(event.target.value)}
+            disabled={!result.inventory.models.length || pending}>
+            {!result.inventory.models.length && <option value="">No GGUF available</option>}
+            {result.inventory.models.map(file => <option key={file.filename} value={file.filename}>{file.filename}</option>)}
+          </select>
+        </div>
+        <div><label htmlFor="model-identifier">Model identifier</label>
+          <input id="model-identifier" value={modelName} maxLength={128}
+            onChange={event => setModelName(event.target.value)} disabled={pending} />
+        </div>
+        <div className="model-operation-buttons">
+          <ActionButton disabled={pending || !selectedFile || !modelName.trim()}
+            onClick={() => void operate("load")}>{pending ? "Working…" : "Load model"}</ActionButton>
+          <ActionButton variant="secondary" disabled={pending || result.runtime.model.state === "unloaded"}
+            onClick={() => void operate("unload")}>Unload model</ActionButton>
+        </div>
+      </div>
+      {operationNotice && <p className="model-operation-feedback" role="status">{operationNotice}</p>}
     </section>}
-    <p className="muted">For bounded model controls and registered replays,
-      {" "}<a href="/">open the original operator console</a>.
-      This page does not start models or dispatch security tests.
-    </p>
+    <p className="muted">Other registered actions will be migrated from the <a href="/">original operator console</a>.</p>
   </div>;
 }

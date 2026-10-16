@@ -1,0 +1,18 @@
+"use strict";
+const assert=require("node:assert/strict");
+const esbuild=require("esbuild");
+const React=require("react");
+const path=require("node:path");
+const {createRequire}=require("node:module");
+const {renderToStaticMarkup}=require("react-dom/server");
+const built=esbuild.buildSync({entryPoints:["src/App.tsx"],bundle:true,platform:"node",format:"cjs",packages:"external",write:false,jsx:"automatic",define:{"import.meta.env.VITE_API_BASE_URL":"undefined"}});
+const m={exports:{}};
+new Function("module","exports","require",built.outputFiles[0].text)(m,m.exports,createRequire(path.resolve("package.json")));
+assert.equal(typeof m.exports.RunsPanel,"function","RunsPanel should expose state-based render");
+const render=state=>renderToStaticMarkup(React.createElement(m.exports.RunsPanel,{state,onSelect:()=>{}}));
+assert.match(render({kind:"loading",runs:[]}),/Loading stored run list/);
+assert.match(render({kind:"unavailable",runs:[]}),/Run history unavailable/);
+assert.doesNotMatch(render({kind:"unavailable",runs:[]}),/No stored runs here/);
+assert.match(render({kind:"ready",runs:[]}),/No stored runs here/);
+assert.match(render({kind:"ready",runs:[{run_id:"fixture-r1",research_question:"rq1",status:"blocked",scenario_id:"sql",dataset_id:null,red_score:null,blue_score:null}]}),/fixture-r1/);
+console.log("M12-R1 Reports semantics: 5 checks passed");

@@ -4,6 +4,15 @@ Final Year Project:
 
 **AN AUTONOMOUS MULTI-AGENT RED-BLUE FRAMEWORK FOR WEB APPLICATION VULNERABILITY DETECTION AND REMEDIATION**
 
+## MARS Application Entrypoints
+
+The MARS operator application now has a discoverable top-level Python backend:
+[`backend/`](backend/README.md). Its canonical ASGI entrypoint is
+`backend.app:app` (localhost port 8090), serving the single React
+application under `/dashboard/`. The established `dashboard.api` modules
+remain the backend implementation while compatibility is preserved.
+No extra backend server or separate security runner is required.
+
 ## Current Status
 
 **Milestone 20 DEVELOPMENT feasibility execution is terminally closed with no eligible candidate. The final experiment freeze is not established, and M21 remains blocked.**
