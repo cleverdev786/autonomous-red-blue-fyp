@@ -22,6 +22,7 @@ stable entrypoint without copying backend logic or introducing a second server.
 | Deterministic registered executor | `services/controlled_executor.py` |
 | Isolated Docker execution verification | `services/isolated_compose_executor.py` |
 | Durable single-attempt safety store | `services/mars_dispatch_intent.py` |
+| Externally admitted SQLi job handoff | `services/mars_admitted_dispatch.py` |
 | Red/Blue workflow orchestration | `orchestrator/`, `agents/` |
 | Persistent local MARS workspace | `~/.local/state/mars/workspace.sqlite3` |
 | React web application | `dashboard/frontend/` |
@@ -30,9 +31,20 @@ stable entrypoint without copying backend logic or introducing a second server.
 
 A backend package is not a new authorization mechanism. No new execution
 permission is conferred by this entrypoint. The existing `/api/mars/jobs/{id}/start`
-route intentionally refuses launch. The offline verified executor needs a clean,
-independently pinned source, an externally approved runtime admission and
-separate explicit permission before real Docker or security testing.
+route intentionally refuses launch. The admitted development-only SQLi handoff is
+instead explicitly invoked with `python -m services.mars_admitted_dispatch`,
+using `--help` to inspect its required arguments. It accepts an existing
+scope-reviewed MARS job, an independently reviewed external admission file and
+SHA-256, and an external evidence directory. Its case/run identifier must be
+`mars-` followed by the job UUID without hyphens. It reuses the isolated
+executor's Git, Docker and source checks, then commits exactly one durable
+attempt intent before delegation. A failed or uncertain dispatch is **never
+retried automatically**.
+
+**This is not independent admission itself.** Do not invoke the real worker
+without separately reviewed Docker/source pins and permitted synthetic runtime.
+It does not yet reconcile execution receipts into the MARS job API, provide
+a Blue/patch verification flow, or qualify an RQ1/RQ2 research result.
 
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with
