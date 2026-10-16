@@ -351,6 +351,56 @@ export type MarsJob = {
 
 export type MarsJobEvent = { sequence: number; event: string; occurred_at: string };
 
+export type MarsJobLocalization =
+  | { job_id: string; status: "not_requested" | "outcome_unknown" }
+  | { job_id: string; status: "recorded"; classification: "sql_injection";
+      model_origin: "q8_0_cpu_model"; function_or_route: "vulnerable_login";
+      sink_line: number; root_cause: string; confidence: number;
+      source_file: string; source_sha256: string; blue_analysis_sha256: string;
+      red_receipt_sha256: string; localization_evidence_id: string;
+      localization_input_sha256: string; localization_raw_sha256: string;
+      source_analysis_completed: true; patch_preparation_authorized: false;
+      patch_applied: false; final_research_qualified: false };
+
+function verifiedLocalization(value: unknown, id: string): MarsJobLocalization {
+  if (!isRecord(value) || value.job_id !== id)
+    throw new ApiRequestError("schema", "Untrusted Blue localization");
+  if (value.status === "not_requested" || value.status === "outcome_unknown") {
+    if (["function_or_route", "sink_line", "source_analysis_completed"].some(key => key in value))
+      throw new ApiRequestError("schema", "Untrusted incomplete localization");
+    return value as MarsJobLocalization;
+  }
+  if (value.status !== "recorded" || value.classification !== "sql_injection" ||
+      value.model_origin !== "q8_0_cpu_model" ||
+      value.function_or_route !== "vulnerable_login" ||
+      !Number.isSafeInteger(value.sink_line) || (value.sink_line as number) < 1 ||
+      (value.sink_line as number) > 200 ||
+      !["root_cause", "localization_evidence_id"].every(k => stringField(value, k)) ||
+      value.source_file !== "dummy_apps/vulnerable_store/app/scenario_routes.py" ||
+      typeof value.confidence !== "number" ||
+      value.confidence < 0 || value.confidence > 1 ||
+      !["source_sha256", "blue_analysis_sha256", "red_receipt_sha256",
+        "localization_input_sha256", "localization_raw_sha256"].every(k =>
+        stringField(value, k) && /^[0-9a-f]{64}$/.test(value[k] as string)) ||
+      value.source_analysis_completed !== true ||
+      value.patch_preparation_authorized !== false ||
+      value.patch_applied !== false ||
+      value.final_research_qualified !== false)
+    throw new ApiRequestError("schema", "Untrusted localized model finding");
+  return value as MarsJobLocalization;
+}
+
+export function getMarsJobLocalization(id: string): Promise<MarsJobLocalization> {
+  return requestJson<unknown>("/api/mars/jobs/" + encodeURIComponent(id) + "/localization")
+    .then(value => verifiedLocalization(value, id));
+}
+
+export function localizeMarsJob(id: string): Promise<MarsJobLocalization> {
+  return requestJson<unknown>("/api/mars/jobs/" + encodeURIComponent(id) + "/localize", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+  }).then(value => verifiedLocalization(value, id));
+}
+
 export type MarsJobClassification =
   | { job_id: string; status: "not_requested" | "outcome_unknown" }
   | { job_id: string; status: "recorded"; classification: string;

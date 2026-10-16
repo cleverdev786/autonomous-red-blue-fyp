@@ -23,6 +23,7 @@ from services.mars_dispatch_intent import ensure_intent_table
 from services.receipt_record import ensure_receipt_table, read_receipt
 from services.blue_preview import ensure_preview_table, read_blue_preview
 from services.blue_classify import ensure_classify_table, read_blue_decision, classify_bound_job, BlueClassifyBlocked
+from services.blue_localize import ensure_localize_table, read_blue_localization, localize_bound_job, BlueLocalizeBlocked
 
 SCENARIO_ROUTES = {
     "sql": "/sql-injection/login",
@@ -81,6 +82,7 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
             ensure_receipt_table(conn)
             ensure_preview_table(conn)
             ensure_classify_table(conn)
+            ensure_localize_table(conn)
             yield conn
             conn.commit()
         except Exception:
@@ -252,6 +254,32 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
                 receipt_sha256=values[4],
             )
         except BlueClassifyBlocked as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @router.get("/jobs/{job_id}/localization")
+    def get_job_localization(job_id: UUID) -> dict:
+        with connect() as conn:
+            current_job(conn, job_id)
+            return read_blue_localization(conn, str(job_id))
+
+    @router.post("/jobs/{job_id}/localize", dependencies=[Depends(require_origin)])
+    def localize_job(job_id: UUID, request: EmptyAction) -> dict:
+        import os
+        names = ("MARS_SOURCE_ROOT", "MARS_EVIDENCE_DIR", "MARS_ADMISSION_PATH",
+                 "MARS_ADMISSION_SHA256", "MARS_RECEIPT_SHA256")
+        values = [os.environ.get(name) for name in names]
+        if any(not value for value in values):
+            raise HTTPException(409, "Independent evidence pins are not configured")
+        with connect() as conn:
+            current_job(conn, job_id)
+        try:
+            return localize_bound_job(
+                database=database, job_id=str(job_id),
+                source_root=Path(values[0]), evidence_dir=Path(values[1]),
+                admission_path=Path(values[2]), admission_sha256=values[3],
+                receipt_sha256=values[4],
+            )
+        except BlueLocalizeBlocked as exc:
             raise HTTPException(409, str(exc)) from exc
 
     @router.get("/jobs/{job_id}/events")

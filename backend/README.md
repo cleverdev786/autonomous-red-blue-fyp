@@ -27,6 +27,7 @@ stable entrypoint without copying backend logic or introducing a second server.
 | Independently bound SQLi patch preview | `services/blue_preview.py` |
 | Captured Red to model input | `services/blue_input.py` |
 | Explicit local Q8 job classification | `services/blue_classify.py` |
+| Model-selected source localization | `services/blue_localize.py` |
 | Red/Blue workflow orchestration | `orchestrator/`, `agents/` |
 | Persistent local MARS workspace | `~/.local/state/mars/workspace.sqlite3` |
 | React web application | `dashboard/frontend/` |
@@ -97,9 +98,33 @@ retried. The model's **actual label** is retained, even if benign, unknown,
 or wrong. All Q8 decisions remain development-only and
 **cannot authorize source analysis or patch application**.
 
-Next: model-backed source localization, Git branch materialization, legitimate
-regressions, and registered security replay. The protected baseline remains
-unchanged and the disabled HTTP Red execution endpoint stays disabled.
+### Model-selected SQLi source localization
+
+A saved, actual Q8 `sql_injection` prediction can be followed with
+`POST /api/mars/jobs/{id}/localize`. A non-SQLi or unknown/benign label
+cannot enter this path. The same five server-side independently pinned Red
+inputs are required as for classification. The worker **revalidates** the raw
+archived Q8 classification and the independently bound Red observation before
+using the **manifest-verified, existing C12 localization prompt**. It sends
+only the captured HTTP pair and exact trusted numbered source snippets.
+
+The model selects `function_or_route`, `sink_line`, `root_cause` and
+`confidence`, validated by the existing compact-source schema, executable
+source-line verifier, bound source registry and Blue analysis adapter. Raw
+model responses remain in separate, external append-only evidence, with
+SHA-256 fingerprints for the localization input and raw model response. A failed
+or interrupted localization stays `outcome_unknown` and cannot auto-retry.
+`GET /api/mars/jobs/{id}/localization` and Assessments **View source
+finding** display the recorded selection. The UI only offers **Localize
+with Q8** after a recorded SQLi prediction is displayed and Q8 is ready.
+No browser-supplied paths, new Docker dispatch, Git mutation, patch authority
+or research admission have been added.
+
+Next: preserve this source-checked, model-selected Blue analysis for
+isolated Git branch patch preparation, legitimate regressions and registered
+security replay. The deterministic compiler preview remains separate from
+Q8's model-selection provenance. The protected baseline and disabled HTTP Red
+execution endpoint remain unchanged.
 
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsJobProposal, getMarsJobClassification, classifyMarsJob, getMarsRedPreflight,
+import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsJobProposal, getMarsJobClassification, classifyMarsJob, getMarsJobLocalization, localizeMarsJob, getMarsRedPreflight,
   listMarsJobs, listMarsPlans, updateMarsJob,
-  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsJobProposal, type MarsJobClassification, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
+  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsJobProposal, type MarsJobClassification, type MarsJobLocalization, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
 import { LoadingState } from "../ui";
 
 type CatalogState =
@@ -41,6 +41,9 @@ export function AssessmentsPanel() {
   const [q8Ready, setQ8Ready] = useState(false);
   const [classifyBusy, setClassifyBusy] = useState(false);
   const [classifyError, setClassifyError] = useState<{ id: string; message: string } | null>(null);
+  const [localization, setLocalization] = useState<{ id: string; data: MarsJobLocalization } | null>(null);
+  const [localizationBusy, setLocalizationBusy] = useState(false);
+  const [localizationError, setLocalizationError] = useState<{ id: string; message: string } | null>(null);
   const [proposal, setProposal] = useState<{ id: string; data: MarsJobProposal } | null>(null);
   const [proposalError, setProposalError] = useState<{ id: string; message: string } | null>(null);
   const [preflight, setPreflight] = useState<MarsRedPreflight | null>(null);
@@ -182,6 +185,37 @@ export function AssessmentsPanel() {
         "Q8 classification was refused or interrupted. Check loaded model, evidence pins and job history." });
     } finally {
       setClassifyBusy(false);
+    }
+  }
+
+  async function showLocalization(job: MarsJob) {
+    if (localization?.id === job.id) { setLocalization(null); return; }
+    setLocalizationError(null);
+    try {
+      setLocalization({ id: job.id, data: await getMarsJobLocalization(job.id) });
+    } catch {
+      setLocalizationError({ id: job.id, message: "Could not verify source-localization status." });
+    }
+  }
+
+  async function localizeJob(job: MarsJob) {
+    if (localizationBusy || !window.confirm(
+      "Ask the loaded Q8 model to select a source function and sink line from " +
+      "independently verified SQLi evidence? This is one development attempt, " +
+      "with no automatic retry, patch preparation or source edit."
+    )) return;
+    setLocalizationBusy(true);
+    setLocalizationError(null);
+    try {
+      const data = await localizeMarsJob(job.id);
+      setLocalization({ id: job.id, data });
+      if (history?.id === job.id)
+        setHistory({ id: job.id, events: await getMarsJobEvents(job.id) });
+    } catch {
+      setLocalizationError({ id: job.id, message:
+        "Q8 source localization was refused or interrupted. No source change is permitted." });
+    } finally {
+      setLocalizationBusy(false);
     }
   }
 
@@ -344,6 +378,13 @@ export function AssessmentsPanel() {
               {proposal?.id === job.id ? "Hide proposal" : "View proposal"}</button>
             <button type="button" onClick={() => void showClassification(job)}>
               {classification?.id === job.id ? "Hide Blue result" : "View Blue result"}</button>
+            <button type="button" onClick={() => void showLocalization(job)}>
+              {localization?.id === job.id ? "Hide source finding" : "View source finding"}</button>
+            {q8Ready && job.state === "scope_reviewed" && job.scenario === "sql" &&
+              classification?.id === job.id && classification.data.status === "recorded" &&
+              classification.data.classification === "sql_injection" &&
+              <button type="button" disabled={localizationBusy || classifyBusy || jobBusy}
+                onClick={() => void localizeJob(job)}>Localize with Q8</button>}
             {job.scenario === "sql" && job.state === "scope_reviewed" &&
               <button type="button" disabled={classifyBusy || jobBusy || !q8Ready}
                 title={!q8Ready ? "Load the verified Q8 model before classification" : undefined}
@@ -399,6 +440,30 @@ export function AssessmentsPanel() {
           </div>}
           {classifyError?.id === job.id &&
             <p className="draft-feedback" role="alert">{classifyError.message}</p>}
+          {localization?.id === job.id && <div className="mars-preflight" role="status">
+            <strong>Model-selected source finding</strong>
+            {localization.data.status === "not_requested" ?
+              <p>No source localization has been recorded for this job. View a recorded SQLi
+                classification first, then use the Q8 localization action when available.</p> :
+              localization.data.status === "outcome_unknown" ?
+              <p>A localization inference was attempted but its outcome is unknown.
+                No source finding or patch approval is claimed.</p> :
+              localization.data.status === "recorded" ? <>
+                <dl>
+                  <div><dt>Model-selected function</dt><dd>{localization.data.function_or_route}</dd></div>
+                  <div><dt>Line</dt><dd>{localization.data.sink_line}</dd></div>
+                  <div><dt>Confidence</dt><dd>{Math.round(localization.data.confidence * 100)}%</dd></div>
+                  <div><dt>Source file</dt><dd>{localization.data.source_file}</dd></div>
+                  <div><dt>Analysis SHA-256</dt><dd><code>{localization.data.blue_analysis_sha256}</code></dd></div>
+                  <div><dt>Patch authority</dt><dd>Not granted</dd></div>
+                </dl>
+                <p>{localization.data.root_cause}</p>
+                <p>This is a source-checked model selection from the frozen development
+                  source view. It is not a verified repair, applied patch, or final research result.</p>
+              </> : null}
+          </div>}
+          {localizationError?.id === job.id &&
+            <p className="draft-feedback" role="alert">{localizationError.message}</p>}
           {proposal?.id === job.id && <div className="mars-preflight" role="status">
             <strong>Deterministic Blue patch proposal</strong>
             {proposal.data.status === "not_prepared" ?

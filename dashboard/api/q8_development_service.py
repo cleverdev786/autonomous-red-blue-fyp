@@ -83,7 +83,7 @@ SYNTHETIC_EXAMPLES: dict[str, dict] = {
 }
 
 
-def _frozen_system() -> str:
+def _frozen_system(role: Literal["classification", "source_localization"] = "classification") -> str:
     stage = C12_EXTERNAL
     if stage.is_symlink() or not stage.is_dir() or any(part.is_symlink() for part in stage.parents):
         raise OperatorError("Verified external C12 package directory not available")
@@ -104,9 +104,11 @@ def _frozen_system() -> str:
         ):
             raise OperatorError("C12 package integrity mismatch")
     prompt = json.loads((stage / "prompt_contract.json").read_text())
-    system = prompt.get("classification")
-    if not isinstance(system, str) or "two HTTP observations" not in system:
-        raise OperatorError("C12 frozen classification prompt invalid")
+    system = prompt.get(role)
+    required = ("two HTTP observations" if role == "classification"
+                else "THREE competing route functions")
+    if not isinstance(system, str) or required not in system:
+        raise OperatorError("C12 frozen prompt contract invalid")
     return system
 
 
