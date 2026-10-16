@@ -286,7 +286,7 @@ def test_live_browser_boot_script_avoids_window_top_collision(client):
     """Regression: Window.top is unforgeable in Chromium/Firefox browser globals."""
     page = client.get("/")
     assert page.status_code == 200
-    assert "console.js?v=4" in page.text
+    assert "console.js?v=5" in page.text
     assert "Workspace could not initialize" in page.text
     assert page.headers["cache-control"] == "no-store"
     script = client.get("/console.js")
@@ -298,3 +298,127 @@ def test_live_browser_boot_script_avoids_window_top_collision(client):
     css = client.get("/console.css")
     assert css.headers["cache-control"] == "no-store"
     assert "fonts.googleapis.com" not in css.text
+
+
+def test_react_dashboard_static_mount_and_missing_build(tmp_path, monkeypatch):
+    """A React build is inert same-origin content; the operator console survives its absence."""
+    from fastapi.testclient import TestClient
+
+    from dashboard.api import console
+
+    built = tmp_path / "dist"
+    (built / "assets").mkdir(parents=True)
+    (built / "index.html").write_text('<html><body><div id="root"></div></body></html>')
+    (built / "assets" / "app.js").write_text('console.log("read-only build");')
+    monkeypatch.setattr(console, "REACT_DIST", built)
+    with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite")) as client:
+        assert client.get("/").status_code == 200
+        home = client.get("/research-dashboard/")
+        assert home.status_code == 200 and 'id="root"' in home.text
+        asset = client.get("/research-dashboard/assets/app.js")
+        assert asset.status_code == 200 and "read-only build" in asset.text
+        assert client.post("/research-dashboard/").status_code == 405
+        assert client.get("/research-dashboard/../../.env").status_code in (404, 405)
+        assert 'href="/research-dashboard/"' in client.get("/").text
+
+    monkeypatch.setattr(console, "REACT_DIST", tmp_path / "missing")
+    with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite")) as client:
+        assert client.get("/").status_code == 200
+        missing = client.get("/research-dashboard/")
+        assert missing.status_code == 503
+        assert "npm run build" in missing.json()["detail"]
+
+
+def test_model_unload_scope_failure_is_controlled_http_error(client, monkeypatch):
+    """A failed scope stop cannot be reported as an unloaded model."""
+    from dashboard.api import console
+
+    def refuse_stop():
+        raise OperatorError("Could not confirm the model scope stopped")
+
+    with monkeypatch.context() as patches:
+        patches.setattr(console.manager, "stop", refuse_stop)
+        response = client.post("/api/console/models/unload", json={})
+        assert response.status_code == 400
+        assert "Could not confirm" in response.json()["detail"]
+
+
+def test_downloadable_evidence_summary_redacts_raw_records(client, monkeypatch):
+    """Export summarizes pinned reviews without leaking source data or authorization."""
+    from dashboard.api import console
+
+    canary = "PRIVATE_SOURCE_AND_MODEL_RESPONSE_DO_NOT_EXPORT"
+    monkeypatch.setattr(
+        console, "review_pinned_registered_red",
+        lambda root: {
+            "status": "verified_archived_red", "registered_test_id": "sqli-login-bypass-001",
+            "red_run_id": "baseline-01", "exploit_confirmed": True, "raw_response": canary,
+        },
+    )
+    monkeypatch.setattr(
+        console, "review_archived_assessment",
+        lambda root: {
+            "status": "evidence_bound", "registered_test_id": "sqli-login-bypass-001",
+            "red_run_id": "baseline-01",
+            "model_decision": {"classification": "sql_injection", "reason": canary},
+            "local_source_path": canary,
+        },
+    )
+    monkeypatch.setattr(
+        console, "review_pinned_patched_replay",
+        lambda root: {
+            "status": "verified_archived_patched_replay", "run_id": "patched-01",
+            "exploit_confirmed": False, "legitimate_login_verified": True,
+            "search_file_verified": True, "docker_secret": canary,
+        },
+    )
+    monkeypatch.setattr(
+        console, "review_pinned_phase5_replays",
+        lambda root: {
+            "status": "verified_archived_phase5_replays", "replay_count": 2,
+            "results": {"xss": {"run_id": "xss-patched"}, "traversal": {"run_id": "trav-patched"}},
+            "patched_docker_functional_verified": False, "raw_request_body": canary,
+        },
+    )
+
+    response = client.get("/api/console/assessment/export")
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Content-Disposition"].startswith("attachment;")
+    assert response.json()["schema_version"] == "sentinel-development-evidence-summary-v1"
+    assert response.json()["archives"]["registered_red"]["exploit_confirmed"] is True
+    assert response.json()["archives"]["patched_xss_traversal"]["patched_docker_functional_verified"] is False
+    assert response.json()["final_research_qualified"] is False
+    assert canary not in response.text
+    assert client.post("/api/console/assessment/export").status_code == 405
+
+
+def test_keyboard_navigation_is_available_without_scripts(client):
+    page = client.get("/").text
+    css = client.get("/console.css").text
+    script = client.get("/console.js").text
+    assert 'class="skip-link" href="#content"' in page
+    assert 'id="content" tabindex="-1"' in page
+    assert ":focus-visible" in css
+    assert "prefers-reduced-motion" in css
+    assert '"#content").focus({preventScroll:true})' in script
+    assert 'href="/api/console/assessment/export"' in script
+
+
+def test_evidence_export_without_approvals_does_not_claim_success(client, monkeypatch):
+    for key in (
+        "FYP_REGISTERED_RED_DISPLAY_PATH", "FYP_REGISTERED_RED_DISPLAY_SHA256",
+        "FYP_ASSESSMENT_APPROVAL_PATH", "FYP_ASSESSMENT_APPROVAL_SHA256",
+        "FYP_PATCHED_REPLAY_APPROVAL_PATH", "FYP_PATCHED_REPLAY_APPROVAL_SHA256",
+        "FYP_PHASE5_REPLAY_APPROVAL_PATH", "FYP_PHASE5_REPLAY_APPROVAL_SHA256",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    payload = client.get("/api/console/assessment/export").json()
+    assert all(record["status"] != "verified_archived_red"
+               for record in payload["archives"].values())
+    assert all(record["status"] not in (
+        "evidence_bound", "verified_archived_patched_replay",
+        "verified_archived_phase5_replays",
+    ) for record in payload["archives"].values())
+    assert payload["final_research_qualified"] is False

@@ -60,3 +60,52 @@ tr.clickable:hover { background: #151f2a; }
   main { padding: 22px 16px; }
   .page-header { align-items: flex-start; flex-direction: column; }
 }
+
+.evidence-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin: 15px 0; }
+.evidence-step { display: flex; flex-direction: column; gap: 8px; padding: 15px; background: #0c1219; border: 1px solid #2c3948; border-radius: 10px; }
+.evidence-step span, .evidence-step small { font-size: 12px; color: #9fb0c3; }
+.evidence-step strong { font-size: 14px; overflow-wrap: anywhere; }
+
+/* Keyboard visibility and reduced motion for the embedded research dashboard. */
+:where(a,button,input,select):focus-visible{outline:3px solid #f7d88a;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;transition-duration:0.01ms!important;scroll-behavior:auto!important}}
+
+/* Clear contrast for read-only evidence export links on the dark dashboard. */
+a{color:#64e8d2;text-underline-offset:3px}
+a:hover{color:#aeffe9}
+
+/* Registered workbench previews only. Native controls, no extra UI library. */
+.preview-controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:15px 0}
+.preview-controls label{font-size:13px;color:#c6d2df}
+.preview-controls select,.preview-controls button{border:1px solid #446078;border-radius:8px;padding:10px;background:#1d3041;color:#f1f7fc}
+.preview-controls button{cursor:pointer}
+.preview-controls button:disabled{opacity:.55;cursor:not-allowed}
+
+/* Runtime inspection follows the existing console palette, without nested cards. */
+.skip-to-content{position:fixed;z-index:25;top:8px;left:8px;padding:12px 16px;background:#193449;color:#fff;border:2px solid #f5c978;border-radius:8px;transform:translateY(-160%)}
+.skip-to-content:focus{transform:none}
+main:focus{outline:none}
+.runtime-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.runtime-heading .eyebrow{color:#64e8d2}
+.runtime-refresh{padding:10px 14px;border:1px solid #446078;border-radius:8px;background:#203246;color:#f1f7fc;cursor:pointer;white-space:nowrap}
+.runtime-refresh:hover{background:#294259}
+.runtime-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border-top:1px solid #334151;margin:18px 0 0}
+.runtime-rows>div{padding:18px 14px 16px 0;border-bottom:1px solid #2c3948}
+.runtime-rows dt{font-size:12px;color:#a4b5c6;letter-spacing:.02em}
+.runtime-rows dd{font-weight:650;font-size:21px;margin:7px 0;overflow-wrap:anywhere;color:#edf1f7}
+.runtime-rows small{display:block;color:#92a0b1;line-height:1.5}
+.model-inventory{list-style:none;padding:0;margin:12px 0}
+.model-inventory li{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid #2c3948;padding:14px 0}
+.model-inventory strong{overflow-wrap:anywhere}
+.model-inventory span{color:#9fb0c3}
+@media(max-width:600px){.runtime-heading{flex-direction:column}.runtime-refresh{width:100%}.runtime-rows{grid-template-columns:1fr}}
+
+/* Compact native horizontal navigation on laptop-width and smaller screens. */
+@media(max-width:850px){
+ .sidebar{padding:18px 16px;gap:16px}
+ .sidebar nav{display:flex;overflow-x:auto;gap:6px;padding-bottom:8px;scrollbar-color:#446078 transparent;scrollbar-width:thin}
+ .sidebar .nav{flex:0 0 auto;white-space:nowrap;padding:9px 12px}
+}
+
+/* Keep horizontally scrollable tabs inside the 320px grid track. */
+@media(max-width:850px){.shell{grid-template-columns:minmax(0,1fr)}.sidebar,.sidebar nav,main{min-width:0}.sidebar nav{max-width:100%}}

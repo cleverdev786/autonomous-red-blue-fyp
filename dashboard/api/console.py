@@ -10,9 +10,10 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from dashboard.api.config import DashboardDatabaseError, resolve_database_path
@@ -27,6 +28,21 @@ from dashboard.api.operator_service import (
     probe_capability,
     scenario_catalog,
 )
+from dashboard.api.q8_development_service import (
+    Q8Demonstration,
+    q8_development_status,
+    run_q8_development_classification,
+)
+from services.evidence_review import (
+    review_archived_assessment,
+    review_pinned_patched_replay,
+    review_pinned_phase5_replays,
+    review_pinned_registered_red,
+)
+from services.registered_assessment_plan import (
+    AssessmentPlanBlocked,
+    registered_catalog,
+)
 
 ALLOWED_ORIGINS = {
     "http://127.0.0.1:8090",
@@ -35,6 +51,7 @@ ALLOWED_ORIGINS = {
     "http://localhost:5173",
 }
 STATIC = Path(__file__).resolve().parent / "console_static"
+REACT_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
 
 def require_local_origin(request: Request) -> None:
@@ -132,7 +149,10 @@ def create_console_app(database_path: str | Path | None = None) -> FastAPI:
 
     @router.post("/models/unload", dependencies=[Depends(require_local_origin)])
     def unload_model() -> dict:
-        return manager.stop()
+        try:
+            return manager.stop()
+        except OperatorError as exc:
+            raise to_http_error(exc) from exc
 
     @router.post("/models/probe", dependencies=[Depends(require_local_origin)])
     async def probe(data: ProbeRequest) -> dict:
@@ -141,7 +161,121 @@ def create_console_app(database_path: str | Path | None = None) -> FastAPI:
         except OperatorError as exc:
             raise to_http_error(exc) from exc
 
+    @router.get("/assessment/registry")
+    def assessment_registry() -> dict:
+        try:
+            return registered_catalog(Path(__file__).resolve().parents[2])
+        except AssessmentPlanBlocked as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @router.get("/assessment/review")
+    def assessment_review(response: Response) -> dict:
+        """Review externally pinned archives only; this endpoint never dispatches tests."""
+        response.headers["Cache-Control"] = "no-store"
+        return review_archived_assessment(root=Path(__file__).resolve().parents[2])
+
+    @router.get("/assessment/registered-red")
+    def registered_red_review(response: Response) -> dict:
+        """Read-only, operator-pinned Red archive; never grants model or patch authority."""
+        response.headers["Cache-Control"] = "no-store"
+        return review_pinned_registered_red(root=Path(__file__).resolve().parents[2])
+
+    @router.get("/assessment/patched-replay")
+    def patched_replay_review(response: Response) -> dict:
+        """Review operator-pinned archived replay; never dispatch tests."""
+        response.headers["Cache-Control"] = "no-store"
+        return review_pinned_patched_replay(root=Path(__file__).resolve().parents[2])
+
+    @router.get("/assessment/phase5-replays")
+    def phase5_replay_review(response: Response) -> dict:
+        """Read-only pinned XSS and traversal development replay verification."""
+        response.headers["Cache-Control"] = "no-store"
+        return review_pinned_phase5_replays(root=Path(__file__).resolve().parents[2])
+
+    @router.get("/assessment/export")
+    def export_development_evidence() -> JSONResponse:
+        """Portable status summary only; no raw evidence, paths or research acceptance."""
+        root = Path(__file__).resolve().parents[2]
+        red = review_pinned_registered_red(root=root)
+        blue = review_archived_assessment(root=root)
+        sql = review_pinned_patched_replay(root=root)
+        phase5 = review_pinned_phase5_replays(root=root)
+        data = {
+            "schema_version": "sentinel-development-evidence-summary-v1",
+            "scope": "author_reviewed_development_only",
+            "archives": {
+                "registered_red": {
+                    "status": red["status"],
+                    "test_id": red["registered_test_id"],
+                    "run_id": red["red_run_id"],
+                    "exploit_confirmed": red["exploit_confirmed"],
+                },
+                "q8_post_hoc_blue": {
+                    "status": blue["status"],
+                    "test_id": blue["registered_test_id"],
+                    "red_run_id": blue["red_run_id"],
+                    "classification": (
+                        blue["model_decision"]["classification"]
+                        if blue.get("model_decision") else None
+                    ),
+                },
+                "patched_sqli": {
+                    "status": sql["status"],
+                    "run_id": sql["run_id"],
+                    "exploit_confirmed": sql["exploit_confirmed"],
+                    "legitimate_function_verified": (
+                        sql["legitimate_login_verified"] is True
+                        and sql["search_file_verified"] is True
+                    ),
+                },
+                "patched_xss_traversal": {
+                    "status": phase5["status"],
+                    "replay_count": phase5["replay_count"],
+                    "registered_runs": {
+                        key: result["run_id"]
+                        for key, result in phase5["results"].items()
+                        if key in ("xss", "traversal")
+                    },
+                    "patched_docker_functional_verified": (
+                        phase5["patched_docker_functional_verified"] is True
+                    ),
+                },
+            },
+            "final_research_qualified": False,
+            "model_directed_original_red_proven": False,
+            "original_live_repo_patch_state_independently_verified": False,
+        }
+        return JSONResponse(
+            data,
+            headers={
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+                "Content-Disposition": 'attachment; filename="sentinel-development-evidence.json"',
+            },
+        )
+
+    @router.get("/q8/status")
+    def q8_status() -> dict:
+        return q8_development_status()
+
+    @router.post("/q8/classify", dependencies=[Depends(require_local_origin)])
+    def q8_classify(data: Q8Demonstration) -> dict:
+        try:
+            return run_q8_development_classification(data)
+        except OperatorError as exc:
+            raise to_http_error(exc) from exc
+
     app.include_router(router)
+
+    # ponytail: built files only; rebuild with npm when React changes.
+    # No second server, API proxy or package install is needed for deployment.
+    if (REACT_DIST / "index.html").is_file():
+        app.mount("/research-dashboard", StaticFiles(directory=REACT_DIST, html=True))
+    else:
+        @app.get("/research-dashboard/")
+        def react_build_missing(response: Response) -> dict:
+            response.status_code = 503
+            return {"detail": "Build the React dashboard: cd dashboard/frontend && npm run build"}
 
     @app.get("/")
     def index() -> FileResponse:

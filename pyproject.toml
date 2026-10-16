@@ -32,7 +32,7 @@ verification = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*", "orchestrator*", "schemas*", "services*", "llm*", "verification*", "storage*", "experiments*", "dashboard*"]
+include = ["agents*", "orchestrator*", "schemas*", "services*", "llm*", "verification*", "storage*", "experiments*", "dashboard*", "security_tests*", "infrastructure*", "dummy_apps*", "config*"]
 exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]
@@ -46,3 +46,5 @@ line-length = 100
 
 [tool.setuptools.package-data]
 "dashboard.api" = ["console_static/*.html", "console_static/*.css", "console_static/*.js"]
+"dashboard" = ["frontend/dist/index.html", "frontend/dist/assets/*.js", "frontend/dist/assets/*.css"]
+"config" = ["*.json", "targets/*.json", "security_tests/*.json"]

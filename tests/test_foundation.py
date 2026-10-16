@@ -40,3 +40,25 @@ def test_environment_overrides(monkeypatch, tmp_path) -> None:
     assert settings.environment == "test"
     assert settings.data_dir == data_dir.resolve()
     assert settings.database_url == "sqlite:///./custom.db"
+
+
+def test_distribution_keeps_registered_console_resources() -> None:
+    """A standalone wheel must contain the registered policies and UI assets."""
+    import tomllib
+
+    config = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
+    packages = config["tool"]["setuptools"]["packages"]["find"]["include"]
+    data = config["tool"]["setuptools"]["package-data"]
+    assert all(f"{name}*" in packages for name in (
+        "security_tests", "infrastructure", "dummy_apps", "config",
+    ))
+    assert {"targets/*.json", "security_tests/*.json"} <= set(data["config"])
+    assert {"frontend/dist/index.html", "frontend/dist/assets/*.js",
+            "frontend/dist/assets/*.css"} <= set(data["dashboard"])
+    for label in (
+        "config/targets/vulnerable-store.json",
+        "config/security_tests/sqli-login-bypass-001.json",
+        "config/security_tests/xss-reflection-001.json",
+        "config/security_tests/path-traversal-private-file-001.json",
+    ):
+        assert (PROJECT_ROOT / label).is_file()

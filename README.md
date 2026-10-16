@@ -146,13 +146,25 @@ python -m compileall -q \
 python -m pytest -q -p no:cacheprovider
 ```
 
-Dashboard frontend build:
+Dashboard frontend build (one-time step for the operator console's
+`/research-dashboard/` route; the original console still works without it):
+
+
 
 ```bash
 cd dashboard/frontend
-npm install --no-package-lock
+npm ci
+npm run test:evidence
 npm run build
 ```
+
+For a standalone development-only Python installation on Linux x86_64 with
+CPython 3.12, the verified offline wheelhouse is available separately under
+`Downloads Red Blue/Sentinel_Python_Offline_Install_2026-10-15_v2.zip`
+on the development laptop. Extract it and follow its `INSTALL.txt`.
+The wheel includes the registered policy files and prebuilt React assets;
+it does not ship experiment evidence, model weights, or a Docker runtime.
+Build React before rebuilding a wheel from this source checkout.
 
 Permanent Milestone 17 authoritative baseline:
 

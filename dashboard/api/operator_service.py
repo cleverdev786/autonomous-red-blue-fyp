@@ -40,6 +40,13 @@ API_PROVIDERS: dict[str, str] = {
     "together": "https://api.together.xyz/v1/chat/completions",
 }
 MAX_RESPONSE = 256 * 1024
+# Approved C11A Q8_0 is a separate development profile. Never relax the
+# historical Q6 loader memory ceiling for arbitrary model names or weights.
+Q8_APPROVED_FILENAME = "c08b-nf4-effective-Q8_0.gguf"
+Q8_APPROVED_BYTES = 3_285_473_024
+Q8_APPROVED_SHA256 = "51b63a132c73a592d954e96b15c1d28176f0cc3e5f05533304e92a6fb40ad304"
+Q8_MIN_AVAILABLE_MIB = 4_400
+Q8_MEMORY_MAX_MIB = 4_400
 MODEL_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._:/+\-]{0,127}$")
 
 
@@ -231,7 +238,7 @@ class ModelManager:
                 "sha256": session.sha256,
                 "port": session.port,
                 "concurrency": 1,
-                "context_tokens": 1536,
+                "context_tokens": (2048 if session.filename == Q8_APPROVED_FILENAME else 1536),
                 "final_research_ready": False,
             }
 
@@ -248,14 +255,24 @@ class ModelManager:
         if binary.is_symlink() or not binary.is_file() or not os.access(binary, os.X_OK):
             raise OperatorError("Pinned llama.cpp binary is not an executable regular file")
         available = _mem_available()
-        # A fixed 3.4 GiB memory scope cannot safely host GGUF weights larger than
-        # its own bound. Never let the kernel discover this via an OOM kill.
-        if model.stat().st_size + 750 * 1024 * 1024 > 3400 * 1024 * 1024:
-            raise OperatorError("Model exceeds the conservative local 3.4 GiB memory budget")
-        if available is None or available < model.stat().st_size + 900 * 1024 * 1024:
-            raise OperatorError(
-                "Insufficient verified free RAM: keep at least 900 MiB beyond model size"
-            )
+        is_q8 = model.name == Q8_APPROVED_FILENAME
+        if is_q8:
+            if model.stat().st_size != Q8_APPROVED_BYTES:
+                raise OperatorError("Approved Q8 model size does not match the frozen artifact")
+            if available is None or available < Q8_MIN_AVAILABLE_MIB * 1024 * 1024:
+                raise OperatorError("Q8 requires at least 4400 MiB available RAM")
+            memory_max = f"{Q8_MEMORY_MAX_MIB}M"
+            context_tokens = "2048"
+        else:
+            # Preserve the original 3.4 GiB bound for the previous Q6 workflow.
+            if model.stat().st_size + 750 * 1024 * 1024 > 3400 * 1024 * 1024:
+                raise OperatorError("Model exceeds the conservative local 3.4 GiB memory budget")
+            if available is None or available < model.stat().st_size + 900 * 1024 * 1024:
+                raise OperatorError(
+                    "Insufficient verified free RAM: keep at least 900 MiB beyond model size"
+                )
+            memory_max = "3400M"
+            context_tokens = "1536"
         if shutil.which("systemd-run") is None or shutil.which("systemctl") is None:
             raise OperatorError("Memory-limited systemd user scopes are required for local loading")
         port = int(os.environ.get("FYP_LOCAL_MODEL_PORT", "18083"))
@@ -269,6 +286,8 @@ class ModelManager:
                 if s.connect_ex(("127.0.0.1", port)) == 0:
                     raise OperatorError("The configured local model port is occupied")
             model_sha = _hash(model)
+            if is_q8 and model_sha != Q8_APPROVED_SHA256:
+                raise OperatorError("Approved Q8 SHA-256 mismatch; refusing model load")
             scope = "fyp-console-model-" + secrets.token_hex(6)
             # This session-scoped log is explicitly closed in ModelManager.stop().
             log = tempfile.TemporaryFile(mode="w+b")  # noqa: SIM115
@@ -280,7 +299,7 @@ class ModelManager:
                 "--unit",
                 scope,
                 "-p",
-                "MemoryMax=3400M",
+                "MemoryMax=" + memory_max,
                 "-p",
                 "MemorySwapMax=512M",
                 "-p",
@@ -295,7 +314,7 @@ class ModelManager:
                 "--alias",
                 data.model_name,
                 "--ctx-size",
-                "1536",
+                context_tokens,
                 "--parallel",
                 "1",
                 "--batch-size",
@@ -327,24 +346,30 @@ class ModelManager:
         return self.status()
 
     def stop(self) -> dict:
+        # Retain the single-model slot until the resource scope actually stops.
         with self._lock:
             session = self._session
-            self._session = None
-        if session is not None:
-            subprocess.run(
-                ["systemctl", "--user", "stop", session.scope + ".scope"],
-                capture_output=True,
-                timeout=15,
-                check=False,
-            )
-            if session.process.poll() is None:
-                session.process.terminate()
+            if session is not None:
                 try:
-                    session.process.wait(timeout=8)
-                except subprocess.TimeoutExpired:
-                    session.process.kill()
-                    session.process.wait(timeout=5)
-            session.logfile.close()
+                    scope = subprocess.run(
+                        ["systemctl", "--user", "stop", session.scope + ".scope"],
+                        capture_output=True,
+                        timeout=15,
+                        check=False,
+                    )
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    raise OperatorError("Could not confirm the model scope stopped") from exc
+                if scope.returncode != 0:
+                    raise OperatorError("Could not confirm the model scope stopped")
+                if session.process.poll() is None:
+                    session.process.terminate()
+                    try:
+                        session.process.wait(timeout=8)
+                    except subprocess.TimeoutExpired:
+                        session.process.kill()
+                        session.process.wait(timeout=5)
+                session.logfile.close()
+                self._session = None
         return {"state": "unloaded", "final_research_ready": False}
 
     def probe_busy(self) -> bool:
