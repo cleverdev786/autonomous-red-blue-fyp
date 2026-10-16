@@ -8,7 +8,7 @@ const built=esbuild.buildSync({entryPoints:["src/api.ts"],bundle:true,platform:"
 const compiled={exports:{}};
 new Function("module","exports","require",built.outputFiles[0].text)(
   compiled,compiled.exports,createRequire(path.resolve("package.json")));
-const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution}=compiled.exports;
+const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution,getMarsJobProposal}=compiled.exports;
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json"}});
 const check=async(kind,promise)=>{
   await assert.rejects(promise,error=>error instanceof ApiRequestError && error.kind===kind);
@@ -75,5 +75,17 @@ const check=async(kind,promise)=>{
   global.fetch=async()=>response({...unknownExecution,status:"receipt_recorded",
     outcome:"baseline_exploit_confirmed"});
   await check("schema",getMarsJobExecution("fixture-job"));
-  console.log("M14 API tests: health, HTTP, network, abort, preview refusal, receipt validation = PASS");
+  const emptyProposal = {job_id:"fixture-job",status:"not_prepared",patch_applied:false,
+    model_decision_used:false,security_replayed:false,final_research_qualified:false};
+  global.fetch=async()=>response(emptyProposal);
+  assert.equal((await getMarsJobProposal("fixture-job")).status,"not_prepared");
+  global.fetch=async()=>response({...emptyProposal,patch_applied:true});
+  await check("schema",getMarsJobProposal("fixture-job"));
+  global.fetch=async()=>response({...emptyProposal,status:"prepared",
+    origin:"trusted_deterministic_builder",red_run_id:"r1",
+    red_receipt_sha256:"b".repeat(64),registered_test_id:"sqli-login-bypass-001",
+    source_file:"dummy_apps/vulnerable_store/app/scenario_routes.py",
+    diff_sha256:"a".repeat(64),diff_preview:"--- source",note:"Development only"});
+  assert.equal((await getMarsJobProposal("fixture-job")).status,"prepared");
+  console.log("M14 API tests: health, HTTP, network, abort, preview refusal, receipt and proposal validation = PASS");
 })().catch(error=>{console.error(error);process.exitCode=1});

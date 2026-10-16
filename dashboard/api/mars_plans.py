@@ -21,6 +21,7 @@ from services.registered_assessment_plan import AssessmentPlanBlocked, registere
 from schemas.registered_red_observation import REGISTERED
 from services.mars_dispatch_intent import ensure_intent_table
 from services.receipt_record import ensure_receipt_table, read_receipt
+from services.blue_preview import ensure_preview_table, read_blue_preview
 
 SCENARIO_ROUTES = {
     "sql": "/sql-injection/login",
@@ -77,6 +78,7 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
             )""")
             ensure_intent_table(conn)
             ensure_receipt_table(conn)
+            ensure_preview_table(conn)
             yield conn
             conn.commit()
         except Exception:
@@ -215,6 +217,12 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
         with connect() as conn:
             current_job(conn, job_id)
             return read_receipt(conn, str(job_id))
+
+    @router.get("/jobs/{job_id}/proposal")
+    def job_proposal(job_id: UUID) -> dict:
+        with connect() as conn:
+            current_job(conn, job_id)
+            return read_blue_preview(conn, str(job_id))
 
     @router.get("/jobs/{job_id}/events")
     def job_events(job_id: UUID) -> list[dict]:

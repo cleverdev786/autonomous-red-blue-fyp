@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsRedPreflight,
+import { createMarsJob, createMarsPlan, deleteMarsPlan, getConsoleJson, getMarsJobEvents, getMarsJobExecution, getMarsJobProposal, getMarsRedPreflight,
   listMarsJobs, listMarsPlans, updateMarsJob,
-  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
+  type MarsJob, type MarsJobEvent, type MarsJobExecution, type MarsJobProposal, type MarsRedPreflight, type MarsPlan, type RegisteredScenario, type ScenarioKey } from "../api";
 import { LoadingState } from "../ui";
 
 type CatalogState =
@@ -37,6 +37,8 @@ export function AssessmentsPanel() {
   const [history, setHistory] = useState<{ id: string; events: MarsJobEvent[] } | null>(null);
   const [execution, setExecution] = useState<{ id: string; data: MarsJobExecution } | null>(null);
   const [executionError, setExecutionError] = useState<{ id: string; message: string } | null>(null);
+  const [proposal, setProposal] = useState<{ id: string; data: MarsJobProposal } | null>(null);
+  const [proposalError, setProposalError] = useState<{ id: string; message: string } | null>(null);
   const [preflight, setPreflight] = useState<MarsRedPreflight | null>(null);
   const [preflightError, setPreflightError] = useState("");
   const [preflightBusy, setPreflightBusy] = useState(false);
@@ -143,6 +145,17 @@ export function AssessmentsPanel() {
     } catch {
       setPreflightError("Readiness could not be verified. No execution is permitted.");
     } finally { setPreflightBusy(false); }
+  }
+
+  async function showProposal(job: MarsJob) {
+    if (proposal?.id === job.id) { setProposal(null); return; }
+    setProposalError(null);
+    try {
+      const data = await getMarsJobProposal(job.id);
+      setProposal({ id: job.id, data });
+    } catch {
+      setProposalError({ id: job.id, message: "Could not verify a patch proposal. Nothing is claimed prepared." });
+    }
   }
 
   async function showExecution(job: MarsJob) {
@@ -289,6 +302,8 @@ export function AssessmentsPanel() {
               {history?.id === job.id ? "Hide history" : "View history"}</button>
             <button type="button" onClick={() => void showExecution(job)}>
               {execution?.id === job.id ? "Hide result" : "View result"}</button>
+            <button type="button" onClick={() => void showProposal(job)}>
+              {proposal?.id === job.id ? "Hide proposal" : "View proposal"}</button>
           </div>
           {preflight?.job_id === job.id && <div className="mars-preflight" role="status">
             <strong>Execution preflight</strong>
@@ -318,6 +333,25 @@ export function AssessmentsPanel() {
               success is implied by this status.</p>
           </div>}
           {executionError?.id === job.id && <p className="draft-feedback" role="alert">{executionError.message}</p>}
+          {proposal?.id === job.id && <div className="mars-preflight" role="status">
+            <strong>Deterministic Blue patch proposal</strong>
+            {proposal.data.status === "not_prepared" ?
+              <p>No independently bound Red evidence and prepared patch are recorded for this job.</p> :
+              proposal.data.status === "prepared" ? <>
+                <dl>
+                  <div><dt>Preparation</dt><dd>Prepared, not applied</dd></div>
+                  <div><dt>Origin</dt><dd>Trusted deterministic compiler, not a model decision</dd></div>
+                  <div><dt>Registered test</dt><dd>{proposal.data.registered_test_id}</dd></div>
+                  <div><dt>Source</dt><dd>{proposal.data.source_file}</dd></div>
+                  <div><dt>Diff SHA-256</dt><dd>{proposal.data.diff_sha256}</dd></div>
+                  <div><dt>Security replay</dt><dd>Not executed</dd></div>
+                </dl>
+                <pre className="diff">{proposal.data.diff_preview}</pre>
+                <p>{proposal.data.note}</p>
+              </> : null}
+          </div>}
+          {proposalError?.id === job.id &&
+            <p className="draft-feedback" role="alert">{proposalError.message}</p>}
           {history?.id === job.id && <ol className="mars-job-history">
             {history.events.map(event => <li key={event.sequence}>
               <span>{event.event.replaceAll("_", " ")}</span>

@@ -351,6 +351,37 @@ export type MarsJob = {
 
 export type MarsJobEvent = { sequence: number; event: string; occurred_at: string };
 
+export type MarsJobProposal =
+  | { job_id: string; status: "not_prepared"; model_decision_used: false;
+      patch_applied: false; security_replayed: false; final_research_qualified: false }
+  | { job_id: string; status: "prepared"; origin: "trusted_deterministic_builder";
+      model_decision_used: false; red_run_id: string; red_receipt_sha256: string;
+      registered_test_id: "sqli-login-bypass-001"; source_file: string;
+      diff_sha256: string; diff_preview: string;
+      patch_applied: false; security_replayed: false;
+      final_research_qualified: false; note: string };
+
+export function getMarsJobProposal(id: string): Promise<MarsJobProposal> {
+  return requestJson<unknown>("/api/mars/jobs/" + encodeURIComponent(id) + "/proposal")
+    .then(value => {
+      if (!isRecord(value) || value.job_id !== id || value.model_decision_used !== false ||
+          value.patch_applied !== false || value.security_replayed !== false ||
+          value.final_research_qualified !== false) {
+        throw new ApiRequestError("schema", "Untrusted patch preview");
+      }
+      if (value.status === "not_prepared") return value as MarsJobProposal;
+      if (value.status !== "prepared" || value.origin !== "trusted_deterministic_builder" ||
+          value.registered_test_id !== "sqli-login-bypass-001" ||
+          !["red_run_id", "source_file", "diff_preview", "note"].every(key => stringField(value, key)) ||
+          !["red_receipt_sha256", "diff_sha256"].every(key =>
+            stringField(value, key) && /^[0-9a-f]{64}$/.test(value[key] as string)) ||
+          (value.diff_preview as string).length > 5000) {
+        throw new ApiRequestError("schema", "Untrusted patch proposal");
+      }
+      return value as MarsJobProposal;
+    });
+}
+
 export type MarsJobExecution =
   | { job_id: string; scope: "development_only_not_final_research";
       status: "not_dispatched" | "outcome_unknown" }

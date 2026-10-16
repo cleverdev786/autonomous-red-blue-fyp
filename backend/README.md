@@ -24,6 +24,7 @@ stable entrypoint without copying backend logic or introducing a second server.
 | Durable single-attempt safety store | `services/mars_dispatch_intent.py` |
 | Externally admitted SQLi job handoff | `services/job_dispatch.py` |
 | Receipt evidence reconciliation | `services/receipt_record.py` |
+| Independently bound SQLi patch preview | `services/blue_preview.py` |
 | Red/Blue workflow orchestration | `orchestrator/`, `agents/` |
 | Persistent local MARS workspace | `~/.local/state/mars/workspace.sqlite3` |
 | React web application | `dashboard/frontend/` |
@@ -50,8 +51,23 @@ before one audited receipt summary is persisted. The React Assessments view can
 read `GET /api/mars/jobs/{id}/execution`, which distinguishes
 `not_dispatched`, `outcome_unknown`, and `receipt_recorded` with the actual
 reported outcome. The durable intent stays unknown to forbid unsafe retries.
-No Blue/patch verification is connected yet, and this does not qualify an
-RQ1/RQ2 research result.
+The SQLi development-only patch preview can be recorded with
+`python -m services.blue_preview --help`, supplying the existing job database,
+pinned source checkout, archived evidence directory, admission path and its
+independently obtained SHA-256, plus the independently obtained receipt SHA-256.
+It requires a confirmed, matching archived registered Red result and reruns
+the repository's existing archived Red evidence verifier **without Docker**.
+Only then does it invoke the existing deterministic trusted patch compiler
+in an ephemeral source copy; no source file is changed or patched.
+
+`GET /api/mars/jobs/{id}/proposal` and the React Assessments View proposal
+show the resulting diff with explicit `model_decision_used=false`,
+`patch_applied=false`, `security_replayed=false`, and
+`final_research_qualified=false`. This is a source-grounded deterministic
+development proposal, **not** a model-generated Blue classification or repair
+acceptance. The true model classification, isolated Git branch, legitimate
+regressions, and registered security replay remain to be integrated; the
+pre-existing disabled HTTP execution endpoint is unchanged.
 
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with
