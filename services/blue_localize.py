@@ -23,14 +23,19 @@ from security_tests.registry import SecurityTestRegistry
 from services.blue_input import BlueInputBlocked, build_blue_input
 from services.bound_registered_red_evidence import verify_archived_registered_red
 from services.compact_source_selection import (
-    CompactSourceSelection, build_verified_analysis, load_trusted_source_window,
+    CompactSourceSelection,
+    build_verified_analysis,
+    load_trusted_source_window,
 )
 from services.job_dispatch import AdmittedDispatchBlocked, _reviewed_sql_scope
 from services.model_driven_decision_gate import (
-    BlueNextAction, authorize_bound_source_analysis,
+    BlueNextAction,
+    authorize_bound_source_analysis,
 )
 from services.q8_c12_development_bridge import (
-    Q8DevelopmentBlocked, archive_gateway_reply, classification_receipt,
+    Q8DevelopmentBlocked,
+    archive_gateway_reply,
+    classification_receipt,
     localization_receipt,
 )
 from services.registered_assessment_plan import plan_from_model_receipt
@@ -176,16 +181,8 @@ def localize_bound_job(
                     state.get("sha256") != q8.MODEL_SHA256 or
                     state.get("filename") != "c08b-nf4-effective-Q8_0.gguf"):
                 raise BlueLocalizeBlocked("Verified Q8 model is not running")
-            system = q8._frozen_system("source_localization")
             localization_request = prepared["localization_request"]
-            payload = json.dumps(
-                localization_request["input"], separators=(",", ":"), ensure_ascii=False,
-            )
-            prompt = (
-                "<|im_start|>system\n" + system + "<|im_end|>\n"
-                "<|im_start|>user\n" + payload + "<|im_end|>\n"
-                "<|im_start|>assistant\n"
-            )
+            prompt = q8.development_localization_prompt(localization_request["input"])
             # Persist one intent before inference so no crash prompts a silent retry.
             with sqlite3.connect(uri, uri=True, timeout=5) as conn:
                 conn.execute("BEGIN IMMEDIATE")
@@ -201,6 +198,11 @@ def localize_bound_job(
             archive_gateway_reply(
                 evidence_dir=archive, filename="q8-localization-input.json",
                 reply=localization_request, project_root=source_root,
+            )
+            archive_gateway_reply(
+                evidence_dir=archive, filename="q8-localization-prompt.json",
+                reply={"profile": q8.LOCALIZATION_PROMPT_PROFILE, "prompt": prompt},
+                project_root=source_root,
             )
             raw = q8._raw_completion(state["port"], prompt)
             archive_gateway_reply(
@@ -258,6 +260,10 @@ def localize_bound_job(
                 ).hexdigest(),
                 "red_receipt_sha256": receipt_sha256,
                 "localization_evidence_id": archive.name,
+                "localization_prompt_profile": q8.LOCALIZATION_PROMPT_PROFILE,
+                "localization_prompt_sha256": sha256(
+                    (archive / "q8-localization-prompt.json").read_bytes()
+                ).hexdigest(),
                 "localization_input_sha256": sha256(
                     (archive / "q8-localization-input.json").read_bytes()
                 ).hexdigest(),

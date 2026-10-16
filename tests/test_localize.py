@@ -74,6 +74,9 @@ def test_model_localization_produces_typed_source_finding_and_audit(
     assert len(output["source_sha256"]) == 64
     assert len(output["blue_analysis_sha256"]) == 64
     assert output["source_analysis_completed"] is True
+    from dashboard.api.q8_development_service import LOCALIZATION_PROMPT_PROFILE
+    assert output["localization_prompt_profile"] == LOCALIZATION_PROMPT_PROFILE
+    assert len(output["localization_prompt_sha256"]) == 64
     assert output["patch_preparation_authorized"] is False
     assert output["patch_applied"] is False
     assert output["final_research_qualified"] is False
@@ -81,6 +84,10 @@ def test_model_localization_produces_typed_source_finding_and_audit(
     loc_evidence = tmp_path / output["localization_evidence_id"]
     assert json.loads((loc_evidence / "q8-localization-input.json").read_text())["role"] == "source_localization"
     assert json.loads((loc_evidence / "q8-localization-gateway.json").read_text())["result"]["sink_line"] == 53
+    archived_prompt = (loc_evidence / "q8-localization-prompt.json")
+    assert archived_prompt.is_file()
+    assert sha256(archived_prompt.read_bytes()).hexdigest() == output["localization_prompt_sha256"]
+    assert json.loads(archived_prompt.read_text())["profile"] == LOCALIZATION_PROMPT_PROFILE
     assert output["localization_input_sha256"] == sha256(
         (loc_evidence / "q8-localization-input.json").read_bytes()
     ).hexdigest()
@@ -133,6 +140,12 @@ def test_changed_provenance_never_reaches_localization_model(
      "root_cause":"Incorrect source function for login", "confidence":0.9},
     {"function_or_route":"vulnerable_login","sink_line":45,
      "root_cause":"Comment, not the executable sink", "confidence":0.9},
+    {"function_or_route":"vulnerable_login","sink_line":46,
+     "root_cause":"This explanation is deliberately longer than the accepted "
+                  "two-hundred-character field because the original model "
+                  "returned a verbose paragraph about the interpolated query "
+                  "and had selected the assignment header instead of the sink.",
+     "confidence":0.9},
 ])
 def test_wrong_model_source_selection_is_saved_raw_but_not_accepted(
     reviewed_archive, monkeypatch, tmp_path, selection
@@ -255,3 +268,17 @@ def test_verified_external_localization_prompt_is_not_classification_prompt():
     assert "two HTTP observations" in classification
     assert "THREE competing route functions" in localization
     assert localization != classification
+
+
+
+def test_versioned_development_prompt_corrects_reported_format_without_source_answer():
+    import dashboard.api.q8_development_service as q8
+    old = q8._frozen_system("source_localization")
+    prompt = q8.development_localization_prompt({"route": "/sql-injection/login", "observations": []})
+    assert old in prompt
+    assert "start of a multiline statement" in prompt
+    assert "at most 160 characters" in prompt
+    assert "exact numbered line" in prompt
+    assert "vulnerable_login" not in prompt
+    assert "sink_line\":48" not in prompt and "sink_line\":53" not in prompt
+    assert q8.LOCALIZATION_PROMPT_PROFILE == "q8-localization-v2"

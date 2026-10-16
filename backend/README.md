@@ -295,3 +295,23 @@ separate image remains cached. This result does **not** show actual Q8 model
 inference, a model-driven job assessment, independent research evaluation,
 or final FYP remediation qualification. Historical baseline evidence and
 protected research holdouts were not modified.
+
+#### Development-only Q8 source prompt v2
+
+The 2026-10-17 real SQLi development job confirmed baseline exploitation and
+recorded a correct Q8 classification, but its one-shot C12 source localization
+selected the multiline query's opening line 46 and returned a 202-character
+explanation. Both violated existing source-selection checks; the archived
+model completion remains unchanged and the job remains `outcome_unknown`.
+
+For **new development jobs only**, `q8-localization-v2` appends a short
+source-agnostic instruction to the independently manifest-verified C12
+localization prompt. It asks Q8 to select the exact line containing the unsafe
+operation (rather than a multiline statement header or comment) and limit
+`root_cause` to 160 characters. It does not supply SQLi sink line numbers or
+functions, change model generation settings, relax the 200-character schema,
+rewrite model output, or modify C12's frozen files. The complete composed
+prompt is archived before inference as `q8-localization-prompt.json`; its
+profile and SHA-256 accompany any recorded finding. The isolated Git patch
+workflow independently reconstructs that prompt and refuses changed or
+unversioned evidence. Previous failed attempts are not reprocessed or retried.

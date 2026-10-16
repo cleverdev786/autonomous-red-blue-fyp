@@ -19,6 +19,7 @@ from uuid import UUID
 
 from git import Repo
 
+import dashboard.api.q8_development_service as q8
 from orchestrator.limits import RunLimitTracker
 from orchestrator.patch_branch_flow import PatchBranchFlow
 from orchestrator.policy_engine import PolicyEngine
@@ -30,7 +31,9 @@ from services.audit_service import AuditService
 from services.blue_input import build_blue_input
 from services.blue_localize import _archived_file, _trusted_classification
 from services.compact_source_selection import (
-    CompactSourceSelection, build_verified_analysis, load_trusted_source_window,
+    CompactSourceSelection,
+    build_verified_analysis,
+    load_trusted_source_window,
 )
 from services.git_service import GitService
 from services.q8_c12_development_bridge import localization_receipt
@@ -93,6 +96,7 @@ def _evidenced_analysis(*, database: Path, job_id: str, source_root: Path,
     saved_loc = json.loads(localization[1])
     decision = _trusted_classification(saved_class, prepared, source_root)
     if (saved_loc["status"] != "recorded" or
+            saved_loc.get("localization_prompt_profile") != q8.LOCALIZATION_PROMPT_PROFILE or
             saved_loc["job_id"] != job_id or
             saved_loc["classification"] != "sql_injection" or
             saved_loc["model_origin"] != "q8_0_cpu_model" or
@@ -117,6 +121,15 @@ def _evidenced_analysis(*, database: Path, job_id: str, source_root: Path,
         archive, "q8-localization-input.json",
         saved_loc["localization_input_sha256"], 16384,
     )
+    prompt = _archived_file(
+        archive, "q8-localization-prompt.json",
+        saved_loc["localization_prompt_sha256"], 16384,
+    )
+    if prompt != {
+        "profile": q8.LOCALIZATION_PROMPT_PROFILE,
+        "prompt": q8.development_localization_prompt(prepared["localization_request"]["input"]),
+    }:
+        raise BlueBranchBlocked("Archived model prompt profile or source context changed")
     raw = _archived_file(
         archive, "q8-localization-raw.json",
         saved_loc["localization_raw_sha256"], 262144,

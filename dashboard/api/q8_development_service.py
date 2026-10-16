@@ -36,6 +36,8 @@ C12_EXTERNAL = (
 # This is a verified external engineering package, NOT an install into the app.
 C12_MANIFEST = "C12_STAGING_MANIFEST.json"
 MAX_RESPONSE = 256 * 1024
+LOCALIZATION_PROMPT_PROFILE = "q8-localization-v2"
+
 
 
 class Q8Demonstration(StrictPayload):
@@ -110,6 +112,24 @@ def _frozen_system(role: Literal["classification", "source_localization"] = "cla
     if not isinstance(system, str) or required not in system:
         raise OperatorError("C12 frozen prompt contract invalid")
     return system
+
+
+def development_localization_prompt(source_input: dict) -> str:
+    """Versioned development-only refinement; frozen C12 source remains intact."""
+    system = _frozen_system("source_localization") + (
+        "\nDevelopment-only source-selection v2: choose the exact numbered line "
+        "that itself contains the unsafe interpolation or sensitive execution "
+        "operation. Do not select the start of a multiline statement, a "
+        "declaration, or a comment. Keep root_cause at most 160 characters, "
+        "describing the direct source issue. Return only the four requested "
+        "JSON fields. Never invent source lines."
+    )
+    payload = json.dumps(source_input, separators=(",", ":"), ensure_ascii=False)
+    return (
+        "<|im_start|>system\n" + system + "<|im_end|>\n"
+        "<|im_start|>user\n" + payload + "<|im_end|>\n"
+        "<|im_start|>assistant\n"
+    )
 
 
 def _raw_completion(port: int, prompt: str) -> dict:

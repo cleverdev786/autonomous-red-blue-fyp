@@ -3,6 +3,7 @@
 Registered Red remains simulated by the existing injected test runner;
 no Docker or live source mutation is permitted in these tests.
 """
+import json
 from hashlib import sha256
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
@@ -113,6 +114,7 @@ def test_isolated_branch_passes_login_security_and_legitimate_behavior(
 
 @pytest.mark.parametrize("mutate", [
     "raw_localization", "saved_decision", "admission", "source", "missing_prediction",
+    "prompt_archive", "prompt_profile",
 ])
 def test_invalid_model_or_registered_evidence_cannot_materialize(
     localized, tmp_path, mutate
@@ -126,6 +128,17 @@ def test_invalid_model_or_registered_evidence_cannot_materialize(
     if mutate == "raw_localization":
         archive = tmp_path / found["localization_evidence_id"]
         (archive / "q8-localization-raw.json").write_text("{}")
+    elif mutate == "prompt_archive":
+        archive = tmp_path / found["localization_evidence_id"]
+        (archive / "q8-localization-prompt.json").write_text("{}")
+    elif mutate == "prompt_profile":
+        with sqlite3.connect(db) as conn:
+            row = conn.execute("SELECT result_json FROM blue_localizations WHERE job_id=?",
+                               (job["id"],)).fetchone()
+            saved = json.loads(row[0])
+            saved["localization_prompt_profile"] = "q8-localization-v1"
+            conn.execute("UPDATE blue_localizations SET result_json=? WHERE job_id=?",
+                         (json.dumps(saved), job["id"]))
     elif mutate == "saved_decision":
         with sqlite3.connect(db) as conn:
             conn.execute("UPDATE blue_localizations SET result_json=? WHERE job_id=?",
