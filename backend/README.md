@@ -148,3 +148,39 @@ The protected baseline and disabled HTTP Red execution endpoint remain unchanged
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with
 endpoint and package compatibility coverage, not through duplicated code.
+
+### Isolated in-process registered SQLi replay
+
+After **operator-only** staging via `python -m services.blue_branch`,
+save its JSON result to a file outside the source checkout. Run:
+
+```bash
+python -m services.blue_replay \
+  --branch-receipt /absolute/external/branch-receipt.json \
+  --output-parent /absolute/external/patch-artifacts \
+  --source-root /absolute/pinned/source-checkout
+```
+
+`services.blue_replay` checks the exact separate Git branch, pinned
+unpatched baseline, staged diff SHA-256 and exact trusted SQLi source
+replacement **before executing any patched code**. It then uses
+`SqlInjectionLoginBypassTest.build_steps()` and
+`SqlInjectionLoginBypassTest.evaluate()` against an in-process FastAPI
+application with a private, temporary SQLite database. It requires the
+registered control and injection requests to both return 401 with no
+registered exploit evidence, plus successful legitimate scenario login,
+normal login, invalid-password refusal and app health.
+
+The write-once evidence is saved at
+`<output-parent>/blue-patch-<job UUID hex>/replay.json`. The returned
+`report_sha256` authenticates those bytes. An attempt reservation is
+written first, preventing silently repeating a failed or interrupted
+replay. The live repository's application source and Git branch are never
+modified; failed checks are recorded with `status=failed`.
+
+This is **in-process registered-test replay**, NOT the independently
+admitted, isolated Docker registered-security replay required for actual
+remediation acceptance. The report always states
+`docker_replayed=false`, `final_repair_accepted=false`, and
+`final_research_qualified=false`. Neither application-level success nor
+a simulated Red fixture should be promoted to final research evidence.
