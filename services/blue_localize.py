@@ -224,9 +224,12 @@ def localize_bound_job(
             )
             localized = localization_receipt(
                 request=localization_request, gateway_reply=gateway,
-                project_root=source_root,
+                project_root=source_root, allow_statement_span=True,
             )
-            selection = CompactSourceSelection.model_validate(localized["selection"])
+            model_selection = CompactSourceSelection.model_validate(localized["selection"])
+            selection = model_selection.model_copy(update={
+                "sink_line": localized["verified_sink_line"],
+            })
             window = load_trusted_source_window(
                 project_root=source_root, start_line=38, end_line=56,
             )
@@ -249,6 +252,7 @@ def localize_bound_job(
                 "classification": decision.classification.value,
                 "model_origin": "q8_0_cpu_model",
                 "function_or_route": selection.function_or_route,
+                "model_selected_line": model_selection.sink_line,
                 "sink_line": selection.sink_line,
                 "root_cause": selection.root_cause,
                 "confidence": selection.confidence,

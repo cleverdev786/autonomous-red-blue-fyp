@@ -451,7 +451,9 @@ export function AssessmentsPanel() {
               localization.data.status === "recorded" ? <>
                 <dl>
                   <div><dt>Model-selected function</dt><dd>{localization.data.function_or_route}</dd></div>
-                  <div><dt>Line</dt><dd>{localization.data.sink_line}</dd></div>
+                  <div><dt>Model-selected statement line</dt><dd>{localization.data.model_selected_line}</dd></div>
+                  <div><dt>Independently verified unsafe line</dt><dd>{localization.data.sink_line}</dd></div>
+                  <div><dt>Source validation profile</dt><dd>{localization.data.localization_prompt_profile}</dd></div>
                   <div><dt>Confidence</dt><dd>{Math.round(localization.data.confidence * 100)}%</dd></div>
                   <div><dt>Source file</dt><dd>{localization.data.source_file}</dd></div>
                   <div><dt>Analysis SHA-256</dt><dd><code>{localization.data.blue_analysis_sha256}</code></dd></div>
@@ -459,7 +461,10 @@ export function AssessmentsPanel() {
                 </dl>
                 <p>{localization.data.root_cause}</p>
                 <p>This is a source-checked model selection from the frozen development
-                  source view. It is not a verified repair, applied patch, or final research result.</p>
+                  source view. When the selected and verified lines differ, the trusted AST
+                  maps a multiline statement to its unsafe interpolation without changing
+                  the original model output. This is not a verified repair, applied patch,
+                  or final research result.</p>
               </> : null}
           </div>}
           {localizationError?.id === job.id &&

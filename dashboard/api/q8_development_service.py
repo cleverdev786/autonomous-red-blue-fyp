@@ -36,7 +36,7 @@ C12_EXTERNAL = (
 # This is a verified external engineering package, NOT an install into the app.
 C12_MANIFEST = "C12_STAGING_MANIFEST.json"
 MAX_RESPONSE = 256 * 1024
-LOCALIZATION_PROMPT_PROFILE = "q8-localization-v2"
+LOCALIZATION_PROMPT_PROFILE = "q8-localization-v3-ast"
 
 
 
@@ -119,10 +119,12 @@ def development_localization_prompt(source_input: dict) -> str:
     system = _frozen_system("source_localization") + (
         "\nDevelopment-only source-selection v2: choose the exact numbered line "
         "that itself contains the unsafe interpolation or sensitive execution "
-        "operation. Do not select the start of a multiline statement, a "
-        "declaration, or a comment. Keep root_cause at most 160 characters, "
-        "describing the direct source issue. Return only the four requested "
-        "JSON fields. Never invent source lines."
+        "operation. The start of a multiline statement is also allowed only "
+        "when that same executable statement contains the unsafe operation. "
+        "Do not select an unrelated line, declaration, or comment. "
+        "Keep root_cause at most 160 characters, describing the direct "
+        "source issue. Return only the four requested JSON fields. "
+        "Never invent source lines."
     )
     payload = json.dumps(source_input, separators=(",", ":"), ensure_ascii=False)
     return (

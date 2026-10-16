@@ -44,6 +44,7 @@ def test_model_selected_source_creates_only_external_staged_git_branch(localized
     assert result["status"] == "staged"
     assert result["model_selected_function"] == "vulnerable_login"
     assert result["model_selected_line"] == 53
+    assert result["verified_sink_line"] == 53
     assert result["blue_analysis_sha256"] == found["blue_analysis_sha256"]
     assert result["origin"] == "trusted_deterministic_builder"
     assert result["model_localization_used"] is True
@@ -209,3 +210,33 @@ def test_source_symlink_is_never_copied_to_external_branch(localized, tmp_path):
         prepare_blue_branch(database=db, job_id=job["id"],
                             output_parent=parent, **pins)
     assert not list(parent.iterdir())
+
+
+
+def test_v3_statement_selection_stages_only_verified_source_line(
+    reviewed_archive, monkeypatch, tmp_path,
+):
+    import dashboard.api.q8_development_service as q8
+
+    from services.blue_branch import prepare_blue_branch
+    from services.blue_localize import localize_bound_job
+    db, job, pins, _, _, _ = classified(reviewed_archive, monkeypatch, tmp_path)
+    monkeypatch.setattr(q8, "_raw_completion", lambda *_: {
+        "content": json.dumps({
+            "function_or_route": "vulnerable_login", "sink_line": 46,
+            "root_cause": "Username enters an interpolated SQL query.",
+            "confidence": 0.87,
+        }), "truncated": False,
+    })
+    result = localize_bound_job(database=db, job_id=job["id"], **pins)
+    assert result["model_selected_line"] == 46
+    assert result["sink_line"] == 48
+    parent = tmp_path / "v3-output"
+    parent.mkdir()
+    staged = prepare_blue_branch(
+        database=db, job_id=job["id"], output_parent=parent, **pins,
+    )
+    assert staged["model_selected_line"] == 46
+    assert staged["verified_sink_line"] == 48
+    assert staged["model_localization_used"] is True
+    assert staged["patch_applied_to_live_repo"] is False

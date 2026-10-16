@@ -307,3 +307,34 @@ def test_evidence_inside_live_repo_is_rejected():
             evidence_dir=ROOT, filename="q8-cannot-write.json",
             reply=response(), project_root=ROOT,
         )
+
+
+def test_prospective_ast_statement_span_requires_verified_interpolation():
+    pair = json.loads(json.dumps(PAIR))
+    pair["route"] = "/sql-injection/login"
+    request = localization_request(pair=pair, project_root=ROOT)
+    reply = source_response(function="vulnerable_login", line=46)
+    # Historical C12/v2 meaning remains frozen: no posthoc acceptance.
+    with pytest.raises(Q8DevelopmentBlocked, match="preapproved_compiler_source_anchors"):
+        localization_receipt(request=request, gateway_reply=reply, project_root=ROOT)
+    prospective = localization_receipt(
+        request=request, gateway_reply=reply, project_root=ROOT,
+        allow_statement_span=True,
+    )
+    assert prospective["selection"]["sink_line"] == 46
+    assert prospective["verified_sink_line"] == 48
+    assert prospective["supporting_line"] == {"start_line": 48, "end_line": 48}
+    assert prospective["ready_for_patch_preparation"] is False
+
+
+@pytest.mark.parametrize("line", [45, 47, 49, 50, 54])
+def test_prospective_ast_statement_span_still_rejects_unrelated_lines(line):
+    pair = json.loads(json.dumps(PAIR))
+    pair["route"] = "/sql-injection/login"
+    request = localization_request(pair=pair, project_root=ROOT)
+    with pytest.raises(Q8DevelopmentBlocked):
+        localization_receipt(
+            request=request,
+            gateway_reply=source_response(function="vulnerable_login", line=line),
+            project_root=ROOT, allow_statement_span=True,
+        )

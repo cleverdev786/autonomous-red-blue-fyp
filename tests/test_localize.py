@@ -70,6 +70,7 @@ def test_model_localization_produces_typed_source_finding_and_audit(
     assert output["classification"] == "sql_injection"
     assert output["function_or_route"] == "vulnerable_login"
     assert output["sink_line"] == 53
+    assert output["model_selected_line"] == 53
     assert output["source_file"] == "dummy_apps/vulnerable_store/app/scenario_routes.py"
     assert len(output["source_sha256"]) == 64
     assert len(output["blue_analysis_sha256"]) == 64
@@ -281,4 +282,30 @@ def test_versioned_development_prompt_corrects_reported_format_without_source_an
     assert "exact numbered line" in prompt
     assert "vulnerable_login" not in prompt
     assert "sink_line\":48" not in prompt and "sink_line\":53" not in prompt
-    assert q8.LOCALIZATION_PROMPT_PROFILE == "q8-localization-v2"
+    assert q8.LOCALIZATION_PROMPT_PROFILE == "q8-localization-v3-ast"
+
+
+
+def test_v3_model_statement_line_and_verified_sink_are_recorded_separately(
+    reviewed_archive, monkeypatch, tmp_path,
+):
+    from services.blue_localize import localize_bound_job
+
+    import dashboard.api.q8_development_service as q8
+
+    db, job, pins, _, _, _ = classified(reviewed_archive, monkeypatch, tmp_path)
+    monkeypatch.setattr(q8, "_raw_completion", lambda *_: {
+        "content": json.dumps({
+            "function_or_route": "vulnerable_login", "sink_line": 46,
+            "root_cause": "Untrusted username interpolation into a SQL query.",
+            "confidence": 0.9,
+        }), "truncated": False,
+    })
+    found = localize_bound_job(database=db, job_id=job["id"], **pins)
+    assert found["status"] == "recorded"
+    assert found["model_selected_line"] == 46
+    assert found["sink_line"] == 48
+    assert found["localization_prompt_profile"] == "q8-localization-v3-ast"
+    archived = tmp_path / found["localization_evidence_id"] / "q8-localization-raw.json"
+    assert json.loads(archived.read_text())["content"].find('"sink_line": 46') > 0
+    assert result_for(db, job) == found

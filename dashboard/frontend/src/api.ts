@@ -373,7 +373,9 @@ export type MarsJobLocalization =
   | { job_id: string; status: "not_requested" | "outcome_unknown" }
   | { job_id: string; status: "recorded"; classification: "sql_injection";
       model_origin: "q8_0_cpu_model"; function_or_route: "vulnerable_login";
-      sink_line: number; root_cause: string; confidence: number;
+      model_selected_line: number; sink_line: number; root_cause: string; confidence: number;
+      localization_prompt_profile: "q8-localization-v3-ast";
+      localization_prompt_sha256: string;
       source_file: string; source_sha256: string; blue_analysis_sha256: string;
       red_receipt_sha256: string; localization_evidence_id: string;
       localization_input_sha256: string; localization_raw_sha256: string;
@@ -391,14 +393,18 @@ function verifiedLocalization(value: unknown, id: string): MarsJobLocalization {
   if (value.status !== "recorded" || value.classification !== "sql_injection" ||
       value.model_origin !== "q8_0_cpu_model" ||
       value.function_or_route !== "vulnerable_login" ||
-      !Number.isSafeInteger(value.sink_line) || (value.sink_line as number) < 1 ||
-      (value.sink_line as number) > 200 ||
+      !Number.isSafeInteger(value.model_selected_line) ||
+      ![[46, 48], [48, 48], [53, 53]].some(
+        ([selected, verified]) => value.model_selected_line === selected && value.sink_line === verified
+      ) ||
+      value.localization_prompt_profile !== "q8-localization-v3-ast" ||
       !["root_cause", "localization_evidence_id"].every(k => stringField(value, k)) ||
       value.source_file !== "dummy_apps/vulnerable_store/app/scenario_routes.py" ||
       typeof value.confidence !== "number" ||
       value.confidence < 0 || value.confidence > 1 ||
       !["source_sha256", "blue_analysis_sha256", "red_receipt_sha256",
-        "localization_input_sha256", "localization_raw_sha256"].every(k =>
+        "localization_input_sha256", "localization_raw_sha256",
+        "localization_prompt_sha256"].every(k =>
         stringField(value, k) && /^[0-9a-f]{64}$/.test(value[k] as string)) ||
       value.source_analysis_completed !== true ||
       value.patch_preparation_authorized !== false ||

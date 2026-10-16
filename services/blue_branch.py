@@ -146,9 +146,14 @@ def _evidenced_analysis(*, database: Path, job_id: str, source_root: Path,
         raise BlueBranchBlocked("Localization gateway is inconsistent with raw model output")
     typed = localization_receipt(
         request=loc_input, gateway_reply=gateway, project_root=source_root,
+        allow_statement_span=True,
     )
-    selection = CompactSourceSelection.model_validate(typed["selection"])
+    model_selection = CompactSourceSelection.model_validate(typed["selection"])
+    selection = model_selection.model_copy(update={
+        "sink_line": typed["verified_sink_line"],
+    })
     if (selection.function_or_route != saved_loc["function_or_route"] or
+            model_selection.sink_line != saved_loc["model_selected_line"] or
             selection.sink_line != saved_loc["sink_line"] or
             selection.root_cause != saved_loc["root_cause"] or
             selection.confidence != saved_loc["confidence"] or
@@ -260,7 +265,8 @@ def prepare_blue_branch(
                 "prepared_diff_sha256": branch.prepared_diff_sha256,
                 "changed_paths": list(branch.changed_paths),
                 "model_selected_function": saved["function_or_route"],
-                "model_selected_line": saved["sink_line"],
+                "model_selected_line": saved["model_selected_line"],
+                "verified_sink_line": saved["sink_line"],
                 "blue_analysis_sha256": saved["blue_analysis_sha256"],
                 "origin": "trusted_deterministic_builder",
                 "model_localization_used": True,

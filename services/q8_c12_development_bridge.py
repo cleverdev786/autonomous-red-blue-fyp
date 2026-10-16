@@ -209,9 +209,60 @@ def classification_receipt(*, pair: dict[str, Any], gateway_reply: dict) -> dict
     }
 
 
+def _trusted_sql_statement_anchor(project_root: Path, selected_line: int) -> int:
+    """Prospective only: map an AST SQL assignment *header* to its unsafe line.
+
+    The reviewed original source hash is required by trusted_source(). This
+    never repairs a recorded model answer or authorizes an execution.
+    """
+    from services.trusted_remediation_compiler import _SQL_EXEC_OLD
+
+    code = (project_root / SOURCE).read_text(encoding="utf-8")
+    tree = ast.parse(code)
+    routes = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+              and node.name == "vulnerable_login"]
+    if len(routes) != 1:
+        _block("trusted_sql_function_not_unique")
+    function = routes[0]
+    assignments = [
+        node for node in ast.walk(function)
+        if isinstance(node, ast.Assign) and node.lineno == selected_line
+        and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "query"
+    ]
+    if len(assignments) != 1:
+        _block("model_line_not_multiline_sql_assignment_header")
+    assignment = assignments[0]
+    interpolations = [
+        node for node in ast.walk(assignment)
+        if isinstance(node, ast.FormattedValue)
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "username"
+        and isinstance(node.value.value, ast.Name)
+        and node.value.value.id == "payload"
+    ]
+    if len(interpolations) != 1 or assignment.end_lineno <= selected_line:
+        _block("sql_assignment_has_no_bound_unsafe_interpolation")
+    if not any(
+        isinstance(node, ast.Call) and ast.unparse(node) == _SQL_EXEC_OLD
+        for node in ast.walk(function)
+    ):
+        _block("sql_assignment_not_connected_to_registered_execution")
+    lines = code.splitlines()
+    anchors = [
+        node.lineno for node in interpolations
+        if "WHERE username =" in lines[node.lineno - 1]
+        and assignment.lineno <= node.lineno <= assignment.end_lineno
+    ]
+    if len(anchors) != 1:
+        _block("unsafe_sql_interpolation_anchor_ambiguous")
+    return anchors[0]
+
+
 def localization_receipt(
     *, request: dict, gateway_reply: dict, project_root: Path,
-    source_profile: str = SOURCE_PROFILE_V1
+    source_profile: str = SOURCE_PROFILE_V1,
+    allow_statement_span: bool = False,
 ) -> dict:
     if type(request) is not dict or set(request) != {"role", "input"}:
         _block("source_request_invalid")
@@ -260,12 +311,16 @@ def localization_receipt(
     original_line = (project_root / SOURCE).read_text(encoding="utf-8").splitlines()[
         selected.sink_line - 1
     ]
+    verified_sink = selected.sink_line
     if not any(text in original_line for text in anchors[function]):
-        _block("selected_sink_does_not_match_preapproved_compiler_source_anchors")
-    region = SourceLineRange(start_line=selected.sink_line, end_line=selected.sink_line)
+        if not allow_statement_span or function != "vulnerable_login":
+            _block("selected_sink_does_not_match_preapproved_compiler_source_anchors")
+        verified_sink = _trusted_sql_statement_anchor(project_root, selected.sink_line)
+    region = SourceLineRange(start_line=verified_sink, end_line=verified_sink)
     return {
         "bridge_version": BRIDGE_VERSION,
         "selection": selected.model_dump(mode="json"),
+        "verified_sink_line": verified_sink,
         "source_relative_path": SOURCE,
         "source_sha256": source.sha256,
         "supporting_line": region.model_dump(mode="json"),

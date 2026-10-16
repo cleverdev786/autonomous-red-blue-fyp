@@ -46,7 +46,8 @@ def _checked_stage(staged: dict, output_parent: Path, source_root: Path) -> tupl
             staged.get("origin") != "trusted_deterministic_builder" or
             staged.get("model_localization_used") is not True or
             staged.get("model_selected_function") != "vulnerable_login" or
-            staged.get("model_selected_line") not in (48, 53) or
+            (staged.get("model_selected_line"), staged.get("verified_sink_line"))
+            not in ((46, 48), (48, 48), (53, 53)) or
             staged.get("patch_applied_to_live_repo") is not False or
             staged.get("security_replayed") is not False or
             staged.get("final_research_qualified") is not False):

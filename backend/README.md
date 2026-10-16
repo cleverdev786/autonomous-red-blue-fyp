@@ -327,3 +327,20 @@ seconds, or immediately on **Refresh status**, and labels non-active GGUF files
 as on disk rather than loaded. The page refuses missing or malformed active
 model identity metadata instead of guessing which model is running. A running
 model is **not** an independently research-qualified model.
+
+
+### Prospective AST-aware source-localization v3
+
+For **future** one-shot model attempts, `q8-localization-v3-ast` accepts
+either a directly identified unsafe SQL operation or the *starting line of
+the same executable multiline SQL assignment*, provided that the trusted
+hash-pinned source AST independently proves a `payload.username`
+interpolation at a unique preapproved unsafe source anchor and a connected
+registered SQL execution call. It does **not** accept arbitrary lines inside
+that statement, an unrelated assignment, comments, different source functions,
+or modified baseline source. The original model-selected line and the
+verified unsafe operation line are saved as **different fields**; the
+original raw model completion remains unchanged. The isolated patch gate
+rebuilds and verifies both lines independently from the registered source.
+This is a prospective development contract, not retroactive acceptance of
+v1/v2 archived model outputs or final research qualification.

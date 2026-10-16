@@ -129,7 +129,9 @@ const check=async(kind,promise)=>{
   assert.equal((await getMarsJobLocalization("fixture-job")).status,"not_requested");
   const selected = {job_id:"fixture-job",status:"recorded",classification:"sql_injection",
     model_origin:"q8_0_cpu_model",function_or_route:"vulnerable_login",
-    sink_line:53,root_cause:"Untrusted login query",confidence:0.85,
+    model_selected_line:53,sink_line:53,root_cause:"Untrusted login query",confidence:0.85,
+    localization_prompt_profile:"q8-localization-v3-ast",
+    localization_prompt_sha256:"a".repeat(64),
     source_file:"dummy_apps/vulnerable_store/app/scenario_routes.py",
     source_sha256:"a".repeat(64),blue_analysis_sha256:"b".repeat(64),
     red_receipt_sha256:"c".repeat(64),localization_evidence_id:"probe-1234",
@@ -141,6 +143,12 @@ const check=async(kind,promise)=>{
   global.fetch=async()=>response({...selected,patch_preparation_authorized:true});
   await check("schema",getMarsJobLocalization("fixture-job"));
   global.fetch=async()=>response({...selected,function_or_route:"vulnerable_file_read"});
+  await check("schema",getMarsJobLocalization("fixture-job"));
+  global.fetch=async()=>response({...selected,model_selected_line:46,sink_line:53});
+  await check("schema",getMarsJobLocalization("fixture-job"));
+  global.fetch=async()=>response({...selected,model_selected_line:46,sink_line:48});
+  assert.equal((await getMarsJobLocalization("fixture-job")).model_selected_line,46);
+  global.fetch=async()=>response({...selected,localization_prompt_profile:"q8-localization-v2"});
   await check("schema",getMarsJobLocalization("fixture-job"));
   global.fetch=async(_url,opts)=>{requestMethod=opts.method;return response(selected);};
   assert.equal((await localizeMarsJob("fixture-job")).function_or_route,"vulnerable_login");
