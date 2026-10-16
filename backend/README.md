@@ -120,11 +120,30 @@ with Q8** after a recorded SQLi prediction is displayed and Q8 is ready.
 No browser-supplied paths, new Docker dispatch, Git mutation, patch authority
 or research admission have been added.
 
-Next: preserve this source-checked, model-selected Blue analysis for
-isolated Git branch patch preparation, legitimate regressions and registered
-security replay. The deterministic compiler preview remains separate from
-Q8's model-selection provenance. The protected baseline and disabled HTTP Red
-execution endpoint remain unchanged.
+### Isolated Git branch preparation
+
+`python -m services.blue_branch --help` exposes the operator-only
+`prepare_blue_branch` workflow. It requires the same independently pinned
+workspace job, registered Red archive and admission/receipt hashes, plus
+`--output-parent` pointing to an existing **external** directory outside
+the live repository.
+
+The worker rereads the saved Q8 raw classification and raw source selection,
+validates both against registered Red evidence and the exact pinned source
+snapshot, then invokes the existing deterministic remediation compiler.
+An isolated Git repository is created beneath the external output directory,
+with a snapshot `main` and an `agent-patch/` branch containing only the
+staged SQLi source change. This isolated snapshot's baseline commit is **not**
+the original repository commit. Neither the live development branch nor
+the vulnerable baseline is checked out, edited, or committed by this action.
+
+The branch result distinguishes model-selected localization from deterministic
+patch generation. Tests include a sandboxed application-level SQLi/legitimate
+login regression, but the worker does **not** itself claim functionality
+verification or a registered Docker replay. Independent replay and acceptance
+still need to be integrated before any final repair or research claim.
+
+The protected baseline and disabled HTTP Red execution endpoint remain unchanged.
 
 Legacy ASGI imports such as `dashboard.api.console:app` continue to work.
 A future physical migration of the API modules should be done separately with
