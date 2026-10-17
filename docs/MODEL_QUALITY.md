@@ -451,3 +451,43 @@ The original observations were **not** rescored or retried inside their
 registered one-shot jobs, and no revised profile gained repair or research
 authority. External audit SHA-256:
 `1066fb310b94e241911e6c675fe25fd6eb550647057f66db43e696918bcd0e8f`.
+
+### Reconciled offline continuation and development report
+
+The read-only [MARS integrity verifier](../scripts/verify_mars_evidence.py)
+has been reconciled against the original external registered Red/Q8/Docker
+evidence and retrospective prompt diagnostic without modifying either.
+It checks the pinned raw evidence, trusted patch-provenance flags,
+source/dataset hashes, local Git branch and clean-tree state; it does not
+run models, exploit tests, automatic repairs or final research.
+
+For reproducibility, from a **clean** `development` checkout run:
+
+```bash
+python3 scripts/verify_mars_evidence.py --repo "$PWD"
+```
+
+This integrity check is deliberately distinct from independent scientific
+qualification. For a thesis-oriented summary of the *development* results
+and their limitations, see
+[development-results draft](DEVELOPMENT_RESULTS_2026-10-17.md).
+
+### Research slot pre-admission consistency check (2026-10-17)
+
+The separately supplied **2026-10-15 design-only**
+`FYP_Independent_Research_PreAdmission_2026-10-15.zip` was inspected
+**without importing the unapproved schedule into executable research**.
+Its RQ1 CSV has 18 `NOT_RUN` rows, exactly 3 for each of 3 scenarios
+times 2 Blue conditions (SHA-256 `4fb9cdaa4880df856885dba66523d545dc02a515a43a914e71a96a4fdc33439a`).
+Its RQ2 CSV has 180 `NOT_RUN` rows, exactly 3 conditions per 60
+abstract event slots (SHA-256
+`db5b7a9e98a3aa45852b55492841f4948c4c39c68c5b1d4007ed4e9bd8124a5e`).
+Result/admission fields remain blank. These cardinalities **do not**
+prove holdout independence, approved trial order, model eligibility,
+schema compatibility or permission to start a final experiment.
+
+The older October 15 protocol states that a patched XSS/traversal Docker
+functionality gate is unverified. That historical claim is superseded
+**for development-only trusted-template replays** by the registered real
+Docker receipts recorded October 17; it is **not** superseded for
+qualified model-linked autonomous patches or frozen final RQ1/RQ2.
