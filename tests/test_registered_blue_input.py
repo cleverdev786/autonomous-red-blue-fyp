@@ -280,3 +280,66 @@ def test_completed_historical_preview_cannot_be_retroactively_model_probed(bound
     assert preview["model_decision_used"] is False
     with pytest.raises(BlueInputBlocked, match="prospective"):
         build_registered_blue_input(**args)
+
+
+def test_server_owned_non_sql_probe_uses_pinned_config_not_browser_paths(
+    bound_case, monkeypatch, tmp_path,
+):
+    """The server-owning model manager performs one real service call."""
+    from fastapi.testclient import TestClient
+    from dashboard.api.console import create_console_app
+
+    args, scenario, *_ = bound_case
+    label = "xss" if scenario == "xss-search-001" else "path_traversal"
+    archive, calls = _mock_non_sql_model(
+        monkeypatch, tmp_path,
+        {"classification": label, "confidence": 0.88,
+         "reason": "Registered observed responses support this vulnerability."},
+        source_line=84 if label == "xss" else 104,
+    )
+    for name, value in {
+        "MARS_SOURCE_ROOT": str(args["source_root"]),
+        "MARS_EVIDENCE_DIR": str(args["evidence_dir"]),
+        "MARS_ADMISSION_PATH": str(args["admission_path"]),
+        "MARS_ADMISSION_SHA256": args["admission_sha256"],
+        "MARS_RECEIPT_SHA256": args["receipt_sha256"],
+    }.items():
+        monkeypatch.setenv(name, value)
+    with TestClient(create_console_app(
+        database_path="/absent/research.sqlite", mars_workspace_db=args["database"],
+    )) as client:
+        url = f"/api/mars/jobs/{args['job_id']}/probe-non-sql"
+        assert client.post(url, json={"evidence_dir": "/tmp/evil"}).status_code == 422
+        denied = client.post(
+            url, json={}, headers={"Origin": "http://attacker.invalid"},
+        )
+        assert denied.status_code == 403
+        assert client.get(f"/api/mars/jobs/{args['job_id']}/non-sql-model-probe").json()["status"] == "not_requested"
+        result = client.post(url, json={})
+        assert result.status_code == 200, result.text
+        assert result.json()["model_independently_qualified"] is False
+        assert result.json()["source_localization_verified"] is True
+        assert result.json()["patch_preparation_authorized"] is False
+        assert len(calls) == 2
+        assert (archive / "q8-nonsql-raw.json").is_file()
+        assert client.post(url, json={}).status_code == 409
+
+
+def test_server_non_sql_probe_without_independent_pins_never_calls_model(
+    bound_case, monkeypatch,
+):
+    from fastapi.testclient import TestClient
+    from dashboard.api.console import create_console_app
+
+    args, *_ = bound_case
+    for name in ("MARS_SOURCE_ROOT", "MARS_EVIDENCE_DIR", "MARS_ADMISSION_PATH",
+                 "MARS_ADMISSION_SHA256", "MARS_RECEIPT_SHA256"):
+        monkeypatch.delenv(name, raising=False)
+    with TestClient(create_console_app(
+        database_path="/absent/research.sqlite", mars_workspace_db=args["database"],
+    )) as client:
+        r = client.post(f"/api/mars/jobs/{args['job_id']}/probe-non-sql", json={})
+        assert r.status_code == 409
+        assert client.get(
+            f"/api/mars/jobs/{args['job_id']}/non-sql-model-probe"
+        ).json()["status"] == "not_requested"

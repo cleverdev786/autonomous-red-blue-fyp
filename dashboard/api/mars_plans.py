@@ -24,7 +24,10 @@ from services.receipt_record import ensure_receipt_table, read_receipt
 from services.blue_preview import ensure_preview_table, read_blue_preview
 from services.blue_classify import ensure_classify_table, read_blue_decision, classify_bound_job, BlueClassifyBlocked
 from services.blue_localize import ensure_localize_table, read_blue_localization, localize_bound_job, BlueLocalizeBlocked
-from services.blue_non_sql_probe import ensure_non_sql_probe_table, read_non_sql_probe
+from services.blue_non_sql_probe import (
+    ensure_non_sql_probe_table, read_non_sql_probe, probe_bound_non_sql_job,
+    BlueNonSqlProbeBlocked,
+)
 
 SCENARIO_ROUTES = {
     "sql": "/sql-injection/login",
@@ -242,6 +245,33 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
         with connect() as conn:
             current_job(conn, job_id)
             return read_non_sql_probe(conn, str(job_id))
+
+    @router.post("/jobs/{job_id}/probe-non-sql", dependencies=[Depends(require_origin)])
+    def probe_job_non_sql(job_id: UUID, request: EmptyAction) -> dict:
+        """Owner-process-only one-shot model observation; never authorizes repair.
+
+        Paths and independently reviewed digests remain server configuration.
+        A browser cannot select an arbitrary source, admission or model.
+        """
+        import os
+
+        names = ("MARS_SOURCE_ROOT", "MARS_EVIDENCE_DIR", "MARS_ADMISSION_PATH",
+                 "MARS_ADMISSION_SHA256", "MARS_RECEIPT_SHA256")
+        values = [os.environ.get(name) for name in names]
+        if any(not value for value in values):
+            raise HTTPException(409, "Independent evidence pins are not configured")
+        with connect() as conn:
+            job = current_job(conn, job_id)
+            if job["scenario"] not in ("xss", "traversal"):
+                raise HTTPException(409, "Non-SQL job required")
+        try:
+            return probe_bound_non_sql_job(
+                database=database, job_id=str(job_id), source_root=Path(values[0]),
+                evidence_dir=Path(values[1]), admission_path=Path(values[2]),
+                admission_sha256=values[3], receipt_sha256=values[4],
+            )
+        except BlueNonSqlProbeBlocked as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @router.post("/jobs/{job_id}/classify", dependencies=[Depends(require_origin)])
     def classify_job(job_id: UUID, request: EmptyAction) -> dict:

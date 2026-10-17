@@ -359,3 +359,32 @@ has a deterministic Blue preview. The earlier real XSS and traversal jobs
 have completed previews, so they cannot be silently converted into
 prospective model-driven results. A genuinely **new**, separately admitted
 one-shot job is required for each model-evidence run.
+
+
+### Model-session ownership and safe non-SQL operation (2026-10-17)
+
+The Q8 llama.cpp process can be healthy even when a fresh Python
+interpreter reports `q8.manager.status() == unloaded`: the in-memory
+`ModelManager` session and its one-probe lock belong to the running
+console/backend process, **not to independently launched CLI processes**.
+The `services.blue_non_sql_probe` CLI therefore correctly fails closed when
+run in a process that does not own that session. Do not bypass the check
+by trusting an unauthenticated listening port or guessed model name.
+
+The existing MARS API now has an explicitly invoked
+`POST /api/mars/jobs/{job_id}/probe-non-sql` endpoint for the process
+that **owns the loaded, pinned Q8 session**. Like the established SQLi
+classification endpoint, it requires the console local-origin policy, a
+body with **no additional fields**, and all five server-side
+`MARS_SOURCE_ROOT`, `MARS_EVIDENCE_DIR`, `MARS_ADMISSION_PATH`,
+`MARS_ADMISSION_SHA256` and `MARS_RECEIPT_SHA256` pins. Only XSS
+or traversal jobs can invoke it, and the model service validates the
+reviewed job, prospective attempt, archived registered Red evidence and
+exact model identity before reserving a one-shot inference intent.
+
+This API route does not make the running server automatically reload
+updated repository code. The operator must deliberately deploy the
+tested backend version, retain legitimate service ownership, and
+configure a **new independently admitted** job's evidence pins before
+using the route. It neither retroactively converts prior trusted Blue
+previews into model experiments nor confers patch/replay authority.
