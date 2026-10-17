@@ -388,3 +388,24 @@ tested backend version, retain legitimate service ownership, and
 configure a **new independently admitted** job's evidence pins before
 using the route. It neither retroactively converts prior trusted Blue
 previews into model experiments nor confers patch/replay authority.
+
+
+## Real registered non-SQL follow-up, 2026-10-17
+
+See [the new development evidence audit](NON_SQL_REAL_DEVELOPMENT_2026-10-17.md).
+Fresh externally SHA-pinned, operator-reviewed XSS and traversal jobs both
+confirmed the real vulnerable-baseline exploit in isolated Docker. Actual
+Q8/C12 model calls classified each positive scenario correctly (2/2) but
+selected the wrong source lines (86 instead of 84 for XSS, 101 instead of
+104 for traversal). Both one-shot source-localization attempts were rejected,
+with raw completions retained and no automatic patch authority.
+
+The exact existing trusted deterministic patched images were independently
+source-hash checked and passed new real registered Docker security tests
+and related functional checks for both classes. Those replays are **not**
+model-authored remediation or final RQ1/RQ2 results. Their write-once
+evidence index is outside Git at
+`~/.local/state/sentinel-fyp/mars-nonsql-live-20261017-v1/outcome.json`,
+SHA-256 `7bd9b048dff60d1c7a50e43d706de167e1acccbd6296f4bc86120cf12a95f545`.
+Independent prospective model qualification and original research freeze
+remain blocked, rather than being weakened to declare a pass.
