@@ -8,17 +8,20 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
-from hashlib import sha256
+from datetime import UTC
 from pathlib import Path
 from urllib.parse import quote
 from uuid import UUID
 
+from schemas.registered_red_observation import REGISTERED
 from security_tests.registry import SecurityTestRegistry
 from services.bound_registered_red_evidence import (
-    BoundRedEvidenceError, verify_archived_registered_red,
+    BoundRedEvidenceError,
+    verify_archived_registered_red,
 )
+from services.job_dispatch import AdmittedDispatchBlocked, _reviewed_registered_scope
+from services.registered_assessment_plan import SCENARIO_IDENTITIES
 from services.target_registry import TargetRegistry
-from services.job_dispatch import AdmittedDispatchBlocked, _reviewed_sql_scope
 
 
 class BluePreviewBlocked(RuntimeError):
@@ -81,18 +84,19 @@ def prepare_blue_preview(
             ).fetchone()
         if existing:
             raise BluePreviewBlocked("A Blue preview is already recorded")
+        identity = SCENARIO_IDENTITIES.get(job["scenario"]) if job else None
         if (job is None or job["state"] != "scope_reviewed"
-                or job["scenario"] != "sql" or job["route"] != "/sql-injection/login"
-                or job["registered_test_id"] != "sqli-login-bypass-001"
+                or identity is None or job["route"] != identity[0]
+                or job["registered_test_id"] != REGISTERED[identity[1]][0]
                 or intent is None or receipt is None
                 or intent["admission_sha256"] != admission_sha256
                 or receipt["receipt_sha256"] != receipt_sha256
                 or receipt["outcome"] != "baseline_exploit_confirmed"):
-            raise BluePreviewBlocked("A confirmed, receipt-matched SQLi job is required")
-        # The original, scope-reviewed SQLi plan must still exactly match the
-        # trusted registry. Receipt identity alone does not protect against
-        # later changes to saved job limits or target scope.
-        _reviewed_sql_scope(database, canonical, source_root)
+            raise BluePreviewBlocked("A confirmed, receipt-matched registered job is required")
+        # Recheck the original reviewed plan, scope digest and trusted registry.
+        _, reviewed_scenario = _reviewed_registered_scope(database, canonical, source_root)
+        if reviewed_scenario != identity[1]:
+            raise BluePreviewBlocked("Reviewed Red scenario changed")
         registry = TargetRegistry.from_directories(
             targets_dir=source_root / "config/targets",
             security_tests_dir=source_root / "config/security_tests",
@@ -105,14 +109,16 @@ def prepare_blue_preview(
         )
         expected_run = "mars-" + UUID(canonical).hex
         if (bound.run_id != expected_run or bound.case_id != expected_run
-                or bound.test_id != "sqli-login-bypass-001"
+                or bound.test_id != REGISTERED[reviewed_scenario][0]
+                or bound.endpoint_id != REGISTERED[reviewed_scenario][1]
+                or bound.observation.scenario_id != reviewed_scenario
                 or bound.observation.exploit_confirmed is not True):
-            raise BluePreviewBlocked("Pinned evidence does not belong to this SQLi job")
+            raise BluePreviewBlocked("Pinned evidence does not belong to this registered job")
 
         # This existing compiler takes a trusted scenario template as input,
         # not a model-generated classification. It works in a temporary copy.
         from dashboard.api.operator_service import prepare_preview
-        proposal = prepare_preview("sql")
+        proposal = prepare_preview(job["scenario"])
         if (proposal["prepared"] is not True
                 or proposal["applied"] is not False
                 or proposal["verified"] is not False
@@ -157,11 +163,11 @@ def prepare_blue_preview(
                 "SELECT COALESCE(MAX(sequence),0)+1 FROM job_events WHERE job_id=?",
                 (canonical,),
             ).fetchone()[0]
-            from datetime import datetime, timezone
+            from datetime import datetime
             conn.execute(
                 "INSERT INTO job_events(job_id,sequence,event,occurred_at) VALUES (?,?,?,?)",
                 (canonical, sequence, "deterministic_patch_prepared",
-                 datetime.now(timezone.utc).isoformat()),
+                 datetime.now(UTC).isoformat()),
             )
         return result
     except BluePreviewBlocked:
@@ -173,7 +179,7 @@ def prepare_blue_preview(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Prepare a deterministic SQLi patch preview from independently pinned Red evidence"
+        description="Prepare a deterministic registered patch preview from pinned Red evidence"
     )
     for name in ("database", "source-root", "evidence-dir", "admission-path"):
         parser.add_argument("--" + name, required=True, type=Path)

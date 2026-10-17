@@ -237,3 +237,61 @@ retry an unknown attempt, or grant final research authority.
 then model provenance, source localization, isolated patch and registered
 patched replay for each. No model has yet met the separate model-quality
 qualification requirements for those scenarios.
+
+## Bound read-only Blue previews across all three scenarios (2026-10-17)
+
+The existing deterministic `services.blue_preview.prepare_blue_preview`
+now accepts SQLi, XSS and traversal **only after** a matching saved plan,
+reviewed job, exact registered scope, independently pinned admission,
+write-once receipt, and archived live Red observation all verify. The
+scenario ID, registered test, endpoint, and exploit-confirmation claim must
+match the same reviewed job. Only then is the existing trusted compiler
+asked to prepare its already-supported template inside an ephemeral copy.
+
+This stage is **not AI classification**: `model_decision_used=False`,
+`origin=trusted_deterministic_builder`. It never runs a new security test,
+modifies the protected vulnerable baseline, applies a patch, approves
+source localization from an unqualified LLM or qualifies final research.
+An existing SQLi-only Blue model path remains separately gated.
+
+The two real Docker baseline runs registered in
+`~/.local/state/sentinel-fyp/mars-all-red-20261017/outcome.json`
+were revalidated and their separate one-time Blue proposals stored in the
+live MARS job database:
+
+- XSS, `xss-reflection-001`: proposed diff SHA-256
+  `8d3e4d6d25f810dfe253ff78146a2d92daed4127445d9157a256f965507baee5`
+  (HTML text escaping).
+- Traversal, `path-traversal-private-file-001`: proposed diff SHA-256
+  `d33aab09fc036abe99a511966e106103a1bf630b18dd577d9a1c5ce540bc6cc1`
+  (restrict reads to the intended public root).
+
+Both returned `prepared` with
+`model_decision_used=False`, `patch_applied=False`,
+`security_replayed=False`, and `final_research_qualified=False`.
+The protected baseline remained
+`f8675d5bed857138f49cdf717bd4c696aad7e4e42c5f14cd41b4623b140a6e5d`.
+Operator evidence is at `xss-preview.json` and
+`traversal-preview.json` beside the external Red report.
+Focus tests exercise each independently bound path, cross-scenario
+substitution refusal, duplicate preparation and SQLi regression.
+
+**Next actual Blue milestone:** source-localized model evidence for each
+non-SQL class, then isolated patch application and independently admitted
+patched security and functional replay. These deterministic previews are
+useful operational evidence but are not substitutes for those tasks.
+
+## Centralized local GGUF storage (2026-10-17)
+
+All three regular GGUF files formerly under
+`../.cache/autonomous-red-blue-fyp/m20-feasibility-v1/models/`
+have been moved with post-copy SHA-256 verification into the repository's
+Git-ignored `models/` directory. The source directory now contains only
+legacy symlinks pointing to the new model files, so existing historical
+research invocations retain their paths. Eight regular GGUFs are now in
+`models/`. No binaries were added to Git, and the Q8 runtime continues to
+load its pinned GGUF from `models/`. The outside-repo, file-by-file
+verified manifest is
+`~/.local/state/sentinel-fyp/gguf-relocation-20261017/manifest.json`,
+SHA-256
+`5e48103974bd270c5d8a0f319f144ca4116242a22d644a102a88e33f5ede3bf3`.

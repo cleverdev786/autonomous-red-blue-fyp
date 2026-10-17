@@ -8,12 +8,14 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from test_isolated_compose_executor import configured
+from test_mars_dispatch_intent import seeded_job
 
 from dashboard.api.console import create_console_app
 from services.mars_dispatch_intent import read_intent, reserve_once
 from services.receipt_record import record_receipt
-from test_isolated_compose_executor import configured, environment
-from test_mars_dispatch_intent import seeded_job
+
+pytest_plugins = ("test_isolated_compose_executor",)
 
 
 @pytest.fixture
@@ -112,6 +114,7 @@ def test_duplicate_preparation_fails_closed(reviewed_archive):
 
 def test_changed_registered_scope_cannot_prepare_preview(reviewed_archive):
     import sqlite3
+
     from services.blue_preview import BluePreviewBlocked, prepare_blue_preview
 
     db, job, inputs = reviewed_archive
@@ -123,3 +126,86 @@ def test_changed_registered_scope_cannot_prepare_preview(reviewed_archive):
     with pytest.raises(BluePreviewBlocked):
         prepare_blue_preview(database=db, job_id=job["id"], **inputs)
     assert get_proposal(db, job["id"])["status"] == "not_prepared"
+
+
+@pytest.mark.parametrize(("scenario", "scenario_id", "test_id", "diff_anchor"), [
+    ("xss", "xss-search-001", "xss-reflection-001", "escape(q, quote=False)"),
+    ("traversal", "path-traversal-read-001", "path-traversal-private-file-001",
+     "candidate.relative_to(intended_public_root)"),
+])
+def test_bound_non_sql_red_receipt_prepares_only_deterministic_preview(
+    tmp_path, environment, scenario, scenario_id, test_id, diff_anchor,
+):
+    from services.blue_preview import BluePreviewBlocked, prepare_blue_preview
+
+    database, job = seeded_job(tmp_path, scenario=scenario)
+    root, external, manifest, pin, registry = environment
+    case = "mars-" + UUID(job["id"]).hex
+    pin = pin.model_copy(update={"case_id": case, "run_id": case,
+                                 "scenario_id": scenario_id})
+    manifest.write_bytes(pin.canonical_bytes())
+    admission = sha256(pin.canonical_bytes()).hexdigest()
+    reserve_once(database, job["id"], job["scope_sha256"], admission)
+    seam, _calls, dispatches, _raw = configured(
+        (root, external, manifest, pin, registry), scenario=scenario_id,
+    )
+    receipt = seam.run_registered()
+    assert receipt.outcome == "baseline_exploit_confirmed"
+    assert len(dispatches) == 1
+    recorded = record_receipt(database, job["id"], external / "evidence", receipt)
+    before = (root / "dummy_apps/vulnerable_store/app/scenario_routes.py").read_bytes()
+    arguments = {
+        "database": database, "job_id": job["id"], "source_root": root,
+        "evidence_dir": external / "evidence" / case, "admission_path": manifest,
+        "admission_sha256": admission,
+        "receipt_sha256": recorded["receipt_sha256"],
+    }
+    preview = prepare_blue_preview(**arguments)
+    assert preview["status"] == "prepared"
+    assert preview["registered_test_id"] == test_id
+    assert diff_anchor in preview["diff_preview"]
+    assert preview["model_decision_used"] is False
+    assert preview["origin"] == "trusted_deterministic_builder"
+    assert preview["patch_applied"] is False and preview["security_replayed"] is False
+    assert preview["final_research_qualified"] is False
+    assert get_proposal(database, job["id"]) == preview
+    assert (root / "dummy_apps/vulnerable_store/app/scenario_routes.py").read_bytes() == before
+    with pytest.raises(BluePreviewBlocked, match="already"):
+        prepare_blue_preview(**arguments)
+
+
+@pytest.mark.parametrize(("scenario","scenario_id"), [
+    ("xss","xss-search-001"),("traversal","path-traversal-read-001"),
+])
+def test_non_sql_blue_preview_rejects_cross_scenario_admission(
+    tmp_path, environment, scenario, scenario_id,
+):
+    from services.blue_preview import BluePreviewBlocked, prepare_blue_preview
+
+    database, job = seeded_job(tmp_path, scenario=scenario)
+    root, external, manifest, pin, registry = environment
+    case = "mars-" + UUID(job["id"]).hex
+    other = "sqli-login-001"
+    pin = pin.model_copy(update={"case_id": case, "run_id": case,
+                                 "scenario_id": other})
+    manifest.write_bytes(pin.canonical_bytes())
+    admission = sha256(pin.canonical_bytes()).hexdigest()
+    reserve_once(database, job["id"], job["scope_sha256"], admission)
+    seam, _calls, _dispatches, _raw = configured(
+        (root, external, manifest, pin, registry), scenario=other,
+    )
+    receipt = seam.run_registered()
+    # The recorder rejects this foreign receipt. Even if the caller supplies
+    # its raw hash directly, Blue cannot forge a matching workspace record.
+    from services.receipt_record import ReceiptBlocked
+    with pytest.raises(ReceiptBlocked):
+        record_receipt(database, job["id"], external / "evidence", receipt)
+    with pytest.raises(BluePreviewBlocked):
+        prepare_blue_preview(
+            database=database, job_id=job["id"], source_root=root,
+            evidence_dir=external / "evidence" / case,
+            admission_path=manifest, admission_sha256=admission,
+            receipt_sha256=sha256(
+                (receipt.model_dump_json(indent=2) + "\n").encode()
+            ).hexdigest(),
+        )
