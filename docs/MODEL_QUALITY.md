@@ -111,3 +111,95 @@ but lacks an independently qualified model; step 2 is not frozen; steps 3–4
 cannot be honestly marked completed. This is a model-quality blocker, not a
 missing dashboard feature. The path forward is independent evaluation and
 a defensible final protocol, not more unfrozen demonstrations.
+
+## Follow-up: Q8 single-event v2 benign calibration (2026-10-17)
+
+This **prospective, newly versioned DEVELOPMENT-only** test attempted to correct
+the false-alarm/abstention issue, without rewriting the rejected v1 single-event
+prompt, the 60-event M18 dataset or old research decisions.
+
+- Implementation: `services/q8_rq2_v2.py`, prompt version
+  `q8-rq2-single-event-v2-development`. Its v1-compatible response validator
+  does not change model labels or authorize research, tests or remediation.
+- Sealed registration and write-once raw requests/completions:
+  `~/.local/state/sentinel-fyp/q8-benign-calibration-20261017/`.
+- Pre-inference registration SHA-256:
+  `55778b12b25e1f6d710334c00770e1a844b8fa27a00d94cd95b35f17bf1210aa`.
+- Observations: **12 newly authored synthetic single events**, covering benign
+  (4), SQL injection (2), XSS (2), traversal (2) and ambiguous (2).
+  Model: original pinned C08B Q8 GGUF; local CPU; temperature 0,
+  seed 42, top-p 0.8, top-k 20, 160 generated tokens; one attempted
+  completion per item, zero retries. Expected labels stayed outside prompts.
+- **Predeclared development criteria:** 3/4 or better benign, 5/6 or better
+  attack classes combined, 1/2 or better ambiguous, zero invalid responses.
+  **Verdict: FAIL** (not a qualification). No test was rescored or retried.
+
+| Class | Correct | Total |
+|---|---:|---:|
+| Benign | 3 | 4 |
+| SQL injection | 2 | 2 |
+| XSS | 2 | 2 |
+| Path traversal | **0** | **2** |
+| Unknown / ambiguous | 2 | 2 |
+| Overall | **9** | **12** |
+
+All 12 were valid typed responses. One benign case elicited a false-positive
+`xss` label, and **both** real traversal-disclosure descriptions were
+incorrectly labeled `benign`. Examination of saved model reasons found
+unsupported assertions of safe outcomes contradictory to event attributes.
+This is a grounding failure, not a schema failure. These hand-authored examples
+do not establish a causal gain over older prompts tested on different cases
+and cannot substitute for independent blind model qualification.
+
+The audited outcome SHA-256 is
+`08387f51dfafe08a86584b3e36a4790bae6457ddc3fdb4b14f52350ca97de551`.
+The external requests and raw completions were independently revalidated
+against the sealed manifest and typed output contract.
+
+### Additional Qwen3-4B probe
+
+A separately sealed **adaptive, non-blind** Qwen3-4B Q4 development follow-up
+used the same v2 prompt/cases but was not among the preregistered Q8 candidates.
+The model fingerprint was
+`7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5`.
+Its first two calls generated reasoning text (beginning `<think>`) rather
+than strict JSON and failed parsing under the fixed 160-token limit. A third
+call was interrupted when the heavy CPU/memory probe was stopped, and nine
+were not attempted. **No accuracy denominator is reported** and no model
+quality conclusion can be drawn. In particular it was not a valid like-for-like
+accuracy comparison without a versioned Qwen3 non-thinking configuration.
+
+Evidence: `~/.local/state/sentinel-fyp/qwen3-4b-development-20261017/`;
+preregistration SHA-256:
+`ac06e13c67d44f2f478c8607a031508d5de26b33ea1989c912aae8167b3baef3`;
+aborted-run report SHA-256:
+`16ff7a6c4b197c407066778b03c34afc5dd2ed498f1f525c4a7594a6973f44f8`.
+
+**Research consequence:** V2 remains a separately versioned rejected
+development prompt; it is not automatically activated for M21, and no model
+is admitted by this follow-up. Do not generate final RQ1/RQ2 scores or
+replace independently tested source patch evidence with claimed model output.
+A next model candidate must establish reliable **benign and traversal**
+behavior, schema compatibility and real source/remediation acceptance
+through independent reviewer-controlled qualification. The already-working
+registered SQLi application demonstration is preserved.
+
+### End-to-end implementation dependency
+
+The author-authorized, model-linked registered SQLi workflow has demonstrated
+baseline Red execution, genuine Q8 classification/source localization,
+trusted-template staging and patched Docker replay. Its saved development
+evidence is separate from final research. **Other scenarios are not at the
+same maturity:** `services/job_dispatch.py`,
+`services/blue_classify.py` and `services/blue_replay.py` currently admit
+only SQLi-specific jobs/source anchors. XSS and path traversal have registered
+security tests and trusted compiler templates, but these do not themselves
+constitute independently admitted full Red-to-Blue workflows.
+
+The next implementation slice is to extend these existing guarded seams
+per registered scenario, with newly versioned model input/response evidence
+and independent functional/security replay, without changing the deliberately
+vulnerable live baseline or claiming that the classifier has passed
+qualification. Model-quality remediation and final RQ1/RQ2 freeze remain
+separate research dependencies; do not use a deterministic compiler preview
+as a substitute for genuine model-authored behavior.
