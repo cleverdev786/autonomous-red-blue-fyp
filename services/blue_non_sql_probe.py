@@ -16,6 +16,7 @@ from uuid import UUID
 
 import dashboard.api.q8_development_service as q8
 from services.blue_input import BlueInputBlocked, build_registered_blue_input
+from services.compact_source_selection import CompactSourceSelection
 from services.q8_c12_development_bridge import (
     Q8DevelopmentBlocked, archive_gateway_reply, classification_receipt,
     localization_receipt,
@@ -150,6 +151,7 @@ def probe_bound_non_sql_job(
         localization_reason = "model_class_mismatch"
         selected_line = None
         selection = None
+        model_rejection = False
         if model_match:
             localization_request = prepared["localization_request"]
             localization_prompt = q8.development_localization_prompt(
@@ -169,20 +171,53 @@ def probe_bound_non_sql_job(
                 state["port"], localization_prompt, archive,
                 "q8-nonsql-localization-raw.json", source_root,
             )
-            localized = localization_receipt(
-                request=localization_request,
-                gateway_reply={"role": "source_localization", "result": suggested,
-                               "origin": "q8_0_cpu_model", "executed_tests": False},
-                project_root=source_root,
-            )
-            archive_gateway_reply(
-                evidence_dir=archive, filename="q8-nonsql-localization-checked.json",
-                reply=localized, project_root=source_root,
-            )
-            verified = True
-            localization_reason = "source_hash_ast_and_sink_verified"
-            selected_line = localized["verified_sink_line"]
-            selection = localized["selection"]
+            try:
+                localized = localization_receipt(
+                    request=localization_request,
+                    gateway_reply={"role": "source_localization", "result": suggested,
+                                   "origin": "q8_0_cpu_model", "executed_tests": False},
+                    project_root=source_root,
+                )
+            except Q8DevelopmentBlocked as exc:
+                # A syntactically valid, unambiguously incorrect model-chosen
+                # source location is a measured failure, not an interrupted run.
+                # Other failures remain outcome_unknown and cannot be retried.
+                allowed = frozenset((
+                    "selected_sink_not_executable_source_statement",
+                    "selected_sink_does_not_match_preapproved_compiler_source_anchors",
+                    "selected_sink_outside_trusted_function",
+                    "selected_function_not_bound_to_trusted_route",
+                ))
+                typed = CompactSourceSelection.model_validate(suggested)
+                if str(exc) not in allowed:
+                    raise
+                model_rejection = True
+                localization_reason = str(exc)
+                selected_line = typed.sink_line
+                selection = typed.model_dump(mode="json")
+                archive_gateway_reply(
+                    evidence_dir=archive,
+                    filename="q8-nonsql-localization-rejection.json",
+                    reply={
+                        "status": "rejected_localization",
+                        "reason_code": localization_reason,
+                        "raw_model_selected_line": selected_line,
+                        "raw_model_function": typed.function_or_route,
+                        "source_analysis_authorized": False,
+                        "patch_preparation_authorized": False,
+                        "final_research_qualified": False,
+                    },
+                    project_root=source_root,
+                )
+            else:
+                archive_gateway_reply(
+                    evidence_dir=archive, filename="q8-nonsql-localization-checked.json",
+                    reply=localized, project_root=source_root,
+                )
+                verified = True
+                localization_reason = "source_hash_ast_and_sink_verified"
+                selected_line = localized["verified_sink_line"]
+                selection = localized["selection"]
         after = q8.manager.status()
         if (after.get("state") != "running"
                 or after.get("sha256") != state["sha256"]
@@ -191,7 +226,8 @@ def probe_bound_non_sql_job(
         if build_registered_blue_input(**arguments) != prepared:
             raise BlueNonSqlProbeBlocked("Pinned Red/source context changed during inference")
         result = {
-            "job_id": canonical, "status": "recorded",
+            "job_id": canonical,
+            "status": "rejected_localization" if model_rejection else "recorded",
             "scenario_id": prepared["scenario_id"],
             "registered_test_id": prepared["registered_test_id"],
             "red_receipt_sha256": receipt_sha256,
@@ -202,7 +238,11 @@ def probe_bound_non_sql_job(
             "model_prompt_sha256": sha256((archive / "q8-nonsql-prompt.json").read_bytes()).hexdigest(),
             "localization_raw_sha256": (
                 sha256((archive / "q8-nonsql-localization-raw.json").read_bytes()).hexdigest()
-                if verified else None
+                if model_match else None
+            ),
+            "localization_rejection_sha256": (
+                sha256((archive / "q8-nonsql-localization-rejection.json").read_bytes()).hexdigest()
+                if model_rejection else None
             ),
             "source_file": "dummy_apps/vulnerable_store/app/scenario_routes.py",
             "source_sha256": prepared["localization_request"]["input"]["source_sha256"],
@@ -253,7 +293,9 @@ def probe_bound_non_sql_job(
             ).fetchone()[0]
             conn.execute(
                 "INSERT INTO job_events(job_id,sequence,event,occurred_at) VALUES (?,?,?,?)",
-                (canonical, sequence, "non_sql_model_probe_recorded",
+                (canonical, sequence,
+                 "non_sql_model_localization_rejected" if model_rejection
+                 else "non_sql_model_probe_recorded",
                  datetime.now(UTC).isoformat()),
             )
         return result

@@ -119,7 +119,7 @@ def _mock_non_sql_model(monkeypatch, tmp_path, output, *, source_line=84):
         else:
             selected = {
                 "function_or_route": (
-                    "vulnerable_search" if source_line == 84
+                    "vulnerable_search" if source_line < 90
                     else "vulnerable_file_read"
                 ),
                 "sink_line": source_line,
@@ -230,14 +230,30 @@ def test_non_sql_model_wrong_source_fails_closed_with_raw_archive(
          "reason": "The observed response contains the registered unsafe effect."},
         source_line=83 if label == "xss" else 103,
     )
-    with pytest.raises(BlueNonSqlProbeBlocked):
-        probe_bound_non_sql_job(**args)
+    result = probe_bound_non_sql_job(**args)
+    assert result["status"] == "rejected_localization"
+    assert result["classification"] == label
+    assert result["model_selected_sink_line"] == (
+        83 if label == "xss" else 103
+    )
+    assert result["source_localization_verified"] is False
+    assert result["patch_preparation_authorized"] is False
+    assert result["model_independently_qualified"] is False
+    assert result["localization_reason"] in (
+        "selected_sink_not_executable_source_statement",
+        "selected_sink_does_not_match_preapproved_compiler_source_anchors",
+    )
     assert len(calls) == 2
     assert (archive / "q8-nonsql-raw.json").exists()
     assert (archive / "q8-nonsql-localization-raw.json").exists()
+    assert (archive / "q8-nonsql-localization-rejection.json").exists()
     assert not (archive / "q8-nonsql-localization-checked.json").exists()
     with sqlite3.connect(args["database"]) as conn:
-        assert read_non_sql_probe(conn, args["job_id"])["status"] == "outcome_unknown"
+        assert read_non_sql_probe(conn, args["job_id"]) == result
+        assert conn.execute(
+            "SELECT status FROM blue_non_sql_probes WHERE job_id=?",
+            (args["job_id"],),
+        ).fetchone() == ("recorded",)
     with pytest.raises(BlueNonSqlProbeBlocked, match="already"):
         probe_bound_non_sql_job(**args)
 
@@ -343,3 +359,91 @@ def test_server_non_sql_probe_without_independent_pins_never_calls_model(
         assert client.get(
             f"/api/mars/jobs/{args['job_id']}/non-sql-model-probe"
         ).json()["status"] == "not_requested"
+
+
+def test_actual_development_failure_shape_is_recorded_as_negative(
+    bound_case, monkeypatch, tmp_path,
+):
+    from services.blue_non_sql_probe import probe_bound_non_sql_job
+
+    args, scenario, *_ = bound_case
+    source_line = 86 if scenario == "xss-search-001" else 101
+    label = "xss" if scenario == "xss-search-001" else "path_traversal"
+    archive, calls = _mock_non_sql_model(
+        monkeypatch, tmp_path,
+        {"classification": label, "confidence": 0.9,
+         "reason": "Untrusted input is reflected into an unsafe sink."},
+        source_line=source_line,
+    )
+    outcome = probe_bound_non_sql_job(**args)
+    assert outcome["status"] == "rejected_localization"
+    assert outcome["model_selected_sink_line"] == source_line
+    assert outcome["localization_raw_sha256"]
+    assert outcome["source_localization_verified"] is False
+    assert outcome["patch_preparation_authorized"] is False
+    assert len(calls) == 2
+    assert (archive / "q8-nonsql-localization-rejection.json").exists()
+
+
+def test_schema_invalid_localization_stays_unknown_not_a_measured_sink_failure(
+    bound_case, monkeypatch, tmp_path,
+):
+    import sqlite3
+    import dashboard.api.q8_development_service as q8
+    from services.blue_non_sql_probe import (
+        probe_bound_non_sql_job, BlueNonSqlProbeBlocked, read_non_sql_probe,
+    )
+
+    args, scenario, *_ = bound_case
+    label = "xss" if scenario == "xss-search-001" else "path_traversal"
+    archive, calls = _mock_non_sql_model(
+        monkeypatch, tmp_path,
+        {"classification": label, "confidence": 0.91,
+         "reason": "Registered unsafe effect present."},
+    )
+    original = q8._raw_completion
+
+    def broken_localization(port, prompt):
+        if "source-prompt" in prompt:
+            return {"truncated": False, "content": '{"sink_line":"guess"}'}
+        return original(port, prompt)
+
+    monkeypatch.setattr(q8, "_raw_completion", broken_localization)
+    with pytest.raises(BlueNonSqlProbeBlocked):
+        probe_bound_non_sql_job(**args)
+    assert (archive / "q8-nonsql-localization-raw.json").exists()
+    assert not (archive / "q8-nonsql-localization-rejection.json").exists()
+    with sqlite3.connect(args["database"]) as conn:
+        assert read_non_sql_probe(conn, args["job_id"])["status"] == "outcome_unknown"
+
+
+def test_readonly_api_exposes_measured_negative_without_repair_authority(
+    bound_case, monkeypatch, tmp_path,
+):
+    from fastapi.testclient import TestClient
+    from dashboard.api.console import create_console_app
+    from services.blue_non_sql_probe import probe_bound_non_sql_job
+
+    args, scenario, *_ = bound_case
+    source_line = 86 if scenario == "xss-search-001" else 101
+    label = "xss" if scenario == "xss-search-001" else "path_traversal"
+    _mock_non_sql_model(
+        monkeypatch, tmp_path,
+        {"classification": label, "confidence": 0.9,
+         "reason": "Registered vulnerable HTTP behavior."},
+        source_line=source_line,
+    )
+    with TestClient(create_console_app(
+        database_path="/absent/research.sqlite", mars_workspace_db=args["database"],
+    )) as client:
+        result = probe_bound_non_sql_job(**args)
+        response = client.get(
+            f"/api/mars/jobs/{args['job_id']}/non-sql-model-probe"
+        )
+        assert response.status_code == 200
+        assert response.json() == result
+        assert response.json()["status"] == "rejected_localization"
+        assert response.json()["localization_rejection_sha256"]
+        assert response.json()["patch_preparation_authorized"] is False
+        assert response.json()["source_analysis_authorized"] is False
+        assert response.json()["final_research_qualified"] is False

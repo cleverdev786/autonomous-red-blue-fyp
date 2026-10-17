@@ -409,3 +409,31 @@ evidence index is outside Git at
 SHA-256 `7bd9b048dff60d1c7a50e43d706de167e1acccbd6296f4bc86120cf12a95f545`.
 Independent prospective model qualification and original research freeze
 remain blocked, rather than being weakened to declare a pass.
+
+
+### Prospective non-SQL localization rejection accounting
+
+Newly attempted XSS/traversal development jobs distinguish **valid but
+incorrect source selections** from an inference that never produced a
+trustworthy parse. If an exact Q8 classification and strictly schema-valid
+source selection reach the registered hash/AST/anchor validator but that
+selection points outside the registered function, to a comment/non-executable
+line or to an unrelated source statement, the one-shot result is saved as
+`status=rejected_localization`. It includes the unchanged model-selected
+line, a finite validator reason code, and hashes of both raw and rejected
+localization evidence. The read-only MARS job endpoint returns this negative
+result rather than concealing it under `outcome_unknown`.
+
+**The DB migration deliberately does not loosen the existing CHECK.**
+`blue_non_sql_probes.status=recorded` means the *attempt outcome* was
+persistently accounted for; the inner JSON `status=rejected_localization`
+means the model *failed* source-grounding. It does not signify a successful
+Blue result. An invalid/truncated model response, source-provenance drift,
+interruption or unrecognized validation error remains
+`outcome_unknown` and cannot be retried. No `rejected_localization`
+result can authorize patch preparation, dispatch, research acceptance or
+automatic repairs.
+
+This change is prospective only: the October 17 real development attempts
+remain the original write-once evidence and original `outcome_unknown`
+records. The new logic does not rescore or rewrite them.
