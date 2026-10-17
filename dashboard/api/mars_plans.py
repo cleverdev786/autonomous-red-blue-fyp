@@ -24,6 +24,7 @@ from services.receipt_record import ensure_receipt_table, read_receipt
 from services.blue_preview import ensure_preview_table, read_blue_preview
 from services.blue_classify import ensure_classify_table, read_blue_decision, classify_bound_job, BlueClassifyBlocked
 from services.blue_localize import ensure_localize_table, read_blue_localization, localize_bound_job, BlueLocalizeBlocked
+from services.blue_non_sql_probe import ensure_non_sql_probe_table, read_non_sql_probe
 
 SCENARIO_ROUTES = {
     "sql": "/sql-injection/login",
@@ -83,6 +84,7 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
             ensure_preview_table(conn)
             ensure_classify_table(conn)
             ensure_localize_table(conn)
+            ensure_non_sql_probe_table(conn)
             yield conn
             conn.commit()
         except Exception:
@@ -233,6 +235,13 @@ def register_mars_plans(*, root: Path, database: Path, require_origin):
         with connect() as conn:
             current_job(conn, job_id)
             return read_blue_decision(conn, str(job_id))
+
+    @router.get("/jobs/{job_id}/non-sql-model-probe")
+    def get_job_non_sql_model_probe(job_id: UUID) -> dict:
+        """Report operator-recorded unqualified model evidence, never trigger inference."""
+        with connect() as conn:
+            current_job(conn, job_id)
+            return read_non_sql_probe(conn, str(job_id))
 
     @router.post("/jobs/{job_id}/classify", dependencies=[Depends(require_origin)])
     def classify_job(job_id: UUID, request: EmptyAction) -> dict:

@@ -295,3 +295,60 @@ verified manifest is
 `~/.local/state/sentinel-fyp/gguf-relocation-20261017/manifest.json`,
 SHA-256
 `5e48103974bd270c5d8a0f319f144ca4116242a22d644a102a88e33f5ede3bf3`.
+
+
+## Additional guarded non-SQL model evidence path (2026-10-17)
+
+New development-only implementation, **not a newly completed live experiment**:
+
+- `services.blue_input.build_registered_blue_input` reconstructs the exact two
+  registered GET steps and captured responses for XSS and traversal after
+  validating the reviewed job, scope, externally pinned admission, write-once
+  execution receipt, full archived Docker evidence and untouched source hash.
+  The historical SQLi-only `build_blue_input` contract is unchanged.
+- `services.blue_non_sql_probe.probe_bound_non_sql_job` performs at most one
+  Q8 classification plus one *conditional* model-selected source localization
+  on a separately admitted new XSS/traversal job. It reserves a durable
+  outcome-unknown intent **before** inference, saves raw/model/prompt files
+  outside Git with fingerprints, validates route/function/executable sink
+  against the original hash-pinned source, and will not retry an unknown
+  attempt. A mismatched benign/unknown/wrong-class answer does not trigger
+  localization; an invalid/misgrounded localization is rejected with raw
+  evidence preserved. No previous one-shot Red/preview record is reused.
+- Every accepted record explicitly has `model_independently_qualified=false`,
+  `source_analysis_authorized=false`,
+  `patch_preparation_authorized=false`, `patch_applied=false`,
+  `security_replayed=false`, and `final_research_qualified=false`.
+  Localization verification means only that *this* answer identified a
+  source-grounded line; it does **not** authorize autonomous remediation.
+
+The operator-only entrypoint is `python -m services.blue_non_sql_probe`,
+which requires a **newly reviewed and independently pinned Red job**, exact
+admission/receipt hashes and archived evidence. No model probes or patched
+Docker replays are claimed just because the new code and offline integration
+tests pass. Independently blinded qualification, separate operator-admitted
+isolated patched security/functional replays and the original RQ1/RQ2 freeze
+remain required. Never treat historical developer-authored matched examples
+as a prospective qualification.
+
+
+### Registered in-process patched application replay
+
+`services.non_sql_local_replay.verify_non_sql_local_replay` now checks both
+existing exact trusted compiler source transformations against an ephemeral
+FastAPI application instance. It executes each existing registered XSS or
+traversal test step unchanged, reuses the existing registered evidence
+evaluator, and checks normal search, public-file readability, synthetic private
+file denial, and health. It refuses changed baseline source hashes and does
+not alter the live intentionally vulnerable file. These are automated local
+functional/security integration checks, **not independently admitted patched
+Docker replays**, not model-authored patches, and not final scientific outcomes.
+The corresponding genuine Docker replay and independent model qualification
+remain unfinished.
+
+The MARS workspace exposes a **GET-only** provenance reader at
+`/api/mars/jobs/{job_id}/non-sql-model-probe`. An unattempted job returns
+`not_requested`; an attempted but interrupted/invalid inference returns
+`outcome_unknown`, not an inferred benign outcome. The route has no POST
+execution or automatic repair operation. The original SQLi job routes and
+trusted-source protections are unchanged.
