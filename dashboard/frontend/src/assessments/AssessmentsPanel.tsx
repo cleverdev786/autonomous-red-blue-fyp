@@ -15,7 +15,7 @@ type Scope = {
     method: string; endpoint_path: string; max_requests: number;
     timeout_seconds: number; execution_enabled: boolean; trusted_registry_verified: boolean;
     development_model: {
-      model_role: "q8_sqli_development" | "q6_xss_development" | "not_assigned";
+      model_role: "q8_sqli_development" | "xss_quality_review_pending" | "not_assigned";
       filename: string | null; sha256: string | null;
       selection_basis: "trusted_registered_scope";
       execution_enabled: false; inference_executed: false; final_research_qualified: false;
@@ -302,7 +302,8 @@ export function AssessmentsPanel() {
             <div><dt>Endpoint</dt><dd>{item.endpoint_path}</dd></div>
             <div><dt>Registered test</dt><dd>{item.registered_test_id}</dd></div>
             <div><dt>Development classifier</dt><dd>{
-              item.development_model.filename ?? "Not assigned"
+              item.development_model.filename ?? (item.development_model.model_role ===
+                "xss_quality_review_pending" ? "Under quality review" : "Not assigned")
             }</dd></div>
             <div><dt>Model role</dt><dd>{item.development_model.model_role}</dd></div>
             <div><dt>Max requests</dt><dd>{item.max_requests}</dd></div>

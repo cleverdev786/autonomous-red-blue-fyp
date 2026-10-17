@@ -21,9 +21,7 @@ _SCOPES = {
     ),
     ("vulnerable-store", "/xss/search", "scenario-xss-search",
      "xss-reflection-001", "xss"): (
-        "q6_xss_development",
-        "qwen25coder3b-specialist-Q6_K-b10964.gguf",
-        "07bcec4047a457766a92c9737fd0ac8045e328ccf703baf43768c2ea962bf7a9",
+        "xss_quality_review_pending", None, None,
     ),
     ("vulnerable-store", "/path-traversal/read", "scenario-path-traversal-read",
      "path-traversal-private-file-001", "path_traversal"): (

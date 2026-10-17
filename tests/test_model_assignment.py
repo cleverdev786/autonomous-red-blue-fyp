@@ -9,15 +9,15 @@ from services.registered_assessment_plan import registered_catalog
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_trusted_catalog_assigns_xss_to_q6_and_sql_to_q8_without_execution():
+def test_trusted_catalog_withholds_xss_until_qualification_and_preserves_sql_q8():
     catalog = registered_catalog(ROOT)
     assigned = {item["route"]: item["development_model"] for item in catalog["registered_assessments"]}
     xss = assigned["/xss/search"]
     sql = assigned["/sql-injection/login"]
     traversal = assigned["/path-traversal/read"]
-    assert xss["filename"] == "qwen25coder3b-specialist-Q6_K-b10964.gguf"
-    assert xss["sha256"] == "07bcec4047a457766a92c9737fd0ac8045e328ccf703baf43768c2ea962bf7a9"
-    assert xss["model_role"] == "q6_xss_development"
+    assert xss["filename"] is None
+    assert xss["sha256"] is None
+    assert xss["model_role"] == "xss_quality_review_pending"
     assert xss["execution_enabled"] is False
     assert sql["filename"] == "c08b-nf4-effective-Q8_0.gguf"
     assert sql["sha256"] == "51b63a132c73a592d954e96b15c1d28176f0cc3e5f05533304e92a6fb40ad304"
