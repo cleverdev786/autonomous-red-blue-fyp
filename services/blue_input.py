@@ -116,6 +116,106 @@ def build_blue_input(
         raise BlueInputBlocked("Registered Red evidence could not be bound to model input") from exc
 
 
+def build_registered_blue_input(
+    *, database: Path, job_id: str, source_root: Path, evidence_dir: Path,
+    admission_path: Path, admission_sha256: str, receipt_sha256: str,
+) -> dict:
+    """Produce read-only XSS/traversal model requests from a real pinned Red job.
+
+    Deliberately separate from SQLi's historical model/repair authority.
+    The classifier is not called, and no output is considered qualified.
+    """
+    from schemas.registered_red_observation import REGISTERED
+    from services.job_dispatch import _reviewed_registered_scope
+    from services.registered_assessment_plan import SCENARIO_IDENTITIES
+
+    canonical = str(UUID(job_id))
+    database, source_root = Path(database), Path(source_root)
+    if database.is_symlink() or not database.is_file():
+        raise BlueInputBlocked("Existing MARS workspace required")
+    try:
+        _scope_sha, scenario_id = _reviewed_registered_scope(
+            database, canonical, source_root,
+        )
+        if scenario_id not in ("xss-search-001", "path-traversal-read-001"):
+            raise BlueInputBlocked("Only non-SQL registered source review is supported")
+        with sqlite3.connect(
+            "file:" + quote(str(database.absolute())) + "?mode=ro",
+            uri=True, timeout=5,
+        ) as conn:
+            intent = conn.execute(
+                "SELECT admission_sha256 FROM dispatch_intents WHERE job_id=?",
+                (canonical,),
+            ).fetchone()
+            receipt = conn.execute(
+                "SELECT receipt_sha256,outcome FROM execution_receipts WHERE job_id=?",
+                (canonical,),
+            ).fetchone()
+        if (intent != (admission_sha256,)
+                or receipt != (receipt_sha256, "baseline_exploit_confirmed")):
+            raise BlueInputBlocked("Recorded successful Red receipt must match admission")
+        registry = TargetRegistry.from_directories(
+            targets_dir=source_root / "config/targets",
+            security_tests_dir=source_root / "config/security_tests",
+        )
+        tests = SecurityTestRegistry.default()
+        bound = verify_archived_registered_red(
+            source_root=source_root, dispatch_root=source_root,
+            evidence_dir=Path(evidence_dir), admission_path=Path(admission_path),
+            admission_sha256=admission_sha256, receipt_sha256=receipt_sha256,
+            registry=registry, implementations=tests,
+        )
+        test_id, endpoint_id, _class = REGISTERED[scenario_id]
+        run_id = "mars-" + UUID(canonical).hex
+        if (bound.run_id != run_id or bound.case_id != run_id
+                or bound.observation.scenario_id != scenario_id
+                or bound.test_id != test_id or bound.endpoint_id != endpoint_id
+                or not bound.observation.exploit_confirmed):
+            raise BlueInputBlocked("Archived Red evidence belongs to another job")
+        routes = {
+            identity[1]: identity[0] for identity in SCENARIO_IDENTITIES.values()
+        }
+        steps = tests.get(test_id).build_steps()
+        responses = bound.observation.execution.exchanges
+        if len(steps) != 2 or len(responses) != 2:
+            raise BlueInputBlocked("Two real, registered HTTP exchanges required")
+        rows = []
+        for step, observed in zip(steps, responses, strict=True):
+            method = getattr(step.method, "value", step.method)
+            if (step.step_id != observed.step_id
+                    or step.endpoint_id != endpoint_id
+                    or observed.endpoint_id != endpoint_id
+                    or method != observed.method or method != "GET"
+                    or step.json_body is not None
+                    or not step.query_params):
+                raise BlueInputBlocked("Unmatched or unsupported registered GET step")
+            rows.append({
+                "method": method,
+                "parameters": dict(step.query_params),
+                "response_excerpt": observed.body_excerpt,
+                "status_code": observed.status_code,
+            })
+        pair = {"route": routes[scenario_id], "observations": rows}
+        return {
+            "job_id": canonical, "scenario_id": scenario_id,
+            "registered_test_id": test_id, "red_run_id": run_id,
+            "red_receipt_sha256": receipt_sha256,
+            "origin": "registered_steps_plus_captured_responses",
+            "original_http_request_bodies_captured": False,
+            "classification_request": classification_request(pair),
+            "localization_request": localization_request(
+                pair=pair, project_root=source_root,
+            ),
+            "model_executed": False, "source_analysis_authorized": False,
+            "patch_prepared": False, "final_research_qualified": False,
+        }
+    except BlueInputBlocked:
+        raise
+    except (AdmittedDispatchBlocked, BoundRedEvidenceError, Q8DevelopmentBlocked,
+            OSError, ValueError, KeyError, TypeError, sqlite3.Error) as exc:
+        raise BlueInputBlocked("Registered Red evidence could not be used for model input") from exc
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export recorded SQLi observations to Q8 request schemas")
     for name in ("database", "source-root", "evidence-dir", "admission-path"):
