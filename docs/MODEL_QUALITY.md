@@ -437,3 +437,17 @@ automatic repairs.
 This change is prospective only: the October 17 real development attempts
 remain the original write-once evidence and original `outcome_unknown`
 records. The new logic does not rescore or rewrite them.
+
+
+### Retrospective V2 source-context diagnostic (not qualification)
+
+A separate write-once developer diagnostic tested the already-implemented
+`q8-executable-lines-v2` source view on the two previously observed
+XSS/traversal HTTP pairs. Both Q8 sink selections still failed strict
+source grounding (XSS line 85 versus exact interpolation at 84; traversal
+line 108 versus registered compiler repair anchor at 104). See
+[the retrospective V2 source report](NON_SQL_SOURCE_PROFILE_V2_RETROSPECTIVE_2026-10-17.md).
+The original observations were **not** rescored or retried inside their
+registered one-shot jobs, and no revised profile gained repair or research
+authority. External audit SHA-256:
+`1066fb310b94e241911e6c675fe25fd6eb550647057f66db43e696918bcd0e8f`.
