@@ -7,14 +7,15 @@ from __future__ import annotations
 import os
 import sqlite3
 import stat
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from urllib.parse import quote
 from uuid import UUID
 
-from schemas.registered_red_observation import DeterministicRedObservation
+from schemas.registered_red_observation import REGISTERED, DeterministicRedObservation
 from services.isolated_compose_executor import RealExecutionReceipt
+from services.registered_assessment_plan import SCENARIO_IDENTITIES
 
 SCOPE = "development_only_not_final_research"
 
@@ -88,8 +89,8 @@ def record_receipt(
         raise ReceiptBlocked("An actual typed isolated executor receipt is required")
     case_id = "mars-" + UUID(canonical).hex
     if (receipt.case_id != case_id or receipt.run_id != case_id
-            or receipt.scenario_id != "sqli-login-001"):
-        raise ReceiptBlocked("Receipt does not belong to this registered SQLi job")
+            or receipt.scenario_id not in REGISTERED):
+        raise ReceiptBlocked("Receipt has an unregistered execution identity")
     evidence_root = Path(evidence_root)
     case = evidence_root / case_id
     if (evidence_root.is_symlink() or not evidence_root.is_dir()
@@ -98,9 +99,9 @@ def record_receipt(
     raw = _bytes_new_file(case / "receipt.json", 16_384)
     if raw != (receipt.model_dump_json(indent=2) + "\n").encode():
         raise ReceiptBlocked("Stored receipt bytes disagree with executor return")
-    if receipt.outcome in ("baseline_exploit_confirmed", "baseline_exploit_not_observed"):
-        if receipt.observation_sha256 is None:
-            raise ReceiptBlocked("A confirmed baseline outcome requires an observation")
+    if (receipt.outcome in ("baseline_exploit_confirmed", "baseline_exploit_not_observed")
+            and receipt.observation_sha256 is None):
+        raise ReceiptBlocked("A confirmed baseline outcome requires an observation")
     if receipt.observation_sha256:
         raw_observation = _bytes_new_file(case / "observation.json", 1_048_576)
         if sha256(raw_observation).hexdigest() != receipt.observation_sha256:
@@ -110,7 +111,8 @@ def record_receipt(
         except ValueError as exc:
             raise ReceiptBlocked("Registered observation schema invalid") from exc
         if (observed.scenario_id != receipt.scenario_id
-                or observed.registered_test_id != "sqli-login-bypass-001"
+                or observed.registered_test_id != REGISTERED[receipt.scenario_id][0]
+                or observed.registered_endpoint_id != REGISTERED[receipt.scenario_id][1]
                 or observed.phase != "vulnerable_baseline"
                 or observed.evidence_scope != "reported_controlled_executor"
                 or observed.execution.run_id != receipt.run_id
@@ -131,19 +133,23 @@ def record_receipt(
         conn.execute("BEGIN IMMEDIATE")
         ensure_receipt_table(conn)
         job = conn.execute(
-            "SELECT state,scenario,registered_test_id FROM jobs WHERE id=?", (canonical,)
+            "SELECT state,scenario,registered_test_id,route,target_id,scope_sha256 FROM jobs WHERE id=?", (canonical,)
         ).fetchone()
         intent = conn.execute(
-            "SELECT admission_sha256 FROM dispatch_intents WHERE job_id=?",
+            "SELECT admission_sha256,scope_sha256 FROM dispatch_intents WHERE job_id=?",
             (canonical,),
         ).fetchone()
         if (job is None or job["state"] != "scope_reviewed"
-                or job["scenario"] != "sql"
-                or job["registered_test_id"] != "sqli-login-bypass-001"
+                or SCENARIO_IDENTITIES.get(job["scenario"]) != (
+                    job["route"], receipt.scenario_id,
+                )
+                or job["registered_test_id"] != REGISTERED[receipt.scenario_id][0]
+                or job["target_id"] != "vulnerable-store"
                 or intent is None
+                or intent["scope_sha256"] != job["scope_sha256"]
                 or intent["admission_sha256"] != receipt.admission_sha256):
             raise ReceiptBlocked("No matching reviewed job and durable admission intent")
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         try:
             conn.execute(
                 "INSERT INTO execution_receipts "

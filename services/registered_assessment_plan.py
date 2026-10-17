@@ -28,6 +28,14 @@ APPROVED_ROUTES = {
     "/path-traversal/read": "scenario-path-traversal-read",
 }
 
+# Backend scenario names bind to the *actual* registered test, route and Red
+# scenario ID. A model prediction never selects these execution identities.
+SCENARIO_IDENTITIES = {
+    "sql": ("/sql-injection/login", "sqli-login-001"),
+    "xss": ("/xss/search", "xss-search-001"),
+    "traversal": ("/path-traversal/read", "path-traversal-read-001"),
+}
+
 
 class AssessmentPlanBlocked(ValueError):
     """A model suggestion cannot be grounded in the trusted local registry."""

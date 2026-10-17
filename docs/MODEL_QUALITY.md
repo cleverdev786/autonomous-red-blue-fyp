@@ -203,3 +203,37 @@ vulnerable live baseline or claiming that the classifier has passed
 qualification. Model-quality remediation and final RQ1/RQ2 freeze remain
 separate research dependencies; do not use a deterministic compiler preview
 as a substitute for genuine model-authored behavior.
+
+## Registered Red dispatch for XSS and traversal (2026-10-17)
+
+The development-only MARS **Red** job dispatcher and write-once receipt
+reconciler now accept all three already registered local scenarios:
+`sqli-login-001`, `xss-search-001`, and
+`path-traversal-read-001`. This reuses the existing independently
+hash-pinned `RealExecutionAdmission` and `IsolatedDockerExecutor`;
+it does not add an HTTP attack endpoint, create admissions, start containers,
+retry an unknown attempt, or grant final research authority.
+
+- The reviewed job, saved plan, trusted endpoint/test registry, external
+  admission scenario, Git tree, binary source manifests and running Docker
+  identities must agree *before* the one-time attempt reservation.
+- Receipt reconciliation requires matching stored raw bytes, admission intent,
+  scenario, registered test and endpoint, and (for assessed outcomes) the
+  actual typed deterministic observation and its SHA-256.
+- An XSS or traversal Red result **does not** unlock SQLi's Q8 Blue
+  classification, source localization or patch/replay flow. Those existing
+  Blue services still require the original `_reviewed_sql_scope` gate.
+- Test coverage includes positive synthetic XSS/traversal observations through
+  the existing injected isolated-executor runner, mismatched/cross-scenario
+  admission and receipt refusals, duplicate receipt refusal and no retry.
+  These are offline integration tests, not newly claimed live Docker runs.
+- An operator must provision an explicitly authorized external admission,
+  start independently attested isolated Docker services and invoke
+  `python -m services.job_dispatch` with all existing required external
+  pins to collect new **real** evidence. The dashboard start endpoint remains
+  intentionally disabled and final research remains unadmitted.
+
+**Next:** independently admitted live XSS/traversal baseline collection,
+then model provenance, source localization, isolated patch and registered
+patched replay for each. No model has yet met the separate model-quality
+qualification requirements for those scenarios.

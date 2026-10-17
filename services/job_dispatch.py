@@ -1,4 +1,4 @@
-"""Connect one reviewed MARS SQLi job to the existing, independently admitted runner.
+"""Connect one reviewed registered MARS job to the independently admitted Red runner.
 
 This is a local engineering entrypoint, not a web endpoint or research approval.
 It never creates an admission, starts Docker, resets a target, or retries a test.
@@ -16,11 +16,12 @@ from uuid import UUID
 from schemas.registered_red_observation import REGISTERED
 from security_tests.registry import SecurityTestRegistry
 from services.isolated_compose_executor import (
-    IsolatedDockerExecutor, load_real_admission,
+    IsolatedDockerExecutor,
+    load_real_admission,
 )
 from services.mars_dispatch_intent import reserve_once
 from services.receipt_record import record_receipt
-from services.registered_assessment_plan import registered_catalog
+from services.registered_assessment_plan import SCENARIO_IDENTITIES, registered_catalog
 from services.target_registry import TargetRegistry
 
 
@@ -28,7 +29,7 @@ class AdmittedDispatchBlocked(RuntimeError):
     """The job or independently approved admission is not an exact match."""
 
 
-def _reviewed_sql_scope(database: Path, job_id: str, root: Path) -> str:
+def _reviewed_registered_scope(database: Path, job_id: str, root: Path) -> tuple[str, str]:
     if database.is_symlink() or not database.is_file():
         raise AdmittedDispatchBlocked("Existing, non-symlink workspace required")
     with sqlite3.connect(
@@ -36,10 +37,13 @@ def _reviewed_sql_scope(database: Path, job_id: str, root: Path) -> str:
     ) as conn:
         conn.row_factory = sqlite3.Row
         job = conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
-        if (job is None or job["state"] != "scope_reviewed" or job["scenario"] != "sql"
-                or job["route"] != "/sql-injection/login"
-                or job["registered_test_id"] != "sqli-login-bypass-001"):
-            raise AdmittedDispatchBlocked("A reviewed, registered SQLi job is required")
+        if job is None or job["state"] != "scope_reviewed":
+            raise AdmittedDispatchBlocked("A reviewed, registered job is required")
+        identity = SCENARIO_IDENTITIES.get(job["scenario"])
+        if (identity is None or job["route"] != identity[0]
+                or job["registered_test_id"] != REGISTERED[identity[1]][0]
+                or job["target_id"] != "vulnerable-store"):
+            raise AdmittedDispatchBlocked("Registered scenario identity mismatch")
         plan = conn.execute("SELECT * FROM plans WHERE id=?", (job["plan_id"],)).fetchone()
     if plan is None or any(plan[key] != job[key] for key in (
         "name", "scenario", "target_id", "registered_test_id", "route"
@@ -63,7 +67,15 @@ def _reviewed_sql_scope(database: Path, job_id: str, root: Path) -> str:
     ).encode()).hexdigest()
     if expected != job["scope_sha256"]:
         raise AdmittedDispatchBlocked("Scope fingerprint mismatch")
-    return expected
+    return expected, identity[1]
+
+
+def _reviewed_sql_scope(database: Path, job_id: str, root: Path) -> str:
+    """Keep the existing SQLi-only Blue authority separate from Red dispatch."""
+    digest, scenario_id = _reviewed_registered_scope(database, job_id, root)
+    if scenario_id != "sqli-login-001":
+        raise AdmittedDispatchBlocked("A reviewed, registered SQLi job is required")
+    return digest
 
 
 def dispatch_reviewed_job(
@@ -78,13 +90,14 @@ def dispatch_reviewed_job(
     """
     canonical_id = str(UUID(job_id))
     database, source_root = Path(database), Path(source_root)
-    scope_hash = _reviewed_sql_scope(database, canonical_id, source_root)
+    scope_hash, expected_scenario = _reviewed_registered_scope(
+        database, canonical_id, source_root,
+    )
     pin = load_real_admission(source_root, Path(admission_path), admission_sha256)
     expected_identity = "mars-" + UUID(canonical_id).hex
     if (pin.run_id != expected_identity or pin.case_id != expected_identity
-            or pin.scenario_id != "sqli-login-001"
-            or REGISTERED[pin.scenario_id][0] != "sqli-login-bypass-001"):
-        raise AdmittedDispatchBlocked("Admission not pinned to this SQLi job")
+            or pin.scenario_id != expected_scenario):
+        raise AdmittedDispatchBlocked("Admission not pinned to this registered job")
     registry = TargetRegistry.from_directories(
         targets_dir=source_root / "config" / "targets",
         security_tests_dir=source_root / "config" / "security_tests",
@@ -104,7 +117,7 @@ def dispatch_reviewed_job(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run one externally admitted MARS SQLi job")
+    parser = argparse.ArgumentParser(description="Run one externally admitted registered MARS Red job")
     parser.add_argument("--database", required=True, type=Path)
     parser.add_argument("--source-root", required=True, type=Path)
     parser.add_argument("--evidence-root", required=True, type=Path)

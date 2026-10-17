@@ -12,20 +12,22 @@ from fastapi.testclient import TestClient
 
 from dashboard.api.console import create_console_app
 from services.mars_dispatch_intent import (
-    DispatchIntentBlocked, read_intent, reserve_once,
+    DispatchIntentBlocked,
+    read_intent,
+    reserve_once,
 )
 
 ADMISSION_DIGEST = sha256(b"external-reviewed-admission-test-fixture").hexdigest()
 
 
-def seeded_job(tmp_path, reviewed=True):
+def seeded_job(tmp_path, reviewed=True, scenario="sql"):
     database = tmp_path / "mars.sqlite3"
     with TestClient(create_console_app(
         database_path="/absent/research.sqlite",
         mars_workspace_db=database,
     )) as client:
         plan = client.post("/api/mars/plans",
-                           json={"name": "Registered SQLi review", "scenario": "sql"}).json()
+                           json={"name": "Registered synthetic review", "scenario": scenario}).json()
         result = client.post("/api/mars/jobs", json={"plan_id": plan["id"]})
         assert result.status_code == 201, result.text
         job = result.json()
