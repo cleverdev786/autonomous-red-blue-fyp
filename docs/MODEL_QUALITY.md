@@ -352,3 +352,10 @@ The MARS workspace exposes a **GET-only** provenance reader at
 `outcome_unknown`, not an inferred benign outcome. The route has no POST
 execution or automatic repair operation. The original SQLi job routes and
 trusted-source protections are unchanged.
+
+To enforce the handoff's no-retroactive-reuse rule, the guarded non-SQL
+model-input builder now explicitly rejects a registered job that already
+has a deterministic Blue preview. The earlier real XSS and traversal jobs
+have completed previews, so they cannot be silently converted into
+prospective model-driven results. A genuinely **new**, separately admitted
+one-shot job is required for each model-evidence run.

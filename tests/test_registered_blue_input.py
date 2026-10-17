@@ -268,3 +268,15 @@ def test_non_sql_model_probe_readonly_job_api(bound_case, monkeypatch, tmp_path)
         assert after.json() == result
         assert after.json()["patch_preparation_authorized"] is False
         assert client.post(path, json={}).status_code == 405
+
+
+def test_completed_historical_preview_cannot_be_retroactively_model_probed(bound_case):
+    from services.blue_preview import prepare_blue_preview
+    from services.blue_input import BlueInputBlocked, build_registered_blue_input
+
+    args, *_ = bound_case
+    preview = prepare_blue_preview(**args)
+    assert preview["status"] == "prepared"
+    assert preview["model_decision_used"] is False
+    with pytest.raises(BlueInputBlocked, match="prospective"):
+        build_registered_blue_input(**args)

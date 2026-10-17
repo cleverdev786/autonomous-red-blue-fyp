@@ -151,6 +151,13 @@ def build_registered_blue_input(
                 "SELECT receipt_sha256,outcome FROM execution_receipts WHERE job_id=?",
                 (canonical,),
             ).fetchone()
+            historical_preview = conn.execute(
+                "SELECT 1 FROM blue_previews WHERE job_id=?", (canonical,),
+            ).fetchone()
+        if historical_preview is not None:
+            raise BlueInputBlocked(
+                "A prospective model probe must not reuse a historical Blue preview"
+            )
         if (intent != (admission_sha256,)
                 or receipt != (receipt_sha256, "baseline_exploit_confirmed")):
             raise BlueInputBlocked("Recorded successful Red receipt must match admission")
