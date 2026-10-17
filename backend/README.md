@@ -344,3 +344,27 @@ original raw model completion remains unchanged. The isolated patch gate
 rebuilds and verifies both lines independently from the registered source.
 This is a prospective development contract, not retroactive acceptance of
 v1/v2 archived model outputs or final research qualification.
+
+
+### Scenario-based specialist assignment (development only)
+
+The registered assessment catalog now names the preferred specialist by
+**trusted registered endpoint/test scope**: SQL injection uses the pinned C08B
+Q8 GGUF; XSS is reserved for the pinned 3B Q6_K specialist; traversal remains
+unassigned. This is not selected from a model's self-reported classification,
+not evidence that an XSS classification ran, and not final qualification.
+The two weights live in separate on-disk locations and the console supports
+only **one** memory-capped inference session at a time. Q6 XSS runtime
+integration and independent comparative evaluation remain to be completed
+before enabling XSS inference for jobs. Existing SQLi receipts retain the
+actual Q8 model identity and must not be relabeled.
+
+
+**Q6 XSS exploratory result, 2026-10-17:** The separately pinned Q6_K
+specialist returned `xss` for the unescaped HTML-reflection example but
+also returned `xss` for HTML escaping that rendered the same markup harmless
+(1/2 correct, **1 benign false positive**). Both typed outputs and original
+model responses are preserved externally under
+`~/.local/state/sentinel-fyp/q6-xss-role-20261017/`. This is a
+development-only model-role diagnostic, not an independent evaluation and not
+grounds to enable automatic XSS repair. The prior Q8 evidence remains unchanged.

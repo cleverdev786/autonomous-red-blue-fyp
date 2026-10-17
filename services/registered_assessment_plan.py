@@ -11,6 +11,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from schemas.rq2_dataset import RQ2ClassificationDecision
+from services.model_assignment import ModelAssignmentBlocked, assign_registered_model
 from services.model_driven_decision_gate import (
     BlueNextAction,
     authorize_registered_test,
@@ -57,6 +58,14 @@ def registered_catalog(root: Path) -> dict:
         if len(tests) != 1:
             raise AssessmentPlanBlocked("registered_test_ambiguous_or_missing")
         test = tests[0]
+        try:
+            model_choice = assign_registered_model(
+                target_id=TARGET_ID, route=route, endpoint_id=endpoint_id,
+                registered_test_id=test.test_id,
+                vulnerability_class=test.vulnerability_class.value,
+            )
+        except ModelAssignmentBlocked as exc:
+            raise AssessmentPlanBlocked("trusted_model_scope_not_supported") from exc
         rows.append({
             "route": route,
             "target_id": TARGET_ID,
@@ -70,6 +79,7 @@ def registered_catalog(root: Path) -> dict:
                                    test.timeout_seconds),
             "execution_enabled": False,
             "trusted_registry_verified": True,
+            "development_model": model_choice,
         })
     return {
         "target_id": TARGET_ID,

@@ -14,6 +14,12 @@ type Scope = {
     route: string; target_id: string; endpoint_id: string; registered_test_id: string;
     method: string; endpoint_path: string; max_requests: number;
     timeout_seconds: number; execution_enabled: boolean; trusted_registry_verified: boolean;
+    development_model: {
+      model_role: "q8_sqli_development" | "q6_xss_development" | "not_assigned";
+      filename: string | null; sha256: string | null;
+      selection_basis: "trusted_registered_scope";
+      execution_enabled: false; inference_executed: false; final_research_qualified: false;
+    };
   }[];
 };
 
@@ -58,7 +64,12 @@ export function AssessmentsPanel() {
       if (!active) return;
       if (receipt.target_id !== "vulnerable-store" || !Array.isArray(receipt.registered_assessments) ||
           receipt.registered_assessments.some(item => item.target_id !== receipt.target_id ||
-            item.trusted_registry_verified !== true || item.execution_enabled !== false)) {
+            item.trusted_registry_verified !== true || item.execution_enabled !== false ||
+            !item.development_model ||
+            item.development_model.selection_basis !== "trusted_registered_scope" ||
+            item.development_model.execution_enabled !== false ||
+            item.development_model.inference_executed !== false ||
+            item.development_model.final_research_qualified !== false)) {
         setScopeError(true);
       } else setScope(receipt);
     }).catch(() => { if (active) setScopeError(true); });
@@ -290,11 +301,15 @@ export function AssessmentsPanel() {
             <div><dt>Method</dt><dd>{item.method}</dd></div>
             <div><dt>Endpoint</dt><dd>{item.endpoint_path}</dd></div>
             <div><dt>Registered test</dt><dd>{item.registered_test_id}</dd></div>
+            <div><dt>Development classifier</dt><dd>{
+              item.development_model.filename ?? "Not assigned"
+            }</dd></div>
+            <div><dt>Model role</dt><dd>{item.development_model.model_role}</dd></div>
             <div><dt>Max requests</dt><dd>{item.max_requests}</dd></div>
             <div><dt>Timeout</dt><dd>{item.timeout_seconds}s</dd></div>
           </dl> : <p>This selection could not be matched to a trusted registered endpoint.</p>;
         })()}
-      <p className="scope-note">The current registered plan does not authorize test dispatch. Assessment execution will require the backend's gated runner.</p>
+      <p className="scope-note">Model choice is a development preference from the registered scenario, not a prediction or an active model session. Q6 XSS inference is not yet connected to this planning page. No test dispatch or research qualification is authorized.</p>
     </section>}
     <section className="surface-card mars-draft-workspace" aria-label="Saved assessment drafts">
       <div className="section-title"><div><h3>Your assessment plans</h3>
