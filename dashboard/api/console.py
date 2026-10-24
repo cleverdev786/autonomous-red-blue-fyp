@@ -7,6 +7,9 @@ existing experiment database is configured. No final trials are launched here.
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,8 +17,8 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Respons
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from dashboard.api.config import DashboardDatabaseError, resolve_database_path
 from dashboard.api.main import create_app
@@ -158,6 +161,35 @@ def create_console_app(database_path: str | Path | None = None, *,
             return prepare_preview(data.scenario)
         except OperatorError as exc:
             raise to_http_error(exc) from exc
+
+    @router.post("/workflows/offline", dependencies=[Depends(require_local_origin)])
+    def registered_offline_workflow(data: DemoRequest) -> dict:
+        """Run registered Red/Blue HTTP tests in an isolated worker, no model or live patch."""
+        if data.scenario not in ("sql", "xss", "traversal"):
+            raise HTTPException(status_code=422, detail="Unregistered local scenario")
+        try:
+            output = subprocess.run(
+                [sys.executable, "-m", "services.tool_driven_workflow", data.scenario],
+                cwd=str(Path(__file__).resolve().parents[2]),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise HTTPException(status_code=503, detail="Offline worker unavailable") from exc
+        if output.returncode != 0 or len(output.stdout) > 65536:
+            raise HTTPException(status_code=503, detail="Offline rule workflow did not pass")
+        try:
+            receipt = json.loads(output.stdout)
+        except ValueError as exc:
+            raise HTTPException(status_code=503, detail="Offline worker returned no valid receipt") from exc
+        if (receipt.get("scenario") != data.scenario
+                or receipt.get("result") != "sandbox_verified"
+                or receipt.get("model_used") is not False
+                or receipt.get("live_source_modified") is not False):
+            raise HTTPException(status_code=503, detail="Offline worker receipt rejected")
+        return receipt
 
     @router.get("/models/local")
     def local_models() -> dict:
