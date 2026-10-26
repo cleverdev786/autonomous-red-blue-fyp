@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the local-only operator UI and open its browser page. No Docker lifecycle actions.
+# Start the local-only MARS dashboard and its registered Docker lab.
 set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
@@ -10,7 +10,7 @@ else
 fi
 if ! "$PYTHON" -c 'import fastapi,uvicorn,sqlalchemy,pydantic' >/dev/null 2>&1; then
     if command -v zenity >/dev/null 2>&1; then
-        zenity --error --text="Sentinel needs the project's Python dependencies. Follow docs/OPERATOR_CONSOLE.md." || true
+        zenity --error --text="MARS needs the project's Python dependencies. Follow docs/OPERATOR_CONSOLE.md." || true
     fi
     exit 1
 fi
@@ -97,35 +97,44 @@ if [[ "${SENTINEL_PRINT_ARCHIVE_CONFIG_ONLY:-0}" == "1" ]]; then
     echo "ARCHIVE_DISPLAY_CONFIG=CONFIGURED"
     exit 0
 fi
-sentinel_ready() {
+mars_ready() {
     "$PYTHON" -c 'import json,urllib.request; x=json.load(urllib.request.urlopen("http://127.0.0.1:8090/api/console/status",timeout=0.5)); assert x.get("project")=="Autonomous Red–Blue Framework" and x.get("execution_mode")=="development preview"' >/dev/null 2>&1
 }
-open_console() {
+open_mars() {
     if command -v xdg-open >/dev/null 2>&1; then
-        xdg-open http://127.0.0.1:8090/ >/dev/null 2>&1 || true
+        xdg-open http://127.0.0.1:8090/dashboard/ >/dev/null 2>&1 || true
     fi
 }
+# Keep the registered Docker lab available on each normal MARS launch.
+# Preflight modes above intentionally have no Docker side effects.
+if command -v docker >/dev/null 2>&1; then
+    if ! docker compose up -d >/dev/null; then
+        echo "MARS Docker lab could not be started; review docker compose ps." >&2
+    fi
+else
+    echo "Docker not installed; MARS UI remains available without the lab." >&2
+fi
 # Reusing an existing verified localhost service must not launch a second process.
-if sentinel_ready; then
-    open_console
+if mars_ready; then
+    open_mars
     exit 0
 fi
 mkdir -p "${XDG_STATE_HOME:-$HOME/.local/state}/sentinel-fyp"
 LOG="${XDG_STATE_HOME:-$HOME/.local/state}/sentinel-fyp/operator.log"
-"$PYTHON" -m uvicorn dashboard.api.console:app --host 127.0.0.1 --port 8090 --no-access-log >>"$LOG" 2>&1 &
+"$PYTHON" -m uvicorn backend.app:app --host 127.0.0.1 --port 8090 --no-access-log >>"$LOG" 2>&1 &
 SERVER_PID=$!
 trap 'kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true' EXIT INT TERM
 for _ in {1..30}; do
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-        echo "Sentinel could not start. Review $LOG" >&2
+        echo "MARS could not start. Review $LOG" >&2
         exit 1
     fi
-    if sentinel_ready; then
-        open_console
+    if mars_ready; then
+        open_mars
         wait "$SERVER_PID"
         exit $?
     fi
     sleep 1
 done
-echo "Sentinel did not become ready. Review $LOG" >&2
+echo "MARS did not become ready. Review $LOG" >&2
 exit 1

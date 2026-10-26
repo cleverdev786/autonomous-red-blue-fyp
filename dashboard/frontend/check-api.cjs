@@ -8,7 +8,7 @@ const built=esbuild.buildSync({entryPoints:["src/api.ts"],bundle:true,platform:"
 const compiled={exports:{}};
 new Function("module","exports","require",built.outputFiles[0].text)(
   compiled,compiled.exports,createRequire(path.resolve("package.json")));
-const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution,getMarsJobProposal,getMarsJobClassification,classifyMarsJob,getMarsJobLocalization,localizeMarsJob}=compiled.exports;
+const {requestJson,getJson,getConsoleJson,ApiRequestError,startLocalModel,stopLocalModel,getMarsRedPreflight,getMarsJobExecution,getMarsJobProposal,getMarsJobClassification,classifyMarsJob,getMarsJobLocalization,localizeMarsJob,runOfflineCycle}=compiled.exports;
 const response=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json"}});
 const check=async(kind,promise)=>{
   await assert.rejects(promise,error=>error instanceof ApiRequestError && error.kind===kind);
@@ -153,5 +153,20 @@ const check=async(kind,promise)=>{
   global.fetch=async(_url,opts)=>{requestMethod=opts.method;return response(selected);};
   assert.equal((await localizeMarsJob("fixture-job")).function_or_route,"vulnerable_login");
   assert.equal(requestMethod,"POST");
+  const offlineReceipt = { result:"sandbox_verified",scenario:"xss",
+    registered_test_id:"xss-reflection-001",registered_red_confirmed:true,
+    baseline_control_passed:true,patched_security_test_passed:true,
+    patched_control_passed:true,normal_application_passed:true,patch_prepared:true,
+    source_location_verified:true,model_used:false,live_source_modified:false,
+    docker_replayed:false,patch_diff_sha256:"a".repeat(64),
+    baseline_attack_status:200,patched_attack_status:200,
+    normal_checks:{health:true,normal_login:true},
+    scope:"isolated_in_process_http_test"};
+  global.fetch=async()=>response(offlineReceipt);
+  assert.equal((await runOfflineCycle("xss")).result,"sandbox_verified");
+  global.fetch=async()=>response({...offlineReceipt,model_used:true});
+  await check("schema",runOfflineCycle("xss"));
+  global.fetch=async()=>response({...offlineReceipt,patched_security_test_passed:false});
+  await check("schema",runOfflineCycle("xss"));
   console.log("M14 API tests: health, HTTP, receipts, proposals, model decisions and source location = PASS");
 })().catch(error=>{console.error(error);process.exitCode=1});

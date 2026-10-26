@@ -55,7 +55,6 @@ ALLOWED_ORIGINS = {
     "http://127.0.0.1:5173",
     "http://localhost:5173",
 }
-STATIC = Path(__file__).resolve().parent / "console_static"
 REACT_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
 
@@ -356,25 +355,9 @@ def create_console_app(database_path: str | Path | None = None, *,
             destination += "?" + request.url.query
         return RedirectResponse(destination, status_code=307)
 
-    @app.get("/")
-    def index() -> FileResponse:
-        return FileResponse(
-            STATIC / "index.html", media_type="text/html", headers={"Cache-Control": "no-store"}
-        )
-
-    @app.get("/console.css")
-    def css() -> FileResponse:
-        return FileResponse(
-            STATIC / "console.css", media_type="text/css", headers={"Cache-Control": "no-store"}
-        )
-
-    @app.get("/console.js")
-    def js() -> FileResponse:
-        return FileResponse(
-            STATIC / "console.js",
-            media_type="text/javascript",
-            headers={"Cache-Control": "no-store"},
-        )
+    @app.get("/", include_in_schema=False)
+    def index() -> RedirectResponse:
+        return RedirectResponse("/dashboard/", status_code=307)
 
     @asynccontextmanager
     async def console_lifespan(_app: FastAPI):

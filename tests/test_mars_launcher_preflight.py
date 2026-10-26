@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-LAUNCHER = ROOT / "launch-sentinel.sh"
+LAUNCHER = ROOT / "launch-mars.sh"
 PIN = "b29c606e28a01b1bc8c1351026a0fa6e616bf6c4"
 Q8 = ROOT / "models/c08b-nf4-effective-Q8_0.gguf"
 Q8_RUNTIME = (

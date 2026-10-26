@@ -440,8 +440,8 @@ pipeline, real deterministic trusted-patch preparation **without application**,
 model selection (local memory-capped GGUF or approved HTTPS API), four synthetic
 structured capability probes, stored experiment runs, and audit views.
 
-For the original Linux checkout, open `Sentinel Console.desktop` from a file manager
-(or run `launch-sentinel.sh`) and visit `http://127.0.0.1:8090/`. The launcher
+For the original Linux checkout, open `MARS Dashboard.desktop` from a file manager
+(or run `launch-mars.sh`) and visit `http://127.0.0.1:8090/`. The launcher
 auto-detects the original local Q6 model cache when present. See
 [`docs/OPERATOR_CONSOLE.md`](docs/OPERATOR_CONSOLE.md) for installation, model
 configuration, boundaries, and demonstration instructions. The demo is

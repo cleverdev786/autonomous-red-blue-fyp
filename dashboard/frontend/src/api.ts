@@ -166,6 +166,24 @@ function validateResponse(url: string, data: unknown): boolean {
   if (path === "/api/mars/plans") {
     return Array.isArray(data) ? data.every(isMarsPlan) : isMarsPlan(data);
   }
+  if (path === "/api/console/workflows/offline") {
+    if (!isRecord(data) || data.result !== "sandbox_verified" ||
+        !["sql", "xss", "traversal"].includes(String(data.scenario)) ||
+        data.registered_test_id !== PREVIEW_TEST_IDS[data.scenario as ScenarioKey] ||
+        data.scope !== "isolated_in_process_http_test" ||
+        !["registered_red_confirmed", "baseline_control_passed", "patched_security_test_passed",
+          "patched_control_passed", "normal_application_passed", "patch_prepared",
+          "source_location_verified"].every(key => data[key] === true) ||
+        data.model_used !== false || data.live_source_modified !== false ||
+        data.docker_replayed !== false ||
+        typeof data.patch_diff_sha256 !== "string" ||
+        !/^[0-9a-f]{64}$/.test(data.patch_diff_sha256) ||
+        !Number.isInteger(data.baseline_attack_status) ||
+        !Number.isInteger(data.patched_attack_status) ||
+        !isRecord(data.normal_checks) ||
+        !Object.values(data.normal_checks).every(check => check === true)) return false;
+    return true;
+  }
   if (path === "/api/console/preview") {
     return isRecord(data) && ["scenario", "title", "registered_test_id", "prepared_diff_sha256", "diff_preview", "notice"].every(key => stringField(data,key)) &&
       ["prepared", "applied", "verified", "final_research"].every(key => booleanField(data,key));
@@ -301,6 +319,27 @@ export function prepareConsolePreview(scenario: ScenarioKey): Promise<TrustedPre
   });
 }
 
+
+export type OfflineCycleReceipt = {
+  result: "sandbox_verified"; scenario: ScenarioKey; registered_test_id: string;
+  registered_red_confirmed: true; baseline_control_passed: true;
+  patched_security_test_passed: true; patched_control_passed: true;
+  normal_application_passed: true; patch_prepared: true; source_location_verified: true;
+  model_used: false; live_source_modified: false; docker_replayed: false;
+  patch_diff_sha256: string; baseline_attack_status: number; patched_attack_status: number;
+  normal_checks: Record<string, boolean>; scope: "isolated_in_process_http_test";
+};
+
+export function runOfflineCycle(scenario: ScenarioKey): Promise<OfflineCycleReceipt> {
+  if (!Object.hasOwn(PREVIEW_TEST_IDS, scenario)) {
+    return Promise.reject(new Error("Unregistered scenario refused"));
+  }
+  return requestJson<OfflineCycleReceipt>("/api/console/workflows/offline", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ scenario }),
+  }, 60000);
+}
 
 // Existing local operator endpoints. User actions only; no automatic model execution.
 export function startLocalModel(filename: string, model_name: string): Promise<unknown> {

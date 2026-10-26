@@ -129,14 +129,12 @@ def test_schema_failure_keeps_raw_response_and_releases_slot(monkeypatch,tmp_pat
     assert releases==[True]
 
 
-def test_ui_exposes_new_model_panel_without_unsafe_operations():
-    with TestClient(ui.create_console_app(database_path="/nonexistent/dev.sqlite")) as client:
-        js=client.get("/console.js").text
-        assert "q8DevelopmentPanel" in js
-        assert "Run Q8 classification" in js
-        assert "/api/console/q8/classify" in js
-        assert "Operational verdict" in js
-        assert "Registered test" in js
-        assert "No Red test executed" in js
-        assert "Source localization and trusted remediation remain disabled" in js
-        assert "docker compose" not in js
+def test_q8_backend_preserved_without_sentinel_dashboard():
+    with TestClient(ui.create_console_app(database_path="/nonexistent/dev.sqlite"),
+                    follow_redirects=False) as client:
+        root = client.get("/")
+        assert root.status_code == 307
+        assert root.headers["location"] == "/dashboard/"
+        assert client.get("/console.js").status_code == 404
+        assert client.get("/api/console/q8/status").status_code == 200
+        assert client.get("/api/console/status").status_code == 200

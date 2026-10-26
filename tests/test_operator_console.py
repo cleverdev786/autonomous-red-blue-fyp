@@ -29,10 +29,11 @@ def client():
 
 
 def test_console_start_without_database(client):
-    assert client.get("/").status_code == 200
-    assert client.get("/console.css").status_code == 200
-    assert client.get("/console.js").status_code == 200
-    assert "Sentinel" in client.get("/").text
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "MARS" in response.text
+    assert client.get("/console.css").status_code == 404
+    assert client.get("/console.js").status_code == 404
     assert client.get("/api/overview").json()["total_runs"] == 0
     assert client.get("/api/runs").json() == []
     state = client.get("/api/console/status").json()
@@ -282,22 +283,14 @@ def test_no_model_key_or_state_in_existing_config(client):
     assert set(local["providers"]) == {"openai", "groq", "together"}
 
 
-def test_live_browser_boot_script_avoids_window_top_collision(client):
-    """Regression: Window.top is unforgeable in Chromium/Firefox browser globals."""
-    page = client.get("/")
-    assert page.status_code == 200
-    assert "console.js?v=5" in page.text
-    assert "Workspace could not initialize" in page.text
-    assert page.headers["cache-control"] == "no-store"
-    script = client.get("/console.js")
-    assert script.status_code == 200
-    assert script.headers["cache-control"] == "no-store"
-    assert "function top(" not in script.text
-    assert "function pageIntro(" in script.text
-    assert "AbortController" in script.text
-    css = client.get("/console.css")
-    assert css.headers["cache-control"] == "no-store"
-    assert "fonts.googleapis.com" not in css.text
+def test_root_opens_mars_instead_of_sentinel(client):
+    from fastapi.testclient import TestClient
+    with TestClient(create_console_app(), follow_redirects=False) as http:
+        response = http.get("/")
+        assert response.status_code == 307
+        assert response.headers["location"] == "/dashboard/"
+        assert http.get("/console.js").status_code == 404
+        assert http.get("/console.css").status_code == 404
 
 
 def test_react_dashboard_static_mount_and_missing_build(tmp_path, monkeypatch):
@@ -319,11 +312,15 @@ def test_react_dashboard_static_mount_and_missing_build(tmp_path, monkeypatch):
         assert asset.status_code == 200 and "read-only build" in asset.text
         assert client.post("/dashboard/").status_code == 405
         assert client.get("/dashboard/../../.env").status_code in (404, 405)
-        assert 'href="/dashboard/"' in client.get("/").text
+        with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite"),
+                        follow_redirects=False) as no_redirect:
+            assert no_redirect.get("/").headers["location"] == "/dashboard/"
 
     monkeypatch.setattr(console, "REACT_DIST", tmp_path / "missing")
     with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite")) as client:
-        assert client.get("/").status_code == 200
+        with TestClient(console.create_console_app(database_path="/nonexistent/react-demo.sqlite"),
+                        follow_redirects=False) as no_redirect:
+            assert no_redirect.get("/").headers["location"] == "/dashboard/"
         missing = client.get("/dashboard/")
         assert missing.status_code == 503
         assert "npm run build" in missing.json()["detail"]
@@ -394,16 +391,17 @@ def test_downloadable_evidence_summary_redacts_raw_records(client, monkeypatch):
     assert client.post("/api/console/assessment/export").status_code == 405
 
 
-def test_keyboard_navigation_is_available_without_scripts(client):
-    page = client.get("/").text
-    css = client.get("/console.css").text
-    script = client.get("/console.js").text
-    assert 'class="skip-link" href="#content"' in page
-    assert 'id="content" tabindex="-1"' in page
-    assert ":focus-visible" in css
-    assert "prefers-reduced-motion" in css
-    assert '"#content").focus({preventScroll:true})' in script
-    assert 'href="/api/console/assessment/export"' in script
+def test_mars_frontend_accessibility_sources_remain_available():
+    root = Path(__file__).resolve().parents[1]
+    app = (root / "dashboard/frontend/src/App.tsx").read_text()
+    css = (root / "dashboard/frontend/src/styles.css").read_text()
+    assert 'className="skip-to-content"' in app
+    assert 'id="main-content" tabIndex={-1}' in app
+    assert ":focus-visible" in css or ":focus-visible" in (
+        root / "dashboard/frontend/src/product.css"
+    ).read_text()
+    assert "/api/console/assessment/export" in app
+    assert "Run offline Red → Blue verification" in app
 
 
 def test_evidence_export_without_approvals_does_not_claim_success(client, monkeypatch):

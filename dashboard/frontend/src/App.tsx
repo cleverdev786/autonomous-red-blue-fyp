@@ -8,6 +8,8 @@ import {
   PREVIEW_TEST_IDS,
   type TrustedPreview,
   prepareConsolePreview,
+  runOfflineCycle,
+  type OfflineCycleReceipt,
   startLocalModel,
   stopLocalModel,
   type Overview,
@@ -286,12 +288,12 @@ export default function App() {
                 Overview: "Your security workspace at a glance.",
                 Assessments: "Review registered assessment scenarios.",
                 Findings: "Explore findings from saved assessment runs.",
-                Remediation: "Review and prepare trusted fixes.",
+                Remediation: "Run offline security verification and review trusted fixes.",
                 Reports: "Saved runs, evidence and reports.",
                 System: "Services, configuration and runtime status.",
               } as Record<string, string>)[route.section ?? ""] ?? "Workspace"}</p>
             </div>
-            {view === "Trusted Preview" && <span className="safety-badge">Preview only</span>}
+            {view === "Trusted Preview" && <span className="safety-badge">Isolated sandbox only</span>}
           </header>
           {related.length > 0 && <nav className="section-links" aria-label={`${route.section} views`}>
             {related.map(([title, path]) => <a key={path} href={path}
@@ -502,6 +504,7 @@ export function TrustedPreviewPanel() {
   const [catalog, setCatalog] = useState<RegisteredScenario[]>([]);
   const [scenario, setScenario] = useState<ScenarioKey>("sql");
   const [preview, setPreview] = useState<TrustedPreview | null>(null);
+  const [replay, setReplay] = useState<OfflineCycleReceipt | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -544,6 +547,20 @@ export function TrustedPreviewPanel() {
     }
   }
 
+  async function verifyOffline() {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError("");
+    setReplay(null);
+    try {
+      setReplay(await runOfflineCycle(scenario));
+    } catch {
+      setError("Offline Red/Blue verification could not complete. No repair is accepted.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="stack">
       <section className="panel">
@@ -558,6 +575,7 @@ export function TrustedPreviewPanel() {
             onChange={(event) => {
               setScenario(event.target.value as ScenarioKey);
               setPreview(null);
+              setReplay(null);
               setError("");
             }}>
             {catalog.map((item) => (
@@ -565,7 +583,10 @@ export function TrustedPreviewPanel() {
             ))}
           </select>
           <ActionButton disabled={!selected || busy} onClick={prepare}>
-            {busy ? "Preparing…" : "Prepare trusted preview"}
+            {busy ? "Working…" : "Prepare trusted preview"}
+          </ActionButton>
+          <ActionButton variant="secondary" disabled={!selected || busy} onClick={verifyOffline}>
+            {busy ? "Verifying…" : "Run offline Red → Blue verification"}
           </ActionButton>
         </div>
         {selected ? (
@@ -587,7 +608,24 @@ export function TrustedPreviewPanel() {
           </>
         ) : <p role="alert">The returned preview did not match the registered scenario or safety state. No result is accepted.</p>}
       </section>}
-      <p className="muted">Additional operator controls are available in the <a href="/">original console</a>.</p>
+      {replay && replay.scenario === scenario &&
+        replay.registered_test_id === PREVIEW_TEST_IDS[scenario] && (
+          <section className="panel" aria-live="polite" aria-label="Offline Red Blue verification results">
+            <h3>Sandbox security verification passed</h3>
+            <p className="muted">Real registered HTTP tests before and after an isolated, source-checked patch. No model needed.</p>
+            <div className="stage-list">
+              <article className="stage"><div><strong>Red Team · Confirmed baseline</strong><span className="pass">PASS</span></div>
+                <p>Registered test: {replay.registered_test_id}. Original attack response: HTTP {replay.baseline_attack_status}.</p></article>
+              <article className="stage"><div><strong>Blue Team · Trusted remediation</strong><span className="pass">PASS</span></div>
+                <p>Source-grounded deterministic patch. Diff SHA-256: <code>{replay.patch_diff_sha256}</code>.</p></article>
+              <article className="stage"><div><strong>Retest · Exploit no longer confirmed</strong><span className="pass">PASS</span></div>
+                <p>Patched attack response: HTTP {replay.patched_attack_status}. Original control retained.</p></article>
+              <article className="stage"><div><strong>Normal functionality</strong><span className="pass">PASS</span></div>
+                <p>{Object.keys(replay.normal_checks).filter(key => replay.normal_checks[key]).join(", ").replaceAll("_", " ")}.</p></article>
+            </div>
+            <Notice title="Sandbox verified, not deployed">This test ran against disposable in-process applications. No Docker patch was deployed, and the live source is unchanged.</Notice>
+          </section>
+        )}
     </div>
   );
 }

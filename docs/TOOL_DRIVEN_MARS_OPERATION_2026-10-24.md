@@ -4,7 +4,7 @@
 
 ## How to run
 
-Open the local Sentinel console at `http://127.0.0.1:8090/`, select **Live workbench**, select one of SQL injection, XSS or path traversal, and choose **Run offline Red → Blue verification**.
+Open the MARS dashboard at `http://127.0.0.1:8090/dashboard/`, select **Remediation**, select one of SQL injection, XSS or path traversal, and choose **Run offline Red → Blue verification**.
 
 The same bounded operation is available to a local operator via:
 

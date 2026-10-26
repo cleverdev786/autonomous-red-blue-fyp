@@ -30,7 +30,7 @@ def test_legacy_console_keeps_root_and_api() -> None:
     with TestClient(create_console_app()) as client:
         root = client.get("/")
         assert root.status_code == 200
-        assert "Sentinel" in root.text
+        assert "MARS" in root.text
         status = client.get("/api/console/status")
         assert status.status_code == 200
         assert status.json()["experience_mode"] == "DISABLED"
@@ -46,3 +46,12 @@ def test_old_research_url_redirects_without_second_dashboard() -> None:
             response = client.get(old)
             assert response.status_code in (307, 308)
             assert response.headers["location"] == expected
+
+def test_mars_is_the_only_default_dashboard() -> None:
+    with TestClient(create_console_app(), follow_redirects=False) as client:
+        home = client.get("/")
+        assert home.status_code == 307
+        assert home.headers["location"] == "/dashboard/"
+        assert client.get("/console.js").status_code == 404
+        assert client.get("/console.css").status_code == 404
+        assert client.get("/api/console/status").status_code == 200
