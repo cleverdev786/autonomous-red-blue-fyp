@@ -23,16 +23,15 @@ assert.match(noRecords,/No stored runs in this database/);
 assert.match(noRecords,/not evidence of final research/);
 assert.doesNotMatch(noRecords,/Data source unavailable/);
 const found=html({kind:"ready",overview:populated});
-assert.match(found,/aria-labelledby="mars-bento-heading"/);
-assert.match(found,/class="mars-bento"/);
-assert.equal((found.match(/class="mars-bento-tile /g) || []).length, 6);
-assert.match(found,/Registered Red tests/);
-assert.match(found,/Trusted patch templates/);
-assert.match(found,/Verification without a model/);
-assert.match(found,/Disposable test environments/);
-assert.match(found,/Evidence receipts/);
-assert.match(found,/aria-hidden="true"/);
-assert.doesNotMatch(found,/31 edge regions|SOC 2 Type II|9\.2s|p99 latency/);
+assert.match(found,/class="overview-bento"/);
+assert.equal((found.match(/class="tool-card tool-card--/g) || []).length, 6);
+for(const destination of ["red-team","blue-team","assessments","findings","remediation","reports"]) {
+  assert.match(found,new RegExp('href="/dashboard/'+destination+'"'));
+}
+assert.match(found,/Run history/);
+assert.match(found,/Recent activity/);
+assert.match(found,/Workspace tools/);
+assert.doesNotMatch(found,/mars-bento-section|mars-bento-tile|Inside MARS|illustrative|test phases|Fake/);
 assert.match(found,/demo-001/);
 assert.match(found,/2/);
 assert.match(found,/blocked/);

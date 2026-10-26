@@ -602,3 +602,51 @@ a:hover, .table-link:hover { color:var(--color-link-hover); }
     border-right:0; box-shadow:12px 0 32px rgba(0,0,0,.3);
   }
 }
+
+
+/* Bento is now the real Overview layout, not a separate promotional UI.
+   Every tile is either an existing route or the actual stored-run summary. */
+.overview-bento {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-areas:"welcome welcome history history"
+                      "welcome welcome assessments remediation"
+                      "red blue findings reports";
+  grid-auto-rows:minmax(138px,auto);
+  gap:14px;
+}
+.overview-bento .welcome-card { grid-area:welcome; min-height:302px; }
+.overview-bento .snapshot-card { grid-area:history; min-height:138px; padding:21px 24px; }
+.overview-bento .snapshot-status { margin-top:18px; font-size:20px; }
+.overview-bento .snapshot-note { margin-top:auto; }
+.overview-bento .tool-card {
+  display:flex; flex-direction:column; align-items:flex-start;
+  min-height:138px; padding:18px; background:var(--color-surface);
+  border-color:var(--color-border);
+}
+.overview-bento .tool-card:hover { border-color:var(--color-action); }
+.overview-bento .tool-title { color:var(--color-text); margin-top:auto; padding-top:12px; }
+.overview-bento .tool-detail { color:var(--color-muted); }
+.overview-bento .tool-card--assessments { grid-area:assessments; }
+.overview-bento .tool-card--remediation { grid-area:remediation; }
+.overview-bento .tool-card--red { grid-area:red; }
+.overview-bento .tool-card--blue { grid-area:blue; }
+.overview-bento .tool-card--findings { grid-area:findings; }
+.overview-bento .tool-card--reports { grid-area:reports; }
+@media (max-width:1100px) {
+  .overview-bento {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-areas:"welcome welcome" "history history"
+                        "assessments remediation" "red blue" "findings reports";
+  }
+  .overview-bento .welcome-card { min-height:220px; }
+  .overview-bento .snapshot-card { min-height:155px; }
+}
+@media (max-width:600px) {
+  .overview-bento {
+    grid-template-columns:1fr;
+    grid-template-areas:"welcome" "history" "assessments" "remediation"
+                        "red" "blue" "findings" "reports";
+  }
+  .overview-bento .tool-card { min-height:106px; }
+}

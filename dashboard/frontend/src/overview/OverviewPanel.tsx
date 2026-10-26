@@ -2,16 +2,30 @@ import type { Overview } from "../api";
 import { EmptyState, LoadingState } from "../ui";
 import { RunTable } from "./RunTable";
 import { MarsMark } from "../brand";
-import { MarsBento } from "./MarsBento";
 
 export type OverviewState =
   | { kind: "loading" }
   | { kind: "unavailable"; detail: string }
   | { kind: "ready"; overview: Overview };
 
+const destinations = [
+  { href:"/dashboard/assessments", area:"assessments", title:"Assessments", glyph:"◎",
+    detail:"Explore registered test scenarios", color:"blue" },
+  { href:"/dashboard/remediation", area:"remediation", title:"Remediation", glyph:"✧",
+    detail:"Prepare and verify trusted fixes", color:"mint" },
+  { href:"/dashboard/red-team", area:"red", title:"Red Team", glyph:"↗",
+    detail:"Workspace page · tools coming later", color:"blue" },
+  { href:"/dashboard/blue-team", area:"blue", title:"Blue Team", glyph:"◇",
+    detail:"Workspace page · tools coming later", color:"mint" },
+  { href:"/dashboard/findings", area:"findings", title:"Findings", glyph:"⌕",
+    detail:"Review stored observations", color:"blue" },
+  { href:"/dashboard/reports", area:"reports", title:"Reports", glyph:"▤",
+    detail:"Review run history and evidence", color:"blue" },
+] as const;
+
 export function OverviewPanel({ state }: { state: OverviewState }) {
   return <div className="workspace-overview">
-    <div className="overview-top">
+    <div className="overview-bento" aria-label="Workspace tools and run history">
       <section className="welcome-card">
         <span className="welcome-kicker">MARS WORKSPACE</span>
         <h3>Manage your security workflow</h3>
@@ -37,8 +51,16 @@ export function OverviewPanel({ state }: { state: OverviewState }) {
           <span className="snapshot-note">Stored records, not final research trials</span>
         </>}
       </section>
+      {destinations.map(item => (
+        <a key={item.href} href={item.href}
+          className={"tool-card tool-card--" + item.area}>
+          <span className={"tool-icon tool-icon--" + item.color} aria-hidden="true">{item.glyph}</span>
+          <span className="tool-title">{item.title}</span>
+          <span className="tool-detail">{item.detail}</span>
+          <span className="tool-arrow" aria-hidden="true">↗</span>
+        </a>
+      ))}
     </div>
-    <MarsBento />
     <div className="section-title section-title--activity">
       <div><h3>Recent activity</h3><p>Stored results from your local workspace.</p></div>
       <a className="subtle-link" href="/dashboard/reports">View reports <span aria-hidden="true">↗</span></a>
