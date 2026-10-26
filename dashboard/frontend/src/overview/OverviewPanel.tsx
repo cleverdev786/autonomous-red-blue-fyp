@@ -2,17 +2,12 @@ import type { Overview } from "../api";
 import { EmptyState, LoadingState } from "../ui";
 import { RunTable } from "./RunTable";
 import { MarsMark } from "../brand";
+import { MarsBento } from "./MarsBento";
 
 export type OverviewState =
   | { kind: "loading" }
   | { kind: "unavailable"; detail: string }
   | { kind: "ready"; overview: Overview };
-
-const destinations = [
-  { href: "/dashboard/assessments", glyph: "◎", title: "Assessments", detail: "Explore registered scenarios", color: "violet" },
-  { href: "/dashboard/findings", glyph: "⌕", title: "Findings", detail: "Review saved observations", color: "blue" },
-  { href: "/dashboard/remediation", glyph: "✧", title: "Remediation", detail: "Prepare a trusted fix preview", color: "mint" },
-] as const;
 
 export function OverviewPanel({ state }: { state: OverviewState }) {
   return <div className="workspace-overview">
@@ -43,17 +38,7 @@ export function OverviewPanel({ state }: { state: OverviewState }) {
         </>}
       </section>
     </div>
-    <div className="section-title section-title--tools">
-      <div><h3>Workspace tools</h3><p>Choose what you want to work on.</p></div>
-    </div>
-    <section className="tool-grid" aria-label="Workspace tools">
-      {destinations.map(item => <a className="tool-card" href={item.href} key={item.title}>
-        <span className={"tool-icon tool-icon--" + item.color} aria-hidden="true">{item.glyph}</span>
-        <span className="tool-title">{item.title}</span>
-        <span className="tool-detail">{item.detail}</span>
-        <span className="tool-arrow" aria-hidden="true">↗</span>
-      </a>)}
-    </section>
+    <MarsBento />
     <div className="section-title section-title--activity">
       <div><h3>Recent activity</h3><p>Stored results from your local workspace.</p></div>
       <a className="subtle-link" href="/dashboard/reports">View reports <span aria-hidden="true">↗</span></a>

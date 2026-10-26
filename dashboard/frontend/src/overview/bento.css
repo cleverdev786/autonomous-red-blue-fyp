@@ -1,0 +1,127 @@
+/* MARS process showcase. All diagrams are illustrative, never telemetry. */
+.mars-bento-section {
+  --mars-bento-ink:#F2F1EC;
+  --mars-bento-muted:#A6A49D;
+  --mars-bento-faint:#77756F;
+  --mars-bento-coral:#FF6A3D;
+  background:#0C0C0B;
+  color:var(--mars-bento-ink);
+  margin:28px 0 34px;
+  padding:clamp(32px,5vw,64px) clamp(18px,3vw,36px);
+  border-radius:18px;
+  border:1px solid #34332F;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+.mars-bento-header { max-width:780px; margin-bottom:40px; animation:mars-bento-enter 600ms cubic-bezier(.2,.7,.2,1) both; }
+.mars-bento-eyebrow { font-size:12px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; color:var(--mars-bento-coral); }
+.mars-bento-header h2 { max-width:19ch; margin:14px 0 16px; font-size:clamp(30px,4.2vw,52px);
+  font-weight:600; letter-spacing:-.035em; line-height:1.05; text-wrap:balance; color:var(--mars-bento-ink); }
+.mars-bento-header p { font-size:15px; line-height:1.6; color:var(--mars-bento-muted); max-width:62ch; margin:0; }
+.mars-bento {
+  display:grid; grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-areas:"a a b c" "a a d d" "e e f f";
+  grid-auto-rows:minmax(184px,auto); gap:12px; list-style:none;
+  padding:0; margin:0;
+}
+.mars-bento-tile {
+  --mx:-600px; --my:-600px;
+  position:relative; display:flex; flex-direction:column; min-width:0;
+  padding:22px; border-radius:16px; border:1px solid rgba(255,255,255,.09);
+  background:#131312; color:var(--mars-bento-ink); isolation:isolate;
+  animation:mars-bento-enter 600ms cubic-bezier(.2,.7,.2,1) both;
+}
+.mars-bento-a { grid-area:a; animation-delay:70ms; }
+.mars-bento-b { grid-area:b; animation-delay:140ms; }
+.mars-bento-c { grid-area:c; animation-delay:210ms; }
+.mars-bento-d { grid-area:d; animation-delay:280ms; }
+.mars-bento-e { grid-area:e; animation-delay:350ms; }
+.mars-bento-f { grid-area:f; animation-delay:420ms; }
+.mars-bento-tile > * { position:relative; z-index:1; }
+.mars-bento-tile h3 { margin:0 0 4px; font-size:16px; font-weight:600; line-height:1.4; color:var(--mars-bento-ink); }
+.mars-bento-tile p { margin:0; font-size:14px; line-height:1.5; color:var(--mars-bento-muted); }
+.mars-bento-visual { margin-top:auto; padding-top:20px; min-height:55px; }
+.mars-bento-tile::before,.mars-bento-tile::after {
+  content:""; position:absolute; pointer-events:none; border-radius:inherit;
+  opacity:0; transition:opacity 300ms ease; z-index:0;
+}
+.mars-bento-tile::before {
+  inset:-1px; padding:1px;
+  background:radial-gradient(360px circle at var(--mx) var(--my),rgba(255,106,61,.55),transparent 45%);
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  mask-composite:exclude;
+}
+.mars-bento-tile::after {
+  inset:0;
+  background:radial-gradient(520px circle at var(--mx) var(--my),rgba(255,106,61,.06),transparent 40%);
+}
+@media (pointer: fine) {
+  .mars-bento--lit .mars-bento-tile::before,.mars-bento--lit .mars-bento-tile::after { opacity:1; }
+}
+.mars-bento-log,.mars-bento-versions {
+  background:#1A1A18; border:1px solid rgba(255,255,255,.07); border-radius:10px;
+  padding:14px 16px; font:12px/1.9 ui-monospace,Consolas,monospace; font-variant-numeric:tabular-nums;
+}
+.mars-bento-log-line { display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:10px;
+  color:var(--mars-bento-muted); animation:mars-bento-log 6s ease-in-out infinite both; }
+.mars-bento-log-line:last-of-type { color:var(--mars-bento-ink); }
+.mars-bento-log-line > :first-child { color:var(--mars-bento-faint); }
+.mars-bento-log-line:last-of-type > :first-child { color:var(--mars-bento-coral); }
+.mars-bento-log-line time { color:var(--mars-bento-faint); }
+.mars-bento-progress { height:3px; margin-top:12px; background:#32312D; border-radius:3px; overflow:hidden; }
+.mars-bento-progress span { display:block; width:100%; height:100%; background:var(--mars-bento-coral);
+  transform-origin:left; animation:mars-bento-fill 6s ease-in-out .2s infinite both; }
+.mars-bento-region-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 10px; }
+.mars-bento-region-grid span { display:flex; align-items:center; gap:7px; min-width:0;
+  font:11px/1.3 ui-monospace,Consolas,monospace; color:var(--mars-bento-muted); }
+.mars-bento-region-grid i { flex:none; width:6px; height:6px; background:var(--mars-bento-coral);
+  border-radius:50%; animation:mars-bento-pulse 2.4s ease-out infinite; }
+.mars-bento-versions { padding:8px; background:transparent; border:0; display:grid; gap:7px; }
+.mars-bento-versions div { display:flex; align-items:center; justify-content:space-between; gap:6px;
+  padding:7px 9px; color:var(--mars-bento-muted); border-radius:8px; }
+.mars-bento-versions small { font:11px ui-monospace,Consolas,monospace; color:var(--mars-bento-muted); }
+.mars-bento-versions .mars-bento-current { background:#1A1A18; border-left:2px solid var(--mars-bento-coral); color:var(--mars-bento-ink); }
+.mars-bento-trace-panel { display:flex; align-items:center; gap:28px; }
+.mars-bento-trace-count { flex:none; display:flex; flex-direction:column; }
+.mars-bento-trace-count strong { font-size:44px; font-weight:600; letter-spacing:-.04em; line-height:1; }
+.mars-bento-trace-count span { color:var(--mars-bento-muted); font-size:12px; }
+.mars-bento-trace-chart { position:relative; flex:1; min-width:70px; }
+.mars-bento-trace-chart svg { display:block; width:100%; height:64px; }
+.mars-bento-trace { stroke-dasharray:1; stroke-dashoffset:1; animation:mars-bento-trace 1.4s ease-out .5s forwards; }
+.mars-bento-trace-area { opacity:0; animation:mars-bento-area .6s ease-out 1.4s forwards; }
+.mars-bento-end-dot { position:absolute; width:6px; height:6px; border-radius:50%; background:var(--mars-bento-coral);
+  right:-3px; top:87.5%; transform:translateY(-50%); opacity:0; animation:mars-bento-area .35s ease-out 1.65s forwards; }
+.mars-bento-trace-labels { display:flex; justify-content:space-between; margin-top:5px; gap:8px;
+  font:10px ui-monospace,Consolas,monospace; color:var(--mars-bento-muted); }
+.mars-bento-branches { display:block; max-width:340px; width:100%; height:88px; }
+.mars-bento-branch-pulse { transform-box:fill-box; transform-origin:center; animation:mars-bento-node 2.4s ease-out infinite; }
+.mars-bento-chips { display:flex; gap:8px; flex-wrap:wrap; }
+.mars-bento-chips > span { display:inline-flex; align-items:center; gap:6px; padding:7px 10px;
+  border:1px solid rgba(255,255,255,.15); border-radius:999px; color:var(--mars-bento-ink);
+  font:12px ui-monospace,Consolas,monospace; }
+.mars-bento-chips svg { color:var(--mars-bento-coral); }
+@keyframes mars-bento-enter { from {opacity:0;transform:translateY(10px)} to {opacity:1;transform:translateY(0)} }
+@keyframes mars-bento-log { 0% {opacity:0;transform:translateY(4px)} 6%,88% {opacity:1;transform:none} 96%,100% {opacity:0;transform:translateY(-2px)} }
+@keyframes mars-bento-fill { 0% {transform:scaleX(0);opacity:1} 40%,88% {transform:scaleX(1);opacity:1} 96%,100% {transform:scaleX(1);opacity:0} }
+@keyframes mars-bento-pulse { 0% {box-shadow:0 0 0 0 rgba(255,106,61,.45)} 100% {box-shadow:0 0 0 6px rgba(255,106,61,0)} }
+@keyframes mars-bento-trace { to {stroke-dashoffset:0} }
+@keyframes mars-bento-area { to {opacity:1} }
+@keyframes mars-bento-node { from {transform:scale(1);opacity:.45} to {transform:scale(2.5);opacity:0} }
+@media (max-width:900px) {
+  .mars-bento { grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-areas:"a a" "b c" "d d" "e e" "f f"; }
+}
+@media (max-width:560px) {
+  .mars-bento { grid-template-columns:1fr; grid-template-areas:"a" "b" "c" "d" "e" "f"; }
+  .mars-bento-section { padding:32px 18px; }
+  .mars-bento-region-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .mars-bento-trace-panel { gap:14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mars-bento-header,.mars-bento-tile { animation:none; }
+  .mars-bento-log-line,.mars-bento-region-grid i,.mars-bento-branch-pulse { animation:none; opacity:1; transform:none; }
+  .mars-bento-progress span { animation:none; transform:scaleX(1); opacity:1; }
+  .mars-bento-trace { animation:none; stroke-dashoffset:0; }
+  .mars-bento-trace-area,.mars-bento-end-dot { animation:none; opacity:1; }
+}

@@ -583,3 +583,22 @@ a:hover, .table-link:hover { color:var(--color-link-hover); }
 :root[data-theme="dark"] .fail { color:var(--color-danger); }
 :root[data-theme="dark"] .status.policy_blocked { color:var(--color-warning); }
 :root[data-theme="dark"] .primary-action { background:#e8f2ff; color:#15487c; }
+
+
+/* Distinguish the navigation rail from the MARS workspace in both themes. */
+.sidebar {
+  background:#132d48;
+  border-right:1px solid var(--sidebar-border);
+  box-shadow:8px 0 24px rgba(4,18,35,.18);
+}
+:root[data-theme="dark"] .sidebar {
+  background:#152f4a;
+  border-right:1px solid #41617c;
+  box-shadow:8px 0 26px rgba(0,0,0,.34);
+}
+.mobile-bar {border-bottom:1px solid var(--sidebar-border)}
+@media(max-width:850px) {
+  .sidebar, :root[data-theme="dark"] .sidebar {
+    border-right:0; box-shadow:12px 0 32px rgba(0,0,0,.3);
+  }
+}
