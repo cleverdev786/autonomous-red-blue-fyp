@@ -22,9 +22,9 @@ export function NavIcon({ name, ...props }: { name: NavName } & SVGProps<SVGSVGE
 
 export function MarsMark({ className = "" }: { className?: string }) {
   return <svg className={className} viewBox="0 0 44 44" aria-hidden="true" fill="none">
-    <rect width="44" height="44" rx="11" fill="#4F46E5" />
+    <rect width="44" height="44" rx="11" fill="#1D5BBD" />
     <path d="M10.5 31V13.5L22 25L33.5 13.5V31" stroke="white"
       strokeWidth="4.2" strokeLinejoin="round" strokeLinecap="round" />
-    <circle cx="34" cy="10" r="2.2" fill="#B8B4FF" />
+    <circle cx="34" cy="10" r="2.2" fill="#C5E6FF" />
   </svg>;
 }
