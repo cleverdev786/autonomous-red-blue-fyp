@@ -22,6 +22,7 @@ import { OverviewPanel, type OverviewState } from "./overview/OverviewPanel";
 import { RunTable } from "./overview/RunTable";
 import { ActionButton, EmptyState, LoadingState, Notice } from "./ui";
 import { MarsMark, NavIcon } from "./brand";
+import { Sidebar, SidebarLink } from "./components/ui/sidebar";
 import { AssessmentsPanel } from "./assessments/AssessmentsPanel";
 import { ModelStatus } from "./system/ModelStatus";
 import type { LocalModelSession } from "./api";
@@ -235,22 +236,23 @@ export default function App() {
       {menuOpen && <button type="button" className="menu-backdrop" aria-label="Close navigation menu"
         onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }} />}
       <div className="shell">
-        <aside className={`sidebar${menuOpen ? " menu-open" : ""}`} id="mars-navigation"
-          role={menuOpen ? "dialog" : undefined} aria-modal={menuOpen ? true : undefined}
-          aria-label={menuOpen ? "Navigation menu" : undefined}>
+        <Sidebar open={menuOpen}>
+          <button type="button" className="sidebar-close" aria-label="Close navigation"
+            onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }}>
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="M5 5l14 14M19 5L5 19" />
+            </svg>
+          </button>
           <div className="sidebar-brand">
             <MarsMark className="brand-mark" />
             <div className="brand-type"><h1>MARS</h1><p>Security workspace</p></div>
           </div>
           <div className="sidebar-workspace-label">WORKSPACE</div>
           <nav aria-label="Primary navigation" ref={navigation}>
-            {primaryRoutes.filter(item => item.section !== "System").map((item) => (
-              <a key={item.path} href={item.path} className={route.section === item.section ? "nav active" : "nav"}
-                aria-current={route.section === item.section ? "page" : undefined}
-                onClick={(event) => followLink(event, item.path)}>
-                <NavIcon name={item.section!} /><span>{item.title}</span>
-                {route.section === item.section && <span className="nav-indicator" aria-hidden="true" />}
-              </a>
+            {primaryRoutes.filter(item => item.section !== "System").map(item => (
+              <SidebarLink key={item.path} item={item}
+                active={route.section === item.section} onNavigate={followLink} />
             ))}
           </nav>
 
@@ -264,13 +266,14 @@ export default function App() {
             </div>
           )}
           <div className="sidebar-footer">
-            <a href="/dashboard/system" className={route.section === "System" ? "sidebar-system active" : "sidebar-system"}
+            <a href="/dashboard/system" title="System" aria-label="System"
+              className={route.section === "System" ? "sidebar-system active" : "sidebar-system"}
               aria-current={route.section === "System" ? "page" : undefined}
               onClick={event => followLink(event, "/dashboard/system")}>
-              <NavIcon name="System" /><span>System</span>
+              <NavIcon name="System" /><span className="nav-label">System</span>
             </a>
           </div>
-        </aside>
+        </Sidebar>
         <main id="main-content" tabIndex={-1} aria-hidden={menuOpen ? true : undefined}>
           <div className="utility-bar">
             <span className="utility-path">Workspace <span className="utility-separator">/</span> {route.section ?? "Page"}</span>

@@ -477,3 +477,72 @@ tbody tr:hover { background:#f8faff; }
   .tool-card, .mars-execution-request, .primary-action, .mars-save-plan,
   .mars-plan-actions button, .tool-arrow { transition:none!important; transform:none!important; }
 }
+
+
+/* Aceternity-inspired sidebar: native CSS motion, no Next.js or Framer dependency.
+   Keep full names for navigation accessibility, collapse only visual labels. */
+.sidebar-close { display:none; }
+@media (min-width:851px) {
+  .shell {
+    grid-template-columns:76px minmax(0,1fr);
+    transition:grid-template-columns .26s cubic-bezier(.22,.61,.36,1);
+  }
+  .shell:has(.sidebar:hover),
+  .shell:has(.sidebar:focus-within) { grid-template-columns:270px minmax(0,1fr); }
+  .sidebar { padding:26px 14px 20px; overflow-x:clip; }
+  .sidebar-brand { justify-content:center; gap:0; padding:0; margin-bottom:42px; }
+  .sidebar-brand .brand-type {
+    width:0; opacity:0; visibility:hidden; overflow:hidden; white-space:nowrap;
+    transition:width .2s ease,opacity .2s ease;
+  }
+  .sidebar-workspace-label { opacity:0; white-space:nowrap; }
+  .sidebar nav .nav { justify-content:center; gap:0; padding:10px; overflow:hidden; }
+  .sidebar nav .nav svg, .sidebar-footer .sidebar-system svg { flex:none; }
+  .sidebar .nav-label {
+    width:0; opacity:0; visibility:hidden; overflow:hidden; white-space:nowrap;
+    transition:width .2s ease, opacity .15s ease;
+  }
+  .sidebar-footer { padding:12px 0 0; }
+  .sidebar-footer .sidebar-system { justify-content:center; gap:0; padding:10px; }
+  .run-picker { display:none; }
+  .shell:has(.sidebar:hover) .sidebar-brand,
+  .shell:has(.sidebar:focus-within) .sidebar-brand { justify-content:flex-start; }
+  .shell:has(.sidebar:hover) .sidebar-brand .brand-type,
+  .shell:has(.sidebar:focus-within) .sidebar-brand .brand-type {
+    width:152px; opacity:1; visibility:visible; margin-left:11px;
+  }
+  .shell:has(.sidebar:hover) .sidebar-workspace-label,
+  .shell:has(.sidebar:focus-within) .sidebar-workspace-label { opacity:1; }
+  .shell:has(.sidebar:hover) .sidebar nav .nav,
+  .shell:has(.sidebar:focus-within) .sidebar nav .nav { justify-content:flex-start; gap:13px; }
+  .shell:has(.sidebar:hover) .sidebar .nav-label,
+  .shell:has(.sidebar:focus-within) .sidebar .nav-label {
+    width:150px; opacity:1; visibility:visible;
+  }
+  .shell:has(.sidebar:hover) .sidebar-footer .sidebar-system,
+  .shell:has(.sidebar:focus-within) .sidebar-footer .sidebar-system { justify-content:flex-start; gap:13px; }
+  .shell:has(.sidebar:hover) .run-picker,
+  .shell:has(.sidebar:focus-within) .run-picker { display:block; }
+}
+@media (max-width:850px) {
+  .sidebar { width:100vw; max-width:none; padding:30px 24px 24px; }
+  .sidebar.menu-open { animation:mars-sidebar-enter .28s cubic-bezier(.22,.61,.36,1) both; }
+  .sidebar-close {
+    display:inline-flex; align-items:center; justify-content:center;
+    position:absolute; right:20px; top:23px; width:44px; height:44px; min-height:44px;
+    padding:0; background:#253a59; color:#eaf1ff; border:1px solid #3b5274;
+    border-radius:10px; cursor:pointer;
+  }
+  .sidebar-close:hover { background:#354d70; }
+  .sidebar-brand { margin-bottom:34px; padding-left:0; }
+  .sidebar nav .nav { gap:13px; }
+  .sidebar .nav-label { display:inline; opacity:1; visibility:visible; }
+}
+@keyframes mars-sidebar-enter {
+  from { opacity:.86; transform:translateX(-24px); }
+  to { opacity:1; transform:translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell, .sidebar .nav-label, .sidebar-brand .brand-type { transition:none!important; }
+  .sidebar.menu-open { animation:none!important; }
+}
