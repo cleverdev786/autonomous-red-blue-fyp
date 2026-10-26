@@ -2,13 +2,15 @@
 export const BASE_PATH = "/dashboard";
 
 export type View =
-  | "Overview" | "Runs" | "Run Detail" | "Findings" | "Patch Verification"
+  | "Overview" | "Red Team" | "Blue Team" | "Runs" | "Run Detail" | "Findings" | "Patch Verification"
   | "Metrics" | "Audit" | "Development Evidence" | "Trusted Preview" | "Operator Status";
-export type Section = "Overview" | "Assessments" | "Findings" | "Remediation" | "Reports" | "System";
+export type Section = "Overview" | "Red Team" | "Blue Team" | "Assessments" | "Findings" | "Remediation" | "Reports" | "System";
 export type Route = { path: string; title: string; section: Section | null; view: View | null; notFound?: boolean };
 
 export const primaryRoutes: Route[] = [
   { path: `${BASE_PATH}/`, title: "Overview", section: "Overview", view: "Overview" },
+  { path: `${BASE_PATH}/red-team`, title: "Red Team", section: "Red Team", view: "Red Team" },
+  { path: `${BASE_PATH}/blue-team`, title: "Blue Team", section: "Blue Team", view: "Blue Team" },
   { path: `${BASE_PATH}/assessments`, title: "Assessments", section: "Assessments", view: null },
   { path: `${BASE_PATH}/findings`, title: "Findings", section: "Findings", view: "Findings" },
   { path: `${BASE_PATH}/remediation`, title: "Remediation", section: "Remediation", view: "Trusted Preview" },

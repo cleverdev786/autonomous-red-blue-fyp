@@ -1,9 +1,11 @@
 import type { SVGProps } from "react";
 
-type NavName = "Overview" | "Assessments" | "Findings" | "Remediation" | "Reports" | "System";
+type NavName = "Overview" | "Red Team" | "Blue Team" | "Assessments" | "Findings" | "Remediation" | "Reports" | "System";
 
 const icons: Record<NavName, string> = {
   Overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+  "Red Team": "M12 3 3 7v5c0 5 3 7 9 9 6-2 9-4 9-9V7z M9 12l6-3 M9 12l6 3",
+  "Blue Team": "M12 3 3 7v5c0 5 3 7 9 9 6-2 9-4 9-9V7z M8 12l3 3 5-6",
   Assessments: "M4 3h12l4 4v14H4z M16 3v5h5 M8 12h8 M8 16h6",
   Findings: "M12 3 3 7v5c0 5 3 7 9 9 6-2 9-4 9-9V7z M12 8v5 M12 17h.01",
   Remediation: "M14 5a5 5 0 0 0-6 6l-5 5 5 5 5-5a5 5 0 0 0 6-6z M15 9l4-4 2 2-4 4",

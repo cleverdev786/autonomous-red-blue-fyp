@@ -286,6 +286,8 @@ export default function App() {
               <h2>{route.title === "Overview" ? "Workspace overview" : route.title}</h2>
               <p className="page-description">{({
                 Overview: "Your security workspace at a glance.",
+                "Red Team": "Red Team workspace.",
+                "Blue Team": "Blue Team workspace.",
                 Assessments: "Review registered assessment scenarios.",
                 Findings: "Explore findings from saved assessment runs.",
                 Remediation: "Run offline security verification and review trusted fixes.",
@@ -308,6 +310,11 @@ export default function App() {
           </section>}
           {route.section === "Assessments" && <AssessmentsPanel />}
           {view === "Overview" && <OverviewPanel state={overviewState} />}
+          {(view === "Red Team" || view === "Blue Team") && (
+            <section className="panel">
+              <p className="muted">Page content will be added later.</p>
+            </section>
+          )}
           {view === "Runs" && <RunsPanel state={runsState} selectedRunId={selectedRun} onSelect={(id) => { setSelectedRun(id); navigate(`${BASE_PATH}/reports/run-detail`); }} />}
           {view === "Run Detail" && (selectedRun && runsState.kind === "ready" ? <RunDetailPanel payload={payload} scores={scores} /> : <EmptyStoredRuns state={runsState} />)}
           {view === "Findings" && (selectedRun ? <JsonPanel value={payload} /> : <EmptyStoredRuns state={runsState} />)}
