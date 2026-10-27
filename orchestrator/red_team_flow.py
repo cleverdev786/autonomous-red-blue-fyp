@@ -1,4 +1,4 @@
-"""Typed Red Team workflow around the deterministic controlled executor."""
+"""Legacy Milestone 8 model-assisted Red workflow; not the Red v1 path."""
 
 from __future__ import annotations
 
@@ -47,7 +47,10 @@ class RedTeamPolicyBlocked(RedTeamFlowError):
 
 
 class RedTeamFlow:
-    """Coordinate one policy-controlled, single-attempt Red Team run."""
+    """Legacy single-attempt workflow retained for historical compatibility.
+
+    Red v1 will use model-free stage contracts in agents.red.contracts.
+    """
 
     def __init__(
         self,

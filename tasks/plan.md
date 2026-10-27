@@ -1,129 +1,240 @@
-# Plan: MARS Red Team (frontend + backend, tool-assisted, local-first)
+# MARS Red Team | Final implementation plan
 
-**Status:** PROPOSED FOR REVIEW, **NOT IMPLEMENTED** (2026-10-26).
-**Scope:** MARS React/Vite `/dashboard/red-team` + existing FastAPI service + existing typed RedTeamFlow, policy engine, registries and isolated Docker lab. No external targets, internet discovery or install in this planning pass.
-**Research:** [docs/RED_TEAM_TOOL_RESEARCH_2026-10-26.md](../docs/RED_TEAM_TOOL_RESEARCH_2026-10-26.md).
-**Task tracker:** `tasks/todo.md`; no external tracker designated or prior incomplete `tasks/plan.md` found.
+**Decision baseline:** 2026-10-26, rounds 1–10 including Q51–Q54.  
+**Implementation status:** PLANNED, not implemented or deployed.  
+**Primary tracker:** [`tasks/todo.md`](todo.md). Check tasks in order, including the checkpoint gates.  
+**Supersedes:** the preliminary Red Team plan committed as `c03b0de` once these replacement documents are placed in the repository. The existing repository has **not** been modified by this planning session.
 
-## Design principle
+## 1. Objective and release boundary
 
-**Four stages, not four autonomous microservices**. Keep the trusted engine and one MARS UI; treat LLM output and scanner reports as untrusted suggestions. Work without a local model or cloud API; model-enabled reasoning is explicitly optional and never receives networking/Docker authority.
+Deliver a **model-free, rule-based, four-agent Red Team** operated through the existing MARS React/FastAPI dashboard, coordinated by **one Central Orchestrator**, and demonstrated against the **existing authorized Docker vulnerable-store lab**. Deliver a complete Manual and Autonomous assessment journey, actual ZAP-assisted discovery, approved targeted security checks, independent confirmation, truthful coverage reporting and preserved evidence. Support SQL injection (SQLi), reflected XSS and path/directory traversal **only** in this release.
+
+**Acceptance principle:** A finished workflow is not a declaration of application safety. Every confirmed vulnerability requires an allowed controlled reproduction plus independent deterministic evidence validation. Every unsupported eligible candidate becomes a recorded coverage gap, not a pass.
+
+### In scope now
+
+- Four independent, role-specific Python agents: Reconnaissance, Attack Planning, Controlled Test Execution, Attack Verification.
+- One Python Central Orchestrator as an assessment supervisor: policy, lifecycle, dependency graph, resource-aware queue, event history, cancellation and safe recovery. Red implementation only; a later Blue Team can connect through structured records.
+- Existing Docker lab as the sole enabled target initially. Design target identifiers and authorization boundaries generically but **do not implement user target import or generic Docker management**.
+- OWASP ZAP in a confined, on-demand **Red Team Docker tool container**, for scope-limited crawling/passive observations and explicitly approved targeted testing; existing Python HTTP/controlled executor for reproducible checks.
+- Three vulnerability categories, approved adaptable templates, all applicable permitted tests within the **Standard** resource budget, and coverage gaps for missing, blocked or exhausted checks.
+- Persistent, versioned assessment state, plan provenance, agent activity, evidence receipts and findings. Candidate endpoint versus approved operation versus verified finding are distinct concepts.
+- Dashboard-first UI; global/selected-target filtering; four metrics; four compact manual agent panels; dedicated live autonomous assessment workspace with major-step timeline; a findings table with detail panel.
+- Permission to execute is per assessment and fixes target, attack classes, allowed methods and budgets; Autonomous stays automatic **only within that prior authorization**.
+
+### Explicitly deferred / excluded
+
+- LLMs, model providers, structured generation calls, ML decision engines or model-backed agent judgement for Red Team.
+- Blue Team work: ModSecurity/OWASP CRS, Semgrep, patch generation, deployment, fix verification, and Blue Team UI. Red Team may produce an automatically created, durable **pending handoff record**, but does not run Blue operations.
+- Importing the user's Docker Compose application through UI; supporting arbitrary repositories, source-to-container automation, additional target catalogues in the release UI.
+- Authenticated crawling, credentials management, state-changing discovery unless a later policy explicitly enables it; more vulnerability classes.
+- Other scanners, general-purpose attack frameworks, arbitrary agent shell commands, Docker socket exposure, permanent ZAP daemon, multiple LLMs, Celery/Kubernetes/microservices, extra testing-intensity profiles, speculative agent scoring.
+- Modifying original FYP research artefacts or old empirical/evaluation records.
+
+## 2. Existing repository foundations to reuse (last inspected 2026-10-26)
+
+These paths describe the previously inspected `development` branch, not claims about a live inspection in this session:
+
+| Existing component | Reuse or corrective action |
+| --- | --- |
+| `agents/red/reconnaissance.py`, `attack_planner.py`, `attack_verifier.py` | Keep agent boundaries; replace/disable LLM-dependent decisions on the required path; avoid duplicate agents. |
+| `orchestrator/red_team_flow.py`, `orchestrator/policy_engine.py` | Reuse orchestration entry point/policy concepts; evolve to a durable, rule-based supervisor rather than adding another application. |
+| `services/reconnaissance_service.py`, `controlled_executor.py`, `isolated_compose_executor.py` | Reuse bounded HTTP, registered test and isolated execution mechanisms. Audit their real-versus-preview semantics before extending. |
+| `services/registered_assessment_plan.py` | Read-only preview explicitly has `execution_enabled=False`; preserve truthful labeling, never mistake it for an executed run. |
+| `schemas/red_team.py` | Extend typed records and validation instead of parallel payload schemas. |
+| `config/targets/vulnerable-store.json`, `config/security_tests/` | Initial scope and three existing registered tests: `sqli-login-bypass-001`, `xss-reflection-001`, `path-traversal-private-file-001`. |
+| `compose.yaml` and existing lab image | Existing isolated target and controlled executor foundation. Extend minimally for a tightly confined ZAP job. |
+| `dashboard/api/console.py` | Existing FastAPI API, local-origin protection and assessment read paths. Add authorization for effectful operations; local-origin check alone is not sufficient. |
+| `dashboard/frontend/src/App.tsx`, `routes.ts`, `api.ts`, `product.css` | Replace Red Team placeholder using current MARS theme, routing and client conventions. No separate UI system. |
+| Existing SQLite/FastAPI/Pydantic/httpx/pytest/React dependencies | Prefer these before adding dependencies; stdlib for bounded task scheduling where sufficient. |
+
+**Nonnegotiable first step:** reconcile this inventory against the current working tree and tests. Preserve user changes. Do not remove prior safety gates or fake an execution through the read-only plan endpoint.
+
+## 3. Architecture and responsibility contracts
 
 ```text
-MARS / Red Team (React)
-   | choose registered target, inspection mode, inspect results
-   v
-FastAPI /api/red/* (origin + scope validation; read-only until explicit execution)
-   | run_id, bounded events/receipts and snapshots
-   v
-Trusted Red workflow coordinator + policy and budgets
-   +--> 1. RECON        registered surface -> optional *passive* tool observations
-   +--> 2. PLAN         registered test selection / validated optional LLM advice
-   +--> 3. EXECUTE      explicit operator gate -> controlled-executor on internal Docker lab
-   +--> 4. VERIFY       deterministic registry/evidence check -> optional verifier explanation
-   v
-Immutable operational receipts, run state and link to Findings/Reports
-   `-- confirmed and authorized -> existing Blue Team handoff (separate workflow)
+MARS React UI
+  Dashboard / assessment index / four worker panels / live workspace
+                |
+        FastAPI Red API (auth + validated input)
+                |
+     CENTRAL ORCHESTRATOR [Python, shared MARS service]
+     - authorize assessment snapshot (target/methods/classes/budget)
+     - queue, journal, transitions, retries, stop, evidence IDs
+     - validate work proposed by agents; never accept tool output as policy
+                |
+    +-----------+-------------+----------------+---------------+
+    |                         |                |               |
+  Recon Agent             Planning Agent   Execution Agent   Verification Agent
+  ZAP safe mapping        deterministic    controlled HTTP   deterministic
+  policy-aware            rule/template    + approved ZAP    evidence validators
+  endpoint candidates     matching         operations        and results
+    +-----------+-------------+----------------+---------------+
+                |
+      SQLite records + protected evidence store
+      candidates / plans / actions / results / gaps / event timeline
+                |
+     pending Blue handoff descriptor (data contract ONLY, later)
+
+Isolation: authorized vulnerable-store container <-> allowlisted scanner/executor
+No Docker socket, privileged mode, host network or external target access for agents.
 ```
 
-The user **never** provides an arbitrary host, port, shell command, script, payload or file path. The browser selects IDs from the backend's approved registries. Backend rechecks on every step. No auto-start on page load. Existing historical research evidence remains untouched.
+### Agent interfaces, distinct authorities
 
-## What the four stages actually do
+- **Recon Agent:** input `assessment_scope`, `target_fingerprint`, budget; selects approved ZAP discovery operations; output deduplicated `EndpointCandidate` records (`method`, normalized path, observed params, source, timestamp, candidate policy decision). Discovery does not authorize execution.
+- **Planning Agent:** input approved candidates, test-template catalogue, prior attempt state, remaining budget; deterministically evaluates applicability, produces **all eligible** registered/approved test instances, a plan version and `CoverageGap` records. Endpoint and method decisions are rechecked by a separate execution authority. No free-form commands or payload generation.
+- **Execution Agent:** accepts only a **trusted-server-validated** `ApprovedOperation` reference against an immutable authorization snapshot; chooses an allowlisted adapter (`controlled_http`, approved targeted ZAP operation); returns receipts and bounded raw evidence. No arbitrary tool arguments, network destinations, or shell.
+- **Verification Agent:** examines the approved operation, target revision, response/test evidence and predefined oracle; produces `confirmed`, `not_confirmed`, `suspected`, `inconclusive`, or `not_tested` as appropriate. A ZAP alert alone is **suspected**, not confirmed. Reproducible positive controlled evidence meeting a separate deterministic oracle can be confirmed; independent does not mean a second scanner is mandatory.
+- **Central Orchestrator:** owns permissions, consistency, state transitions, idempotency, scheduling and journal. It is a deterministic manager, **not an LLM agent** or a replacement for specialized workers. A rejected operation is a policy event, not a failed exploit.
 
-| Stage | Existing implementation to reuse | Future backend boundary | What the user sees |
-|---|---|---|---|
-| **1. Reconnaissance Agent** | `ReconnaissanceService` + `ReconnaissanceAgent` + `TargetRegistry` | Read-only, allowlisted target/endpoint metadata; optional bounded passive ZAP context later. Explicitly distinguish registry facts from scanner observations | Authorized target, endpoint/method/input fields, source + timestamp, any scope refusals; optional model summary |
-| **2. Attack Planning Agent** | `AttackPlanningAgent`, `AttackPlanningCatalog`, `AttackPlan`, `PolicyEngine` | Deterministic offline choice from known registered tests; optional model recommendation validated against catalog; plan is **not** execution permission | Test ID and mapped endpoint, vulnerability type, bounded expected requests, policy/rationale, state "ready for approval" or "blocked" |
-| **3. Controlled Test Execution** | **Existing trusted `ControlledExecutor`** and `security_tests/*` behind Docker isolation | Privileged *trust* boundary but **not a model agent**. Only a registered test ID, opaque run ID, allowed attempt; fixed request sequence, timeouts, circuit breaker, no arbitrary network | Explicit Start/Cancel gate, real progress/event receipt, request-count, HTTP result, timeout/blocked/error; no raw attack payload editing |
-| **4. Attack Verification Agent** | `AttackVerificationAgent`, `RedTeamFlow` evidence identity validation, `TestExecutionResult` | Deterministic evidence validity/identity and eligibility first; optional model narrative second, cannot invent IDs or change verdict | confirmed / not confirmed / inconclusive / policy blocked, supporting evidence IDs, bounded sanitized exchanges, Blue handoff eligibility |
+### Typed persisted core concepts
 
-`RedTeamFlow` currently uses three model calls for the reasoning roles; it is **not** a production-ready model-independent UI job endpoint. The existing `services/tool_driven_workflow.py` is a separate offline SQLi/XSS/traversal sandbox demonstration and is **not** a substitute for general live Docker execution. Preserve this distinction in UI labels.
+`TargetRegistration` (existing lab only); `Assessment` (target, mode, Standard profile, authorization snapshot, target fingerprint, completion, coverage); `AgentStageRun`; `EndpointCandidate`; `PlanVersion`; `ApprovedOperation`; `ExecutionReceipt`; `EvidenceArtifact` (hash, provenance, content type, scope, access policy); `Finding`; `CoverageGap`; `TimelineEvent`; `PendingHandoff` (data only; created idempotently for each confirmed finding, never launches Blue).
 
-### Proposed API contract (not implemented)
+Persist identifiers and linkages (`assessment_id`, `target_id`, `plan_version`, `operation_id`, `evidence_id`, target image/config fingerprint, timestamps). **Do not store raw secrets in the UI timeline.** External tools and model-like strings are untrusted input. Bind execution to the approved scope and current plan, not to frontend fields alone.
 
-- `GET /api/red/targets`: registered local target summaries and which stages are supported. Read-only; never accept arbitrary URL query for network requests.
-- `GET /api/red/targets/{target_id}/surface`: the bounded recon metadata plus provenance `registry` (and future `passive_scan` observations that are *not* authoritative).
-- `POST /api/red/plans`: `{target_id, mode, registered_test_id?}` where `mode` is `offline_registered | assisted`; return `plan_id`, selected registered test, expected budgets, policy status, no execution. Offline selection may be explicit operator choice rather than opaque heuristic.
-- `POST /api/red/runs`: `{plan_id, confirmation_token}` from an explicit, reviewed operator confirmation. Backend re-resolves policy and the target/test identities; responds `202` with opaque `run_id`, never raw command output. The confirmation token must be server-issued, short-lived, single-use, and bound to the exact immutable plan, target and scope. Do not use this endpoint until a real authenticated/authorized local-operator policy is designed; same-origin alone is not authorization.
-- `GET /api/red/runs/{run_id}`: small snapshot containing `phase`, `state`, `reason_code`, `started_at`, `request_count`, `attempt_number`, `evidence_refs`; sanitized event log; never overclaim success. Bounded polling is sufficient before SSE/WebSocket is justified.
-- `POST /api/red/runs/{run_id}/cancel`: best-effort cancellation with clear `cancel_requested` and eventual `cancelled`/unknown outcome. Never claim the process stopped before confirmed.
-- `GET /api/red/runs/{run_id}/evidence`: sanitized, bounded evidence with hash/provenance; only retained, authorized runs. No raw secrets, credential response bodies or host paths.
+### Status taxonomy and correctness
 
-Proposed run states: `draft`, `scope_reviewed`, `awaiting_execution_approval`, `queued`, `reconciling`, `executing`, `verifying`, `confirmed`, `not_confirmed`, `inconclusive`, `blocked`, `failed`, `cancel_requested`, `cancelled`. Define one canonical typed state model and map existing `WorkflowState` rather than shadow it with inconsistent strings. There is **no** silently automatic retry of an uncertain execution.
+- Assessment lifecycle: `created → awaiting_authorization → queued → running → completed | completed_with_limitations | failed | cancelled | blocked`. Include `pausing/stop_requested` internally if needed. `completed` means supported work finished; `completed_with_limitations` means material gaps/unresolved observations remain. Distinguish terminal from active states for UI mode lock.
+- Stage: `not_started | ready | queued | running | succeeded | failed | blocked | cancelled | stale`. A rerun of Recon marks dependent plan versions **stale**; no stale plan may execute; the old plan and results remain audit history.
+- Findings/evidence: separate `suspected`, `confirmed`, `not_confirmed`, `inconclusive` and `not_tested/coverage_gap`. Do not classify a test timeout as `not_confirmed`.
+- Coverage: report explicit denominator `eligible approved test instances`, executed/completed/blocked/skipped counts and observed-candidate gaps. Do not count unsupported untested routes as passes. Method, authenticated-route and missing-template limitations are displayed truthfully.
 
-### Frontend, within existing MARS theme
+### Manual and Autonomous behavior
 
-One `/dashboard/red-team` page, no separate app or sidebar change. Desktop: narrow left **registered target/plan** rail and large right **four-stage timeline**, with a persistent evidence/replay drawer; mobile stacks the controls above the timeline. Default state shows scope and what has **not** run. Stages expand for **actual** data only:
+- Both modes use **the same policy, agent implementations, job queue, findings and evidence**; only dispatch is different.
+- **Manual:** four compact panels with `Run`, `Rerun`, `Inspect`. Each action runs the selected stage against its valid prerequisites. Recon may run independently; planning needs a current recon snapshot; execution needs a non-stale approved plan; verification needs existing compatible receipts. Disable invalid controls with a concise explanation.
+- **Autonomous:** operator selects the authorized target, Standard profile and allowed SQLi/XSS/traversal scope and explicitly starts one assessment. Agents progress automatically **within approval**. Out-of-scope operations are blocked for review, never silently authorized. Use live timeline, stage status and stop action.
+- Preferred mode is remembered in browser settings, **but never triggers an assessment on page load**. The mode selector is **locked while that assessment is active**, and unlocks only when it reaches a terminal state. Active assessment retains its originally captured mode. Stop/cancel action remains available regardless of the mode lock.
+- Separate assessment workspaces coexist with dashboard index, status filtering and resource-aware scheduling. No two active destructive operations against one target instance. A queued assessment never silently modifies a currently running target.
+- Stop scheduling promptly, revoke queue entries, request in-flight cancellation where technically possible, preserve all evidence and accurately distinguish interrupted from completed actions. Safe retries are bounded and idempotent; ambiguous outcomes remain inconclusive, **not auto-replayed**.
 
-1. **Target & scope:** registered `vulnerable-store` only, endpoint list, allowed methods, local Docker status, offline/assisted mode, request cap.
-2. **Recon:** table of approved endpoints; optional passive observation badges with explicit provenance.
-3. **Attack plan:** registered tests with descriptive labels, policy decision, projected budgets; operator reviews plan before it can execute.
-4. **Execution and verification:** explicit local-lab start gate; current event state, evidence table, immutable verdict; link a confirmed result into existing Findings and/or Blue Team handoff.
+## 4. Docker, ZAP and verification rules
 
-Use existing `api.ts` typed request/validation convention, `ui.tsx` components, `tokens.css`, `product.css`, and the React route already defined. No fabricated region counts, throughput scores, "AI confidence" claims or unsupported security findings. Errors, no Docker, no model, no DB, blocked and timeouts get distinct useful empty states. No infinite animation or new frontend dependencies.
+1. **Start from the existing Compose lab.** Register the current authorized target ID and specific service/network/host/port/method scope. Restrict runtime to approved Docker assets and project name. Do not take arbitrary Compose definitions from HTTP clients.
+2. **ZAP integration:** use a vetted **digest-pinned** official ZAP container, resource limits, read-only/nonroot profile where feasible and an isolated lab-only network. No host networking, Docker socket, privileged operation, or unrestricted external egress. Prefer a short-lived job/profile; never leave an exposed, unauthenticated ZAP API on a reachable network. Add an allowlist/denylist for ZAP discovery and redirects, explicit budgets, and safe crawling behavior. Check image compatibility with the target's network before any live scans.
+3. **Approved active ZAP tests:** if applicable to one of the three vulnerability classes, admit specific ZAP operations through the same target policy and run budget as Python tests. Do not blanket-enable ZAP's unrestricted active scanner or claim it is non-invasive. Keep ZAP alerts as observations until separately confirmed.
+4. **Registered reproductions:** reuse the existing `controlled_executor.py`, registered test IDs and integrity checks to validate real, Docker-isolated HTTP behavior. Migrate to adaptable *vetted templates* with explicit parameter and method constraints only when the current tests support this safely. Avoid misleading preview/assessments or in-process mocks.
+5. **State restore:** tests that interfere must run against a verified clean snapshot or recreated disposable target instance. `docker restart` alone does not reset persistent databases or volumes. Store evidence before restoring state. Never remove unrelated host containers/volumes.
+6. **Scope enforcement:** normalize and revalidate host, IP, port, method, redirect destination and parameter for every tool operation. Refuse nonallowlisted destinations and fail closed on DNS rebinding or network redirection. No credentials/authenticated discovery in v1.
+7. **Resources:** Standard profile as explicit configurable-but-bounded numbers for wall-clock, requests, tests, depth, CPU, memory, parallelism and retries. Numbers selected in code/config must be verified against actual laptop capacities; no hard-coded theoretical promises. Resource-aware queue can be a simple durable Python/SQLite worker, no Celery until load warrants it.
 
-## Docker and Python dependencies: decision and sequencing
+## 5. Backend/UI contract for first implementation
 
-**Day 1 minimum:** existing `fyp-red-blue-lab:local` with `vulnerable-store` + `controlled-executor`; existing Python `httpx`, `pydantic`, `FastAPI`, `SQLAlchemy`; **zero extra installs**. A Docker image is not an agent: tools connect through a tightly typed adapter and trusted operation.
+Contract names are a **proposed direction**, finalized in T05/T22 before implementation, not currently functioning endpoints:
 
-**Optional expansion after a working vertical slice:**
-- **ZAP** official stable image as a short-lived separate tool runner, no API port published to the host, restricted to the approved Docker service and URL paths, passive/targeted requests only at first; limit scan time, CPU/RAM and request count, mount results to a dedicated location. Discovered URLs remain unapproved candidates. It does not run inside the existing `controlled-executor`.
-- **Semgrep** official image, read-only mount of the approved source tree, local pinned rules, JSON output, disable optional metrics, no model/payload authority. Scans source code, not remote HTTP endpoints. It may enrich recon and Blue localization but cannot trigger attacks.
-- **Bandit** optional `pip` extra *only* if a Python-specific AST report adds value beyond Semgrep; keep it out of the runtime attack image unless required.
-- **Nuclei** optional only if additional registered non-overlapping vulnerability classes or applications justify it. Use specific reviewed templates, no updates or external OAST/interactsh, egress denied, very low request/concurrency caps. **Not** part of the minimum installation.
+| Endpoint | Purpose | Constraints |
+| --- | --- | --- |
+| `GET /api/red/targets` | Registered targets and compatibility/limitations | Existing approved Docker lab only |
+| `GET /api/red/assessments?target_id=&status=` | Dashboard index and filtered history | Pagination, stable ordering |
+| `GET /api/red/summary?target_id=` | Four primary metrics + coverage indicators | Same global/per-target filtering as findings |
+| `POST /api/red/assessments` | Create a *draft* assessment | No execution on creation |
+| `POST /api/red/assessments/{id}/authorize` | Record immutable scope and operator approval | Authentication/CSRF/anti-replay; state gate |
+| `POST /api/red/assessments/{id}/start` | Enqueue authorized assessment | Idempotency key; captured mode |
+| `POST /api/red/assessments/{id}/stages/{stage}/run` | Manual stage command | Same trusted policy; valid prerequisites |
+| `POST /api/red/assessments/{id}/cancel` | Stop queue and request active cancellation | Honest termination state; no evidence deletion |
+| `GET /api/red/assessments/{id}` | Stage status, coverage, plan version, summary | Server-authoritative states |
+| `GET /api/red/assessments/{id}/events` | Major-step timeline; polling initially | No secrets/verbose payload dumps |
+| `GET /api/red/assessments/{id}/findings` | Compact table, verification states, gap counts | Paginated/filterable |
+| `GET /api/red/findings/{id}` | Detail, references, evidence metadata | Evidence access gated and sanitized |
 
-Do **not** install or bundle Kali, Metasploit, Nmap/Amass/Subfinder or sqlmap by default. For the current three synthetic HTTP checks these add more scope, packaging weight and duplicated capability than value. Do not run active ZAP scans on the development laptop outside the disposable synthetic target.
+**API rules:** Model-free server behavior, Pydantic at boundaries; explicit authorization snapshot; controlled payload shapes; anti-CSRF or equivalent operator authorization for effectful endpoints (origin alone is not enough); idempotency for start/cancel/run; no client-supplied shell or ZAP commands; safe report/evidence retrieval. Prefer simple event polling initially over sockets. No separate microservice per agent.
 
-When adopting any image: choose official publisher; pin immutable sha256 digest and version/rules manifest; verify architecture/licensing, dependencies and memory; enforce `read_only`, `cap_drop: [ALL]`, no-new-privileges, rootless process, dedicated volumes, no Docker socket, no host networking, no internet, fixed runner command and resource/time caps. The current 7.6 GiB laptop cannot be assumed to support model inference plus every scanner simultaneously.
+### User interface information architecture
 
-## Ordered vertical tasks (each should fit one focused implementation session)
+```text
+Red Team (/dashboard/red-team)
+  Header: Red Team, target filter, remembered Manual | Autonomous mode (locked if active)
+  Four top-level metrics: verified findings | endpoints tested/eligible |
+                          active/queued assessments | agent health/activity
+  Assessment list: target, mode, status, progress, last run, findings, limitations
+  New Assessment: existing target -> Standard policy review -> explicit authorize/start
+  Selected assessment workspace:
+      [Recon] [Planning] [Execution] [Verification]  four compact worker cards
+      Manual: per-card Run / Rerun / Inspect (with prerequisites)
+      Autonomous: current worker + four-stage live timeline + stop
+      Events: major step, timestamp, status, selected tool / high-level decision
+      Findings: compact table (severity, class, target, verification, evidence)
+      Click finding: detail panel, reproduction provenance, export/report pointer
+  Filters: All Targets / Selected Target, status, vulnerability type, confirmation
+```
 
-### Phase 0. Contract and authority (foundation)
-**T1.** Define canonical Red phase, verdict, plan and evidence contracts. Decide how these extend existing `schemas/red_team.py` / `WorkflowState`; no duplicate enum islands. **Acceptance:** malformed/untrusted target IDs, wrong evidence IDs, missing run state, invented verdicts and arbitrary URLs fail validation. **Verify:** focused typed-schema tests and `pytest -q`. **Likely files:** `schemas/red_team.py`, `schemas/common.py`, `tests/test_red_team_contracts.py`. **Depends:** none.
-**T2.** Define the local operator execution permission model and event/persistence ownership. Keep operation receipt storage separate from research archives; authenticated operator checks before effectful APIs. **Acceptance:** same-origin alone cannot authorize execution; one plan identity cannot dispatch twice; restart/cancel exposes uncertain status faithfully. **Verify:** boundary misuse tests and storage tests. **Likely files:** `services/*red_workflow*.py`, `orchestrator/policy_engine.py`, `tests/test_red_execution_admission.py`. **Depends:** T1.
-**Checkpoint:** contract + permission boundary reviewed **before** any execution endpoint is added.
+Use existing MARS dark/light palettes, React routing, CSS and responsive conventions. Show actual server states, deliberate empty/error/loading screens and accessible disabled explanations; no fabricated counters. `Reports` owns full reports. A verified finding may expose a **future Blue handoff state** without launching Blue Team. The orchestrator summary may appear in existing Overview, not a separate page.
 
-### Phase 1. Safe read-only UI slice
-**T3.** Expose bounded registry/recon data to `GET /api/red/targets` + `surface` using existing `ReconnaissanceService` (no scanning yet). **Acceptance:** shows only trusted registered target/endpoints; unknown target rejected; no network call/model call. **Verify:** FastAPI TestClient + `tests/test_mars_red_preflight.py`. **Likely files:** `dashboard/api/console.py` or narrow router, `services/reconnaissance_service.py`, `tests/test_red_api.py`. **Depends:** T1.
-**T4.** Replace Red Team placeholder page with target/scope and read-only four-stage timeline. **Acceptance:** no auto execution, responsive, accessible, distinct unavailable/loading/blocked states; no fake run results. **Verify:** frontend `npm test`, `npm run build`, Firefox light/dark/mobile. **Likely files:** `dashboard/frontend/src/App.tsx`, `dashboard/frontend/src/api.ts`, `dashboard/frontend/src/red/RedTeamPanel.tsx`, `dashboard/frontend/src/product.css`. **Depends:** T3.
-**Checkpoint:** user can inspect all approved scope without starting any attack, even offline/model unavailable.
+## 6. Execution order, dependencies and checkpoint gates
 
-### Phase 2. Registered planning (no execution side effects)
-**T5.** Add a bounded plan preview from existing catalog + `PolicyEngine`; optional assisted recommendation must validate to registered ID/endpoint/method/parameter set. **Acceptance:** unknown tests/parameter mutation blocked, local fallback works without LLM, does not dispatch HTTP. **Verify:** `tests/test_registered_assessment_plan.py`, new plan API tests. **Likely files:** `services/registered_assessment_plan.py`, narrow API router, `tests/test_red_plan_preview.py`. **Depends:** T2–T4.
-**Checkpoint:** a human can inspect and explicitly approve a stable, policy-admissible plan.
+Each task in [`tasks/todo.md`](todo.md) is one focused, verifiable slice; the task list holds **all individual acceptance checkboxes**, likely files and verification. The sequence is deliberately foundation-first but vertically integrated at each meaningful cut.
 
-### Phase 3. Controlled Docker execution and hard stop
-**T6.** Wire the reviewed plan to the existing registered `ControlledExecutor` in the approved isolated Docker executor, **not** a model sandbox. Add strict one-job-at-a-time coordination if needed; don't bring a queue dependency prematurely. **Acceptance:** only approved three test IDs; origin/auth/confirmation gate, request/time/attempt budgets, no redirect/ejected DNS, cancel/timeout with honest results, no host socket exposed to UI/model. **Verify:** executor policy tests and an explicitly admitted synthetic Docker smoke run with intact source/hash/network safeguards. **Likely files:** dedicated `services/red_job_runner.py`, narrow API router, `tests/test_red_job_runner.py`, integration test. **Depends:** T5 and reviewed admission.
-**Checkpoint:** explicit operator action triggers one registered test inside lab, not scans against arbitrary hosts.
+| Phase | Tasks | Exit gate |
+| --- | --- | --- |
+| A: Baseline and contracts | T01–T04 | Accurate baseline, deterministic schema, target/scope contract |
+| B: Persistence and policy | T05–T08 | Durable state/evidence, denied operations demonstrably rejected |
+| C: Docker + ZAP reconnaissance | T09–T12 | Scoped discoveries become policy-classified endpoint candidates |
+| D: Planning | T13–T15 | Adaptable vetted tests, bounded all-applicable selection, stale plans |
+| E: Real execution and verification | T16–T21 | Real evidence for SQLi/XSS/traversal, independent result oracle, truthful gaps |
+| F: Orchestration | T22–T25 | Manual/auto state machine, queue, cancellation, safe recovery |
+| G: API and UI | T26–T33 | Validated effectful API and usable Red dashboard/workspaces |
+| H: Acceptance and release | T34–T36 | E2E demonstration, security negative tests, operating docs |
 
-### Phase 4. Independent verification, receipts and handoff
-**T7.** Normalize executor evidence into an immutable operational receipt with policy provenance. The verifier agent may narrate evidence but cannot create it or upgrade `inconclusive` to `confirmed`. **Acceptance:** identities, request counts, completion and hashes checked; timeout/empty evidence => not confirmed or inconclusive; sanitized evidence persists and can be opened in MARS. **Verify:** `tests/test_red_team_mvp.py`, `tests/test_executor_evidence_capture.py`, new evidence contract tests and UI render tests. **Likely files:** `orchestrator/red_team_flow.py`, `services/executor_evidence_capture.py`, `dashboard/frontend/src/red/RedTeamPanel.tsx`, tests. **Depends:** T6.
-**Checkpoint:** end-to-end Red registered test and evidence linked to Findings/Reports, with honest Blue handoff eligibility.
+**Critical path:** T01 → T02 → T03 → T04 → T05/T06/T07 → T08 → T09 → T10 → T11 → T12 → T13 → T14 → T15 → T16 → T17 → T18 → T19 → T20 → T21 → T22 → T23 → T24 → T25 → T26 → T27 → T28 → T29 → T30 → T31 → T32 → T33 → T34 → T35 → T36. Only independent tests/docs can be parallelized after their contracts exist.
 
-### Phase 5. Tool extensions, only if justified by actual gaps
-**T8.** Prototype ZAP **passive-only** registered-source HTTP observation on a throwaway synthetic app; compare discovered signals with known registered evidence. **Acceptance:** fixed allowlisted URLs, enforced offline image pin/rules, no unapproved requests/active scans, bounded JSON receipt and image resource caps. **Verify:** Compose network/egress check, a repeatable sandbox integration test. **Files:** optional Compose profile, tool adapter, test, reviewed config. **Depends:** T7 and explicit decision to adopt.
-**T9.** Prototype Semgrep **local-rule read-only** source scanning only if source-pattern detection yields additional verified useful signal. **Acceptance:** JSON matches tied to source SHA and reviewed rules; no automatic test dispatch, code modification or cloud sync. **Verify:** scanned fixture source + negative controls. **Files:** adapter, local rule pack, fixture tests; Compose profile if Docker runner chosen. **Depends:** T7 and evidence of need.
-**Checkpoint:** optional tools must show additional confirmed usefulness, otherwise remain excluded.
+### Definition of done applied to EVERY task
 
-### Phase 6. Whole-system review
-**T10.** Test full authorized path in both offline and assisted modes; reject any empty, inconsistent or unapproved evidence; verify CPU/RAM with models loaded and unloaded; verify shutdown and rollback without changed host source. **Acceptance:** no untested install, complete user-visible lifecycle and every claim traceable to a local receipt. **Verify:** `pytest -q -p no:cacheprovider`, `npm test`, `npm run build`, scoped Docker smoke tests and manual browser accessibility review. **Depends:** T7 and only adopted optional tools.
+- The actual repository behavior has been inspected; no unrelated changes or unsafe file deletions.
+- One focused test or clear negative-path proof demonstrates the new behavior. Build/lint/unit tests run for touched layers.
+- No mock or read-only preview is claimed as a live assessment. Evidence produced by a real authorized Docker test is distinctly recorded.
+- Permissions, Docker limits, error handling and security regressions are reviewed whenever a task changes a boundary.
+- The task checklist is checked only after its acceptance criteria and verification pass; checkpoint gates remain unchecked until proven.
+- A small, reviewable commit per verified task/checkpoint on the approved development branch. **Planning this work does not authorize code changes or pushes.**
 
-## Adversarial critique: reasons to NOT proceed automatically
+## 7. Test and demonstration matrix
 
-- **"Four agents" is an organizational description, not justification for four LLMs/containers.** Four independent inference sessions would multiply latency/failures with no new test coverage. Reuse the existing three reasoning roles, keep execution deterministic; consider zero model calls as default.
-- **"Reconnaissance" may be misunderstood as internet discovery.** For the current local synthetic app the registry is the authorized surface; expansion to a second containerized test app needs an approved target manifest and new regression fixtures first.
-- **Tool reports are probabilistic leads.** A Semgrep warning or ZAP passive alert is not proof of exploitability. Don't show an attack as "verified" unless a controlled test produced the expected actual evidence.
-- **"Start" cannot be behind only a same-origin middleware.** Before exposing a Docker-triggering endpoint from a browser, establish operator authentication/authorization, CSRF protections, scope binding and exact action confirmation. This is the highest-risk blocker.
-- **ZAP is Java-heavy and the laptop is modest.** A simultaneous model server, ZAP, Semgrep and Docker target may strain 7.6 GiB RAM. Prefer sequential ephemeral jobs or keep extras disabled by default.
-- **Avoid shipping extra Docker containers merely to make an architecture diagram look richer.** The current two-container lab is the smallest valid execution base. Candidate images exist upstream but are **not** pulled yet.
-- **Avoid silently conflating real Docker trials with the in-process offline sandbox.** User-facing labels, receipts and results must declare their execution source.
+| Scenario | Expected outcome | Must prove |
+| --- | --- | --- |
+| Registered `vulnerable-store` with eligible SQLi, XSS, path-traversal templates | Real controlled executions, independently verified findings or honest not-confirmed result | End-to-end tool evidence; no fake result |
+| ZAP finds a new in-scope endpoint | `candidate`, assessed by method/target policy before planning | No automatic scope expansion |
+| ZAP yields a suspicious alert but reproduction fails | `suspected` or `not_confirmed` according to evidence, **not confirmed** | Separate ZAP observations/oracle |
+| No vetted template matches | Coverage gap and recommended template addition | No unapproved payload/command |
+| Test budget reached | Remaining eligible tests listed as not tested | Correct numerator/denominator |
+| Manual rerun reconnaissance | Existing plan becomes stale; execution disabled until replanned | Historical records preserved |
+| Autonomous run with one approval | Steps progress without further routine prompts | Target/classes/budget never grow |
+| Toggle during active run | Disabled; stop stays available | Mode captured per assessment |
+| Operator cancels | Queued actions revoked, in-flight abort requested, evidence kept | No silent partial success |
+| Executor or ZAP times out | Safe bounded retry only if idempotent; uncertain action inconclusive | No automatic blind replay |
+| State-changing test sequence | Verified clean target state between interfering operations | Evidence collected before reset |
+| Redirect/crafted URI targets host, metadata IP or external site | Rejected before network operation and after redirects | No SSRF/scope bypass |
+| Attempted Docker privileges/host mounts/untested project import | Refused | No general Docker provisioning surface |
+| Read-only preview endpoints | Marked preview/not executed | No false positive evidence |
+| No authenticated crawl | Compatibility/coverage limitation shown | No assertion protected routes were tested |
 
-## Decisions to approve before implementation
+## 8. Risk register and resolution
 
-1. **Initial scope:** only the registered local vulnerable-store target (recommended), or additional explicitly approved dockerized teaching targets with new manifests/tests? **Default: existing target only.**
-2. **Model policy:** offline-first with optional local model suggestions (recommended), or model-required flow? **Default: offline-first.**
-3. **Active scanner policy:** no ZAP/Nuclei active scanning until isolated-target registration and independent approval (recommended). **Default: no active external scanner.**
-4. **Operator identity:** local single-user access is not itself an authorization scheme. **Block T6** until execution permission and browser-to-Docker trust boundary are agreed.
-5. **Evidence retention:** operation receipts in a new local MARS operational store with opt-in export; no writes to frozen research artifacts. **Default: preserve historical files.**
+| Risk | Severity | Mitigation / proof |
+| --- | --- | --- |
+| Optional LLM hooks produce nondeterministic or unverified Red decisions | High | Required path is model-free; no provider call in critical-path tests; optional legacy functions are isolated or deprecated. |
+| Agent autonomy mistaken for execution permission | Critical | Policy service validates every operation and redirect against immutable operator-approved snapshot. |
+| ZAP active test exceeds approved target or scanner API exposed | Critical | Dedicated isolated network, targeted rules only, pinned build, default-deny egress, permission checks, no host API bind. |
+| Container resets destroy unrelated data | Critical | Restrict to named disposable lab assets; verify ownership labels and volume scope. |
+| Test state contamination | High | Reset/recreate only where needed; verify clean-state fingerprint; preserve evidence first. |
+| Tool alerts or preview output treated as confirmed | High | Separate observations from independent reproduction receipts and verification oracle. |
+| Manual rerun executes stale plan | High | Immutable plan versions and stale state gate in both API and worker. |
+| False sense of full coverage | High | Eligible test denominator, explicit gaps, unsupported classes and authentication limitations. |
+| Browser or tool output injects unauthorized actions | High | Authenticated effectful API, CSRF/anti-replay, Pydantic validation, sanitized evidence, no arbitrary commands. |
+| Laptop resource pressure | Medium | One heavy run per target, Standard bounded budgets, on-demand scanner and queue. |
+| UI duplicates features or disturbs MARS theme | Medium | Reuse existing nav, routes, API client and CSS tokens. |
+| Premature Blue/import features expand scope | Medium | Explicit deferrals; only data contract for future handoff. |
 
-**Stop condition:** This is a plan, not authorization to run tests, pull images, modify services, install Python dependencies, or implement the page.
+## 9. Architecture review: Standards axis vs. specification axis
+
+**Review method:** This is a pre-implementation architecture/specification review, not a `git diff <ref>...HEAD` code review. The development laptop was offline during this planning session, and a fixed diff base was not given; therefore no claim of executing the `/review` skill's two parallel code-diff subreviews is made.
+
+**Standards / engineering-quality findings:** Avoid duplicate agents or new microservices; do not add model providers; reuse existing Pydantic/httpx/SQLite/React conventions; make safety gates server-owned. Do not add scanner/container dependencies before a measured functional need and isolated test. Critical open implementation verification: latest repo inspection, actual command coverage of the current controlled executor, and ZAP topology/isolation suitability.
+
+**Spec-fit findings resolved:** Original proposal focused too narrowly on static catalogues; now includes ZAP endpoint candidates and approved adaptable templates. Model hooks are not a core dependency. Blue tool placement corrected. Imported applications, authenticated discovery and more profiles explicitly deferred. Four-panel Manual UX, dedicated Autonomous timeline, mode lock, durable gaps and evidence agreed. All Q51–Q54 recommendations incorporated.
+
+**No unanswered requirements are blocking task planning.** Where exact operational limits depend on measurements, T04/T09 must select conservative defaults and prove them under Docker rather than request further product decisions.
+
+## 10. Release approval gate
+
+Implementation is **not** started by this document. On later explicit implementation authorization, begin **T01 only**, verify the working tree and execute tasks/checkpoints in order. Do not claim a completed Red Team until the final gates in `tasks/todo.md` pass against an authorized Docker target with reproducible evidence.
