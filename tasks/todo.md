@@ -47,7 +47,7 @@ Do not start Docker tools or alter working code before the existing branch, test
 - [x] Agent contracts: deterministic inputs/outputs checked.
 - [x] Record passing command, output location and reviewer/commit reference.
 
-**Checkpoint A.2 evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_agent_contracts.py tests/test_red_team_mvp.py tests/test_policy_engine.py tests/test_registered_assessment_plan.py tests/test_controlled_executor.py tests/test_operator_console.py tests/test_docker_isolation_config.py tests/test_mars_red_preflight.py` (128 passed, 1 existing deprecation warning); review basis: T02 scope diff and fail-closed contract tests; commit reference: the commit containing this checkpoint.
+**Checkpoint A.2 evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_agent_contracts.py tests/test_red_team_mvp.py tests/test_policy_engine.py tests/test_registered_assessment_plan.py tests/test_controlled_executor.py tests/test_operator_console.py tests/test_docker_isolation_config.py tests/test_mars_red_preflight.py` (128 passed, 1 existing deprecation warning); review basis: T02 scope diff and fail-closed contract tests; commit: `0b60ad5`.
 
 ### T03: Define Standard assessment policy
 
@@ -62,7 +62,7 @@ Do not start Docker tools or alter working code before the existing branch, test
 - [x] Standard is the only testing profile; no Quick/Thorough placeholders.
 - [x] **Verification:** Policy unit tests for valid target, forbidden host/method/class and each exhausted budget; inspect config bounds.
 
-**T03 verification evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_policy.py` (18 passed); Standard bounds in `config/red_standard.json`. Snapshot/check are contract-only and do not grant tool dispatch permission (T07/T08). Commit reference: the commit containing this T03 checkpoint.
+**T03 verification evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_policy.py` (18 passed); Standard bounds in `config/red_standard.json`. Snapshot/check are contract-only and do not grant tool dispatch permission (T07/T08). Commit: `e47bea4`.
 
 ### T04: Specify persisted states and API DTOs
 
@@ -72,10 +72,12 @@ Do not start Docker tools or alter working code before the existing branch, test
 **Depends on:** T02,T03. **Size:** S. **Likely touched:** `schemas/red_team.py; dashboard/api/console.py (contracts only); tests/test_red_schema_contracts.py`.
 
 **Acceptance criteria:**
-- [ ] Assessment, stage, finding and gap statuses have explicit transition rules and separate workflow-completion/coverage fields.
-- [ ] Each operation references one immutable plan version and authorization fingerprint; confirmation cannot be inferred from a ZAP alert.
-- [ ] JSON contract fixtures can be decoded and rejected on invalid transitions/references.
-- [ ] **Verification:** Schema tests serialize all states, reject illegal transitions and compare representative API payloads.
+- [x] Assessment, stage, finding and gap statuses have explicit transition rules and separate workflow-completion/coverage fields.
+- [x] Each operation references one immutable plan version and authorization fingerprint; confirmation cannot be inferred from a ZAP alert.
+- [x] JSON contract fixtures can be decoded and rejected on invalid transitions/references.
+- [x] **Verification:** Schema tests serialize all states, reject illegal transitions and compare representative API payloads.
+
+**T04 verification evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_schema_contracts.py tests/test_red_policy.py tests/test_red_agent_contracts.py tests/test_red_team_mvp.py tests/test_policy_engine.py tests/test_registered_assessment_plan.py tests/test_controlled_executor.py tests/test_operator_console.py tests/test_docker_isolation_config.py tests/test_mars_red_preflight.py` (167 passed, one pre-existing Starlette/httpx warning). DTO test uses an in-process FastAPI response fixture, not a live Red endpoint. Actual persistence and dispatch remain out of scope.
 
 ### Checkpoint A.4: release gate after T04
 
