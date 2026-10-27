@@ -66,7 +66,7 @@ Do not start Docker tools or alter working code before the existing branch, test
 
 ### T04: Specify persisted states and API DTOs
 
-- [ ] **T04 fully implemented and verified**
+- [x] **T04 fully implemented and verified**
 
 **Outcome:** Finalize the minimal state machine and mapping among candidates, plans, operations, evidence, findings and coverage gaps.
 **Depends on:** T02,T03. **Size:** S. **Likely touched:** `schemas/red_team.py; dashboard/api/console.py (contracts only); tests/test_red_schema_contracts.py`.
@@ -81,8 +81,10 @@ Do not start Docker tools or alter working code before the existing branch, test
 
 ### Checkpoint A.4: release gate after T04
 
-- [ ] Baseline and scope: contract review complete.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Baseline and scope: contract review complete.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint A.4 evidence:** 167 focused Python tests passed; reviewed state/plan/receipt DTO scope and fail-closed transitions; T04 commit `2153d13`.
 
 ## Phase B: Persistence, security and approval
 
@@ -90,16 +92,18 @@ Lay the server-side state/evidence/authorization foundation; make rejection beha
 
 ### T05: Persist assessment and plan versions
 
-- [ ] **T05 fully implemented and verified**
+- [x] **T05 fully implemented and verified**
 
 **Outcome:** Add minimal SQLite persistence for assessments, stages, candidates, plans, operations and immutable authorization snapshots.
 **Depends on:** T04. **Size:** M. **Likely touched:** `existing SQLite persistence layer; schemas/red_team.py; migrations or schema initialization; tests/test_red_store.py`.
 
 **Acceptance criteria:**
-- [ ] Creating, reading and restarting preserves assessment identity, plan version, stage status and authorization.
-- [ ] Prior plan versions are retained; staleness is explicit and older records are never overwritten.
-- [ ] Foreign references and uniqueness/idempotency constraints are enforced.
-- [ ] **Verification:** Temp-database tests create an assessment, reopen storage, verify version history and reject duplicate requests.
+- [x] Creating, reading and restarting preserves assessment identity, plan version, stage status and authorization.
+- [x] Prior plan versions are retained; staleness is explicit and older records are never overwritten.
+- [x] Foreign references and uniqueness/idempotency constraints are enforced.
+- [x] **Verification:** Temp-database tests create an assessment, reopen storage, verify version history and reject duplicate requests.
+
+**T05 verification evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_store.py` (8 passed); all persistence tests use isolated temporary SQLite databases. T05 has no effectful API or scan path. Commit reference: the commit containing this record.
 
 ### T06: Persist append-only timeline and evidence metadata
 
