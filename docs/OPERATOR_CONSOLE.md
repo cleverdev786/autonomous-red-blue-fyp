@@ -32,6 +32,21 @@ remains available separately.
 
 More detail: TOOL_DRIVEN_MARS_OPERATION_2026-10-24.md.
 
+## Red operator review API (T08)
+
+The `/api/red/operator` routes are **disabled unless** the MARS server starts
+with a separately configured `MARS_RED_OPERATOR_TOKEN` containing at least 32
+characters. Do not store the token in Git, a browser bundle, or a query string.
+Authorized local clients send `Authorization: Bearer <operator token>` and an
+approved `Origin` header. After fetching `GET /api/red/operator/csrf`, supply
+its `csrf_token` as `X-Red-CSRF` with a unique `request_id` on
+`POST /api/red/operator/reviews`. Replay IDs are rejected durably.
+
+This endpoint **only records a review request** for an existing proposed Red
+operation in the append-only journal. It does not approve an operation, change
+its status, queue work, or execute a test. Other Red execution controls remain
+disabled until their separate safety gates are implemented.
+
 ## Troubleshooting
 
 Run docker compose ps and check the MARS status endpoint at

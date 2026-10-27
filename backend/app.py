@@ -17,11 +17,13 @@ def create_app(
     database_path: str | Path | None = None,
     *,
     mars_workspace_db: str | Path | None = None,
+    red_state_db: str | Path | None = None,
 ) -> FastAPI:
     """Configure a MARS instance while preserving the existing API contracts."""
     return create_console_app(
         database_path=database_path,
         mars_workspace_db=mars_workspace_db,
+        red_state_db=red_state_db,
     )
 
 

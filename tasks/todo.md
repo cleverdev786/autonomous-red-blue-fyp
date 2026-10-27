@@ -146,21 +146,25 @@ Lay the server-side state/evidence/authorization foundation; make rejection beha
 
 ### T08: Protect state-changing Red API operations
 
-- [ ] **T08 fully implemented and verified**
+- [x] **T08 fully implemented and verified**
 
 **Outcome:** Extend existing FastAPI console protections for explicit operator authorization, CSRF/anti-replay and validated command semantics.
 **Depends on:** T05,T07. **Size:** M. **Likely touched:** `dashboard/api/console.py; schemas/red_team.py; tests/test_red_api_security.py`.
 
 **Acceptance criteria:**
-- [ ] Effectful Red routes are authorized and protected against cross-origin/CSRF/duplicate submissions; same-origin alone is not used as permission.
-- [ ] No API accepts raw Docker flags, unrestricted network URLs, shell commands, arbitrary ZAP scripts or direct evidence filesystem paths.
-- [ ] Rejections have consistent machine-readable status and do not mutate queued work.
-- [ ] **Verification:** FastAPI TestClient tests: missing auth, wrong origin/CSRF, replay, malformed payload and legitimate operator request.
+- [x] Effectful Red routes are authorized and protected against cross-origin/CSRF/duplicate submissions; same-origin alone is not used as permission.
+- [x] No API accepts raw Docker flags, unrestricted network URLs, shell commands, arbitrary ZAP scripts or direct evidence filesystem paths.
+- [x] Rejections have consistent machine-readable status and do not mutate queued work.
+- [x] **Verification:** FastAPI TestClient tests: missing auth, wrong origin/CSRF, replay, malformed payload and legitimate operator request.
+
+**T08 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_api_security.py tests/test_red_admission.py tests/test_red_evidence_store.py tests/test_red_store.py tests/test_red_schema_contracts.py tests/test_red_policy.py tests/test_red_agent_contracts.py tests/test_red_team_mvp.py tests/test_policy_engine.py tests/test_registered_assessment_plan.py tests/test_controlled_executor.py tests/test_operator_console.py tests/test_docker_isolation_config.py tests/test_mars_red_preflight.py` (235 passed, one pre-existing Starlette/httpx warning). The only new effectful Red route persists operator *review intent* under authenticated, CSRF-checked, origin-bound, replay-rejected controls. No test dispatch, operator-approval grant, queue mutation, or network activity is enabled by T08. Commit reference: the commit containing this T08 checkpoint.
 
 ### Checkpoint B.8: release gate after T08
 
-- [ ] Policy admission and API protections pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Policy admission and API protections pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint B.8 evidence:** T07's read-only admission scope/deny audit and T08's guarded review-intent API passed a combined 235-test focused regression suite; commit reference: the commit containing this checkpoint. No execution endpoints are enabled.
 
 ## Phase C: Docker-isolated ZAP reconnaissance
 

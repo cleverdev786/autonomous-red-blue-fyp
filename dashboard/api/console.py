@@ -23,6 +23,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from dashboard.api.config import DashboardDatabaseError, resolve_database_path
 from dashboard.api.main import create_app
 from dashboard.api.mars_plans import register_mars_plans
+from dashboard.api.red_operator import register_red_operator
 from dashboard.api.operator_service import (
     DemoRequest,
     LocalStart,
@@ -94,7 +95,8 @@ def to_http_error(exc: OperatorError) -> HTTPException:
 
 
 def create_console_app(database_path: str | Path | None = None, *,
-                       mars_workspace_db: str | Path | None = None) -> FastAPI:
+                       mars_workspace_db: str | Path | None = None,
+                       red_state_db: str | Path | None = None) -> FastAPI:
     """Construct the console even when no historical experiment DB exists."""
     try:
         resolved = resolve_database_path(database_path)
@@ -333,6 +335,14 @@ def create_console_app(database_path: str | Path | None = None, *,
         root=Path(__file__).resolve().parents[2],
         database=workspace_path,
         require_origin=require_local_origin,
+    ))
+
+    # Local operator intents are journal-only. Absent credentials fail closed.
+    app.include_router(register_red_operator(
+        state_db=Path(red_state_db) if red_state_db is not None else (
+            Path.home() / ".local" / "state" / "mars" / "red_assessments.sqlite3"
+        ),
+        allowed_origins=frozenset(ALLOWED_ORIGINS),
     ))
 
     # ponytail: built files only; rebuild with npm when React changes.
