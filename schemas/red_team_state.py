@@ -197,6 +197,7 @@ class ReceiptDTO(_RedDTO):
 class EvidenceArtifactDTO(_RedDTO):
     evidence_id: Identifier
     receipt_id: Identifier
+    operation_id: Identifier | None = None
     sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     content_type: str = Field(min_length=3, max_length=100)
     storage_ref: str = Field(min_length=1, max_length=250)

@@ -107,21 +107,25 @@ Lay the server-side state/evidence/authorization foundation; make rejection beha
 
 ### T06: Persist append-only timeline and evidence metadata
 
-- [ ] **T06 fully implemented and verified**
+- [x] **T06 fully implemented and verified**
 
 **Outcome:** Create a small event/evidence storage seam backed by existing SQLite/file conventions.
 **Depends on:** T05. **Size:** M. **Likely touched:** `existing persistence layer; services/red_evidence_store.py (if needed); tests/test_red_evidence_store.py`.
 
 **Acceptance criteria:**
-- [ ] Timeline stores actor, action, outcome and timestamp; evidence stores hash, target fingerprint, operation ID, content type and safe bounded location.
-- [ ] Events/evidence remain accessible after a restart or failed/cancelled assessment.
-- [ ] Raw credentials and sensitive request bodies are redacted; unsafe artifact paths cannot be read.
-- [ ] **Verification:** Tests for event ordering, hash integrity, read permissions, log redaction and restart durability.
+- [x] Timeline stores actor, action, outcome and timestamp; evidence stores hash, target fingerprint, operation ID, content type and safe bounded location.
+- [x] Events/evidence remain accessible after a restart or failed/cancelled assessment.
+- [x] Raw credentials and sensitive request bodies are redacted; unsafe artifact paths cannot be read.
+- [x] **Verification:** Tests for event ordering, hash integrity, read permissions, log redaction and restart durability.
+
+**T06 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_evidence_store.py` (8 passed). Event/evidence data are append-only and scope-bound, with redacted structured JSON and SHA-256 verification. The old unreferenced Milestone-8 Red Team MVP document was deleted. No external scan performed. Commit reference: the commit containing this checkpoint.
 
 ### Checkpoint B.6: release gate after T06
 
-- [ ] Durability: versioning and evidence journal pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Durability: versioning and evidence journal pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint B.6 review:** T05 versioned SQLite persistence and T06 append-only evidence/receipt records confirmed after restart, hash tampering and path traversal denied; tests under `tests/test_red_store.py` and `tests/test_red_evidence_store.py`. Commit reference: the commit containing this checkpoint.
 
 ### T07: Enforce trusted operation admission
 
