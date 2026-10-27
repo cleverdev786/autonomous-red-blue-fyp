@@ -47,6 +47,37 @@ operation in the append-only journal. It does not approve an operation, change
 its status, queue work, or execute a test. Other Red execution controls remain
 disabled until their separate safety gates are implemented.
 
+## Optional confined ZAP image preflight (T09)
+
+The default `./launch-mars.sh` does **not** start ZAP. The official
+ZAP 2.17.0 Linux/amd64 image is pinned to a verified registry manifest digest
+in `compose.zap.yaml`. This separate, opt-in Compose overlay connects ZAP only
+to a dedicated internal network shared with `vulnerable-store`. It uses
+non-root/read-only hardening, 0.5 CPU, 512 MiB RAM, a 64-PID limit and
+an idle 180-second lifetime. **It does not run a scan or expose a ZAP API.**
+
+Review the local image and health behavior before opting in:
+
+```bash
+docker compose -f compose.yaml -f compose.zap.yaml --profile zap config --quiet
+docker compose -f compose.yaml -f compose.zap.yaml --profile zap up -d --no-deps --no-build zap
+docker network connect --alias vulnerable-store fyp-red-blue-lab_zap-target fyp-vulnerable-store
+docker compose -f compose.yaml -f compose.zap.yaml --profile zap ps zap
+# Only probe http://vulnerable-store:8000/health; do not run ZAP scans.
+docker compose -f compose.yaml -f compose.zap.yaml --profile zap stop zap
+docker compose -f compose.yaml -f compose.zap.yaml --profile zap rm -f zap
+docker network disconnect fyp-red-blue-lab_zap-target fyp-vulnerable-store
+docker network rm fyp-red-blue-lab_zap-target
+```
+
+The image is large and not part of normal startup. The pinned image was
+downloaded and the health-only smoke test passed on 2026-10-27: internal
+lab-target health responded, public TCP egress was denied, and the temporary
+ZAP container/network were removed. The commands above assume the normal
+Compose project `fyp-red-blue-lab` and must be stopped before cleanup.
+Do not enable an active scanner or expose any ZAP API; registered
+reconnaissance and dispatch safeguards are separate tasks.
+
 ## Troubleshooting
 
 Run docker compose ps and check the MARS status endpoint at

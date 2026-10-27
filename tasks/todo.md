@@ -172,16 +172,18 @@ Introduce the scanner safely, then let the Recon Agent produce policy-classified
 
 ### T09: Add confined on-demand ZAP Compose job
 
-- [ ] **T09 fully implemented and verified**
+- [x] **T09 fully implemented and verified**
 
 **Outcome:** Prepare official version/digest-pinned ZAP behind isolated lab-network access, without starting unrestricted scans.
 **Depends on:** T01,T03,T07. **Size:** M. **Likely touched:** `compose.yaml; config/zap/* (if needed); tests/test_zap_compose_policy.py`.
 
 **Acceptance criteria:**
-- [ ] Scanner can reach only the explicitly registered Docker lab target with no host network, exposed public ZAP API, Docker socket or privileged mode.
-- [ ] CPU/memory/pid/time limits and a vetted image digest are recorded; lifecycle is on-demand, not permanently running.
-- [ ] Compose topology/isolation checks verify no unintended changes to existing lab services.
-- [ ] **Verification:** `docker compose config`; static isolation checks; controlled service startup/shutdown/health test only against the lab.
+- [x] Scanner can reach only the explicitly registered Docker lab target with no host network, exposed public ZAP API, Docker socket or privileged mode.
+- [x] CPU/memory/pid/time limits and a vetted image digest are recorded; lifecycle is on-demand, not permanently running.
+- [x] Compose topology/isolation checks verify no unintended changes to existing lab services.
+- [x] **Verification:** `docker compose config`; static isolation checks; controlled service startup/shutdown/health test only against the lab.
+
+**T09 final verification:** Official ZAP 2.17.0 linux/amd64 image digest `sha256:0075662e5c287cf0a68caebabbfea872e5dc461912ad6d7345fa02a290d0ccb6` verified using `docker image inspect`. `docker compose -f compose.yaml -f compose.zap.yaml --profile zap config --quiet` passed; `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_zap_compose_policy.py` (7 passed). Runtime smoke test: `docker compose ... up -d --no-deps --no-build zap`, attached only the registered `fyp-vulnerable-store` to the temporary internal `fyp-red-blue-lab_zap-target` network, confirmed healthy ZAP preflight, membership exactly two containers, HTTP GET `http://vulnerable-store:8000/health` returned baseline health, public IP `1.1.1.1:80` TCP connect denied (errno 101), and read-only/unprivileged/PID limits verified. ZAP container and temporary network stopped and deleted; normal lab unchanged. No actual ZAP crawl, active scan, or public API was started.
 
 ### T10: Build bounded ZAP adapter
 
