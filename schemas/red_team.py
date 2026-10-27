@@ -319,3 +319,66 @@ class VerificationWorkResult(_RedWorkResult):
         ):
             raise ValueError("confirmation requires successful, referenced evidence")
         return self
+
+
+# T03: only the trusted Standard profile; these records do not grant dispatch
+# authority until the operator-approval and per-operation gates (T07/T08).
+class RedStandardBudget(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    profile: Literal["standard"] = "standard"
+    max_http_requests: int = Field(default=24, ge=1, le=24)
+    max_crawl_requests: int = Field(default=12, ge=1, le=12)
+    max_tests: int = Field(default=3, ge=1, le=3)
+    max_runtime_seconds: int = Field(default=180, ge=1, le=180)
+    max_parallel_operations: int = Field(default=1, ge=1, le=1)
+    max_depth: int = Field(default=2, ge=0, le=2)
+    max_retries: int = Field(default=0, ge=0, le=0)
+    max_cpu_cores: float = Field(default=0.5, gt=0, le=0.5)
+    max_memory_mb: int = Field(default=512, ge=64, le=512)
+
+
+class RedStandardAuthorization(BaseModel):
+    """Frozen, fingerprinted approval *reference*; not proof of operator consent."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: RedScopeReference
+    approval_id: Identifier
+    scheme: Literal["http"]
+    hostname: Identifier
+    port: int = Field(ge=1, le=65535)
+    budget: RedStandardBudget
+    allowed_methods: frozenset[HttpMethod] = Field(min_length=1)
+    allowed_classes: frozenset[VulnerabilityClass] = Field(min_length=1)
+
+
+class RedPolicyUsage(BaseModel):
+    """Trusted counter snapshot; later runtime admission must update atomically."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    http_requests: int = Field(default=0, ge=0)
+    crawl_requests: int = Field(default=0, ge=0)
+    tests_started: int = Field(default=0, ge=0)
+    elapsed_seconds: float = Field(default=0, ge=0)
+    active_operations: int = Field(default=0, ge=0)
+
+
+class RedPolicyOperation(BaseModel):
+    """Only trusted operation data. No URL, arbitrary command or raw payload."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: RedScopeReference
+    kind: Literal["crawl", "test"]
+    scheme: Literal["http"]
+    hostname: Identifier
+    port: int = Field(ge=1, le=65535)
+    method: HttpMethod
+    endpoint_id: Identifier
+    test_id: Identifier | None = None
+    vulnerability_class: VulnerabilityClass | None = None
+    requests: int = Field(default=1, ge=1, le=24)
+    depth: int = Field(default=0, ge=0, le=20)
+    retry_number: int = Field(default=0, ge=0, le=10)

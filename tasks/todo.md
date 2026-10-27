@@ -51,16 +51,18 @@ Do not start Docker tools or alter working code before the existing branch, test
 
 ### T03: Define Standard assessment policy
 
-- [ ] **T03 fully implemented and verified**
+- [x] **T03 fully implemented and verified**
 
 **Outcome:** Represent the single authorized vulnerable-store target, three vulnerability classes, allowed HTTP methods and strictly bounded test budgets.
 **Depends on:** T01,T02. **Size:** M. **Likely touched:** `config/targets/vulnerable-store.json; orchestrator/policy_engine.py; schemas/red_team.py; tests/test_red_policy.py`.
 
 **Acceptance criteria:**
-- [ ] Immutable assessment authorization includes target fingerprint, allowed destination/method, SQLi/XSS/traversal, crawl/request/time/concurrency limits.
-- [ ] An unknown target, vulnerability class, method or exhausted budget is denied before an operation is issued.
-- [ ] Standard is the only testing profile; no Quick/Thorough placeholders.
-- [ ] **Verification:** Policy unit tests for valid target, forbidden host/method/class and each exhausted budget; inspect config bounds.
+- [x] Immutable assessment authorization includes target fingerprint, allowed destination/method, SQLi/XSS/traversal, crawl/request/time/concurrency limits.
+- [x] An unknown target, vulnerability class, method or exhausted budget is denied before an operation is issued.
+- [x] Standard is the only testing profile; no Quick/Thorough placeholders.
+- [x] **Verification:** Policy unit tests for valid target, forbidden host/method/class and each exhausted budget; inspect config bounds.
+
+**T03 verification evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_policy.py` (18 passed); Standard bounds in `config/red_standard.json`. Snapshot/check are contract-only and do not grant tool dispatch permission (T07/T08). Commit reference: the commit containing this T03 checkpoint.
 
 ### T04: Specify persisted states and API DTOs
 
