@@ -129,16 +129,20 @@ Lay the server-side state/evidence/authorization foundation; make rejection beha
 
 ### T07: Enforce trusted operation admission
 
-- [ ] **T07 fully implemented and verified**
+- [x] **T07 fully implemented and verified**
 
 **Outcome:** Move final authorization into a shared service independent of agent reasoning, and reject untrusted scanner recommendations.
 **Depends on:** T03,T04,T05. **Size:** M. **Likely touched:** `orchestrator/policy_engine.py; services/controlled_executor.py; tests/test_red_admission.py`.
 
 **Acceptance criteria:**
-- [ ] Every operation is revalidated against target/method/port/redirect/budget, current plan and immutable authorization, not browser claims.
-- [ ] Plan, policy and target fingerprints must match; unknown command/tool names never reach execution.
-- [ ] Unsafe redirects, URL tricks and stale plans fail closed with auditable denial events.
-- [ ] **Verification:** Negative tests for localhost/metadata/external destination, encoded URL, redirects, stale plan, tampered operation and budget violation.
+- [x] Every operation is revalidated against target/method/port/redirect/budget, current plan and immutable authorization, not browser claims.
+- [x] Plan, policy and target fingerprints must match; unknown command/tool names never reach execution.
+- [x] Unsafe redirects, URL tricks and stale plans fail closed with auditable denial events.
+- [x] **Verification:** Negative tests for localhost/metadata/external destination, encoded URL, redirects, stale plan, tampered operation and budget violation.
+
+**T07 commit gate:** Scoped review of schema, persisted plan/authorization cross-checks, negative admission tests and journal-denial behavior complete; commit reference: the commit containing this checkpoint.
+
+**T07 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_admission.py` (31 passed). `services/red_admission.py` rechecks persisted scope, newest approved plan, registered candidate/test/method/parameters, exact canonical URL, pinned private Docker-lab IP set, no redirects, and the Standard budget snapshot. Policy outcomes are journaled under the trusted assessment scope. **T07 is pre-dispatch only:** it does not execute a tool, reserve budgets atomically, or add an effectful API; binding it to runtime dispatch remains for later tasks.
 
 ### T08: Protect state-changing Red API operations
 
