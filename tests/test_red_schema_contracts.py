@@ -1,6 +1,7 @@
 """T04 red-team lifecycle/API DTO contract tests; no Docker or scan."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from itertools import pairwise
 
 import pytest
 from fastapi import FastAPI
@@ -9,11 +10,24 @@ from pydantic import ValidationError
 
 from schemas.red_team import RedEndpointCandidate, RedScopeReference
 from schemas.red_team_state import (
-    AssessmentDTO, AssessmentState, CoverageDTO, CoverageGapDTO,
-    EvidenceArtifactDTO, FindingDTO, FindingState, OperationDTO,
-    PlanVersionDTO, ReceiptDTO, RedAssessmentDetailDTO, StageDTO, StageState, PendingHandoffDTO,
-    TimelineEventDTO, GapState, require_finding_transition,
-    require_gap_transition, require_assessment_transition, require_stage_transition,
+    AssessmentDTO,
+    CoverageDTO,
+    CoverageGapDTO,
+    EvidenceArtifactDTO,
+    FindingDTO,
+    FindingState,
+    GapState,
+    OperationDTO,
+    PendingHandoffDTO,
+    PlanVersionDTO,
+    ReceiptDTO,
+    RedAssessmentDetailDTO,
+    StageDTO,
+    TimelineEventDTO,
+    require_assessment_transition,
+    require_finding_transition,
+    require_gap_transition,
+    require_stage_transition,
 )
 
 
@@ -38,15 +52,25 @@ def snapshot(scope):
                       candidate_id="c-01", test_id="xss-reflection-001",
                       status="completed")
     receipt = ReceiptDTO(scope=scope, receipt_id="r-01", operation_id="op-01",
-                         plan_version="p-01", source="controlled_http", status="completed")
+                         plan_version="p-01", test_id="xss-reflection-001",
+                         run_id="run-receipt-1",
+                         target_revision=scope.target_fingerprint,
+                         recorded_at=datetime(2026, 10, 27, tzinfo=UTC),
+                         source="controlled_http", status="completed",
+                         request_count=0,
+                         raw_response_sha256="a" * 64, evidence_id="receipt-summary-1")
     finding = FindingDTO(scope=scope, finding_id="f-01", operation_id="op-01",
                          status="confirmed", oracle_id="oracle-xss-01",
-                         evidence_receipt_ids=("r-01",))
+                         evidence_receipt_ids=("r-01",), severity="medium",
+                         category="xss", route="/scenarios/xss/search",
+                         provenance="controlled_http",
+                         reproduction_scope="registered_local_lab",
+                         evidence_id="receipt-summary-1")
     event = TimelineEventDTO(scope=scope, event_id="e-01", action="operation_completed",
-                             occurred_at=datetime(2026, 10, 27, tzinfo=timezone.utc))
+                             occurred_at=datetime(2026, 10, 27, tzinfo=UTC))
     candidate = RedEndpointCandidate(
         candidate_id="c-01", method="GET", path="/scenarios/xss/search",
-        source="registered", observed_at=datetime(2026, 10, 27, tzinfo=timezone.utc),
+        source="registered", observed_at=datetime(2026, 10, 27, tzinfo=UTC),
     )
     return RedAssessmentDetailDTO(
         assessment=assessment, candidates=(candidate,),
@@ -69,7 +93,7 @@ def test_api_payload_roundtrip_preserves_scope_status_and_coverage(snapshot):
 def test_all_assessment_state_transitions_are_explicit_and_terminal():
     chain = ["created", "awaiting_authorization", "queued", "running",
              "completed_with_limitations"]
-    for source, dest in zip(chain, chain[1:]):
+    for source, dest in pairwise(chain):
         require_assessment_transition(source, dest)
     for terminal in ("completed", "completed_with_limitations",
                      "failed", "blocked", "cancelled"):
@@ -156,7 +180,9 @@ def test_reject_receipt_with_wrong_operation_or_plan(snapshot):
 
 
 def test_zap_alert_cannot_confirm_without_controlled_receipt(snapshot):
-    alert = snapshot.receipts[0].model_copy(update={"source": "zap"})
+    alert = snapshot.receipts[0].model_copy(update={
+        "source": "zap", "observation_status": "suspected",
+    })
     with pytest.raises(ValidationError, match="confirmed"):
         RedAssessmentDetailDTO.model_validate({
             **snapshot.model_dump(), "receipts": [alert.model_dump()],

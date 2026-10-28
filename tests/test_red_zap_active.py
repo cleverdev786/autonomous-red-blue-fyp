@@ -112,6 +112,7 @@ def test_targeted_alert_is_persisted_only_as_suspected(policy_and_auth) -> None:
     policy, authorization = policy_and_auth
     calls = []
     stored = []
+    normalized = []
     adapter = ZapAdapter(
         policy=policy,
         request_json=lambda *_: pytest.fail("generic ZAP API must not be called"),
@@ -130,6 +131,7 @@ def test_targeted_alert_is_persisted_only_as_suspected(policy_and_auth) -> None:
             )
         ),
         store_suspected=stored.append,
+        store_observation=normalized.append,
     )
 
     observation = adapter.run_targeted_scan(
@@ -144,6 +146,30 @@ def test_targeted_alert_is_persisted_only_as_suspected(policy_and_auth) -> None:
     assert observation.status == "suspected"
     assert observation.confirmed is False
     assert observation.request_count == 2
+    assert stored == [observation]
+    assert normalized == [observation]
+
+
+def test_normalized_observation_sink_receives_no_alert_results(policy_and_auth) -> None:
+    policy, authorization = policy_and_auth
+    stored = []
+    adapter = ZapAdapter(
+        policy=policy,
+        request_json=lambda *_: pytest.fail("generic ZAP API must not be called"),
+        run_targeted=lambda _operation: TargetedZapRunResult(
+            request_count=2, duration_seconds=1, alerts=(),
+        ),
+        store_observation=stored.append,
+    )
+
+    observation = adapter.run_targeted_scan(
+        authorization,
+        test_id="xss-reflection-001",
+        budget=ZapBudget(max_urls=2, max_depth=1, duration_seconds=30),
+        usage=RedPolicyUsage(),
+    )
+
+    assert observation.status == "not_observed"
     assert stored == [observation]
 
 

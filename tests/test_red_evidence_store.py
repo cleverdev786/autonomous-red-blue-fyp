@@ -2,18 +2,24 @@
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
 from orchestrator.policy_engine import StandardRedPolicy
 from schemas.red_team import RedEndpointCandidate
-from schemas.red_team_state import AssessmentDTO, CoverageDTO, OperationDTO, PlanVersionDTO, ReceiptDTO
+from schemas.red_team_state import (
+    AssessmentDTO,
+    CoverageDTO,
+    OperationDTO,
+    PlanVersionDTO,
+    ReceiptDTO,
+)
 from services.red_assessment_store import RedAssessmentStore
-from services.red_evidence_store import RedEvidenceStore, EvidenceDenied
+from services.red_evidence_store import EvidenceDenied, RedEvidenceStore
 from services.target_registry import TargetRegistry
 
-from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -31,7 +37,7 @@ def journal(tmp_path):
                  auth, request_id="req-1")
     store.add_candidate("assessment-1", RedEndpointCandidate(
         candidate_id="candidate-1", method="GET", path="/scenarios/xss/search",
-        source="registered", observed_at=datetime(2026, 10, 27, tzinfo=timezone.utc),
+        source="registered", observed_at=datetime(2026, 10, 27, tzinfo=UTC),
     ))
     store.add_plan(PlanVersionDTO(scope=auth.scope, plan_version="plan-1",
                                   surface_revision="surface-1", status="approved"))
@@ -40,14 +46,20 @@ def journal(tmp_path):
                                      test_id="xss-reflection-001", status="completed"))
     evidence = RedEvidenceStore(store, tmp_path / "artifacts")
     receipt = ReceiptDTO(scope=auth.scope, receipt_id="receipt-1", operation_id="op-1",
-                         plan_version="plan-1", source="controlled_http", status="completed")
+                         plan_version="plan-1", test_id="xss-reflection-001",
+                         run_id="run-receipt-1",
+                         target_revision=auth.scope.target_fingerprint,
+                         recorded_at=datetime(2026, 10, 27, tzinfo=UTC),
+                         source="controlled_http", status="completed",
+                         request_count=0,
+                         raw_response_sha256="a" * 64, evidence_id="receipt-summary-1")
     evidence.add_receipt(receipt)
     return auth.scope, evidence, store, tmp_path
 
 
 def test_events_retain_actor_outcome_order_and_restart(journal):
     scope, evidence, store, tmp_path = journal
-    at = datetime(2026, 10, 27, tzinfo=timezone.utc)
+    at = datetime(2026, 10, 27, tzinfo=UTC)
     evidence.append_event(scope, "event-1", actor="operator", action="assessment_created",
                           outcome="allowed", occurred_at=at, details={"stage": "reconnaissance"})
     evidence.append_event(scope, "event-2", actor="policy", action="operation_blocked",
@@ -108,7 +120,7 @@ def test_hash_integrity_detects_tampering_and_restart(journal):
 
 
 def test_cross_scope_read_denied_and_foreign_receipt_rejected(journal):
-    scope, evidence, store, tmp_path = journal
+    scope, evidence, _, _ = journal
     evidence.write_evidence(scope, "ev-1", receipt_id="receipt-1",
                             data={"status": "completed"})
     wrong = scope.model_copy(update={"authorization_fingerprint": "f" * 64})
@@ -120,6 +132,40 @@ def test_cross_scope_read_denied_and_foreign_receipt_rejected(journal):
         evidence.write_evidence(wrong, "ev-2", receipt_id="receipt-1", data={})
     with pytest.raises(EvidenceDenied, match="receipt"):
         evidence.write_evidence(scope, "ev-2", receipt_id="foreign", data={})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"receipt_id": "wrong-test", "test_id": "sqli-login-bypass-001"},
+        {"receipt_id": "wrong-revision", "target_revision": "f" * 64},
+    ],
+)
+def test_receipt_test_and_target_revision_must_match_operation(journal, change):
+    scope, evidence, _, _ = journal
+    original = evidence.list_receipts(scope)[0]
+    with pytest.raises(EvidenceDenied, match="operation or plan"):
+        evidence.add_receipt(original.model_copy(update=change))
+
+
+def test_legacy_receipt_is_preserved_but_fails_closed(journal):
+    scope, evidence, _, _ = journal
+    legacy = {
+        "scope": scope.model_dump(mode="json"),
+        "receipt_id": "legacy-receipt",
+        "operation_id": "op-1",
+        "plan_version": "plan-1",
+        "source": "controlled_http",
+        "status": "completed",
+    }
+    with evidence.store._connect() as db:
+        db.execute(
+            "INSERT INTO red_receipts VALUES (?,?,?,?,?)",
+            (scope.assessment_id, "legacy-receipt", "op-1", "plan-1", json.dumps(legacy)),
+        )
+
+    with pytest.raises(EvidenceDenied, match="legacy receipt"):
+        evidence.list_receipts(scope)
 
 
 def test_path_traversal_and_symlink_escape_denied(journal):

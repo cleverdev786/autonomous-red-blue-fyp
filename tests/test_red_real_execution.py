@@ -170,6 +170,10 @@ def test_admitted_operation_returns_actual_scoped_receipt(execution_env) -> None
     assert receipt.request_count == 2
     assert receipt.evidence_ids == ("xss-unescaped-reflection-observed",)
     assert len(transport.calls) == 2
+    persisted = dispatcher.admission.journal.list_receipts(request.scope)
+    assert len(persisted) == 1
+    assert persisted[0].receipt_id == receipt.receipt_id
+    assert persisted[0].test_id == receipt.test_id
 
 
 @pytest.mark.parametrize(
@@ -247,3 +251,6 @@ def test_transport_failures_return_bounded_error_receipts(
     assert receipt.error_class == expected_class
     assert receipt.evidence_ids == ()
     assert len(transport.calls) == 1
+    persisted = dispatcher.admission.journal.list_receipts(request.scope)
+    assert persisted[0].status == expected_status
+    assert persisted[0].request_count == 1

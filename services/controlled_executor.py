@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any, Protocol
 from urllib.parse import urljoin
@@ -25,6 +26,7 @@ from schemas.verification import PolicyDecision
 from security_tests.base import RequestStep
 from security_tests.registry import SecurityTestRegistry
 from services.red_admission import AdmissionRequest, TrustedRedAdmission
+from services.red_evidence_receipts import RedEvidenceRecorder
 from services.target_registry import TargetRegistry, TargetRegistryError
 
 _IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
@@ -384,9 +386,13 @@ class PolicyAdmittedExecutor:
         *,
         admission: TrustedRedAdmission,
         executor: ControlledExecutor,
+        recorder: RedEvidenceRecorder | None = None,
+        wall_clock=lambda: datetime.now(UTC),
     ) -> None:
         self.admission = admission
         self.executor = executor
+        self.recorder = recorder or RedEvidenceRecorder(admission.journal)
+        self.wall_clock = wall_clock
 
     def execute(
         self,
@@ -452,13 +458,16 @@ class PolicyAdmittedExecutor:
             if result.completed
             else "failed"
         )
-        receipt_material = (
-            f"{authorization.scope.authorization_fingerprint}:"
-            f"{operation.operation_id}:{operation.plan_version}:"
-            f"{run_id}:{attempt_number}"
-        ).encode()
+        normalized = self.recorder.record_controlled(
+            scope=authorization.scope,
+            operation_id=operation.operation_id,
+            plan_version=operation.plan_version,
+            target_revision=authorization.scope.target_fingerprint,
+            result=result,
+            recorded_at=self.wall_clock(),
+        )
         return ControlledHttpReceipt(
-            receipt_id=f"receipt-{sha256(receipt_material).hexdigest()[:24]}",
+            receipt_id=normalized.receipt_id,
             operation_id=operation.operation_id,
             plan_version=operation.plan_version,
             run_id=result.run_id,

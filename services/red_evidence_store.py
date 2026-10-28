@@ -10,14 +10,27 @@ import json
 import os
 import re
 import sqlite3
-from datetime import datetime, timezone
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping
+
+from pydantic import TypeAdapter, ValidationError
 
 from schemas.common import Identifier
-from pydantic import TypeAdapter, ValidationError
 from schemas.red_team import RedScopeReference
-from schemas.red_team_state import EvidenceArtifactDTO, ReceiptDTO
+from schemas.red_team_state import (
+    AssessmentDTO,
+    AssessmentState,
+    CoverageDTO,
+    CoverageGapDTO,
+    EvidenceArtifactDTO,
+    FindingDTO,
+    FindingState,
+    OperationDTO,
+    PendingHandoffDTO,
+    ReceiptDTO,
+    require_assessment_transition,
+)
 from services.red_assessment_store import RedAssessmentStore, StoreConflict
 
 
@@ -96,6 +109,28 @@ class RedEvidenceStore:
                     FOREIGN KEY (assessment_id, receipt_id)
                         REFERENCES red_receipts(assessment_id, receipt_id)
                 );
+                CREATE TABLE IF NOT EXISTS red_findings (
+                    assessment_id TEXT NOT NULL,
+                    finding_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    PRIMARY KEY (assessment_id, finding_id),
+                    FOREIGN KEY(assessment_id) REFERENCES red_assessments(assessment_id)
+                );
+                CREATE TABLE IF NOT EXISTS red_pending_handoffs (
+                    assessment_id TEXT NOT NULL,
+                    finding_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    PRIMARY KEY (assessment_id, finding_id),
+                    FOREIGN KEY(assessment_id, finding_id)
+                        REFERENCES red_findings(assessment_id, finding_id)
+                );
+                CREATE TABLE IF NOT EXISTS red_coverage_gaps (
+                    assessment_id TEXT NOT NULL,
+                    gap_id TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    PRIMARY KEY (assessment_id, gap_id),
+                    FOREIGN KEY(assessment_id) REFERENCES red_assessments(assessment_id)
+                );
                 CREATE TRIGGER IF NOT EXISTS red_events_no_update
                     BEFORE UPDATE ON red_events BEGIN SELECT RAISE(ABORT, 'append-only'); END;
                 CREATE TRIGGER IF NOT EXISTS red_events_no_delete
@@ -108,6 +143,18 @@ class RedEvidenceStore:
                     BEFORE UPDATE ON red_evidence BEGIN SELECT RAISE(ABORT, 'append-only'); END;
                 CREATE TRIGGER IF NOT EXISTS red_evidence_no_delete
                     BEFORE DELETE ON red_evidence BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS red_findings_no_update
+                    BEFORE UPDATE ON red_findings BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS red_findings_no_delete
+                    BEFORE DELETE ON red_findings BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS red_pending_handoffs_no_update
+                    BEFORE UPDATE ON red_pending_handoffs BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS red_pending_handoffs_no_delete
+                    BEFORE DELETE ON red_pending_handoffs BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS red_coverage_gaps_no_update
+                    BEFORE UPDATE ON red_coverage_gaps BEGIN SELECT RAISE(ABORT, 'append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS red_coverage_gaps_no_delete
+                    BEFORE DELETE ON red_coverage_gaps BEGIN SELECT RAISE(ABORT, 'append-only'); END;
             """)
 
     def _require_scope(self, db: sqlite3.Connection, scope: RedScopeReference) -> None:
@@ -120,10 +167,18 @@ class RedEvidenceStore:
         with self.store._connect() as db:
             self._require_scope(db, receipt.scope)
             op = db.execute(
-                "SELECT plan_version FROM red_operations WHERE assessment_id=? AND operation_id=?",
+                "SELECT payload FROM red_operations WHERE assessment_id=? AND operation_id=?",
                 (receipt.scope.assessment_id, receipt.operation_id),
             ).fetchone()
-            if op is None or op["plan_version"] != receipt.plan_version:
+            operation = (
+                OperationDTO.model_validate_json(op["payload"]) if op is not None else None
+            )
+            if (
+                operation is None
+                or operation.plan_version != receipt.plan_version
+                or operation.test_id != receipt.test_id
+                or receipt.target_revision != receipt.scope.target_fingerprint
+            ):
                 raise EvidenceDenied("receipt references unknown operation or plan")
             try:
                 db.execute(
@@ -133,6 +188,310 @@ class RedEvidenceStore:
                 )
             except sqlite3.IntegrityError as exc:
                 raise EvidenceDenied("duplicate receipt") from exc
+
+    def add_receipt_with_evidence(
+        self,
+        receipt: ReceiptDTO,
+        *,
+        data: Mapping[str, object],
+    ) -> EvidenceArtifactDTO:
+        """Commit one receipt and its secret-free artifact as a single DB unit."""
+        raw = json.dumps(data, ensure_ascii=True)
+        if len(raw) > 16_384:
+            raise EvidenceDenied("evidence exceeds size limit")
+        content = json.dumps(
+            _sanitized(data), sort_keys=True, separators=(",", ":")
+        ).encode()
+        digest = hashlib.sha256(content).hexdigest()
+        relative = f"{receipt.scope.assessment_id}/{receipt.evidence_id}.json"
+        directory = self.evidence_root / receipt.scope.assessment_id
+        location = directory / f"{receipt.evidence_id}.json"
+        artifact = EvidenceArtifactDTO(
+            scope=receipt.scope,
+            evidence_id=receipt.evidence_id,
+            receipt_id=receipt.receipt_id,
+            operation_id=receipt.operation_id,
+            sha256=digest,
+            content_type="application/json",
+            storage_ref=relative,
+        )
+        created = False
+        try:
+            with self.store._connect() as db:
+                self._require_scope(db, receipt.scope)
+                row = db.execute(
+                    "SELECT payload FROM red_operations WHERE assessment_id=? AND operation_id=?",
+                    (receipt.scope.assessment_id, receipt.operation_id),
+                ).fetchone()
+                operation = (
+                    OperationDTO.model_validate_json(row["payload"])
+                    if row is not None else None
+                )
+                if (
+                    operation is None
+                    or operation.plan_version != receipt.plan_version
+                    or operation.test_id != receipt.test_id
+                    or receipt.target_revision != receipt.scope.target_fingerprint
+                ):
+                    raise EvidenceDenied("receipt references unknown operation or plan")
+                directory.mkdir(mode=0o700, exist_ok=True)
+                if directory.is_symlink() or directory.resolve() != directory:
+                    raise EvidenceDenied("unsafe evidence directory")
+                descriptor = os.open(
+                    location,
+                    os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                    0o600,
+                )
+                created = True
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                db.execute(
+                    "INSERT INTO red_receipts VALUES (?,?,?,?,?)",
+                    (
+                        receipt.scope.assessment_id,
+                        receipt.receipt_id,
+                        receipt.operation_id,
+                        receipt.plan_version,
+                        receipt.model_dump_json(),
+                    ),
+                )
+                db.execute(
+                    "INSERT INTO red_evidence VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        receipt.scope.assessment_id,
+                        receipt.evidence_id,
+                        receipt.receipt_id,
+                        receipt.operation_id,
+                        digest,
+                        artifact.content_type,
+                        relative,
+                        artifact.model_dump_json(),
+                    ),
+                )
+        except (OSError, sqlite3.IntegrityError, sqlite3.DatabaseError) as exc:
+            if created:
+                location.unlink(missing_ok=True)
+            raise EvidenceDenied("duplicate or unwritable receipt evidence") from exc
+        except Exception:
+            if created:
+                location.unlink(missing_ok=True)
+            raise
+        return artifact
+
+    def list_receipts(self, scope: RedScopeReference) -> tuple[ReceiptDTO, ...]:
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            rows = db.execute(
+                "SELECT payload FROM red_receipts WHERE assessment_id=? ORDER BY rowid",
+                (scope.assessment_id,),
+            ).fetchall()
+            try:
+                return tuple(
+                    ReceiptDTO.model_validate_json(row["payload"]) for row in rows
+                )
+            except ValidationError as exc:
+                raise EvidenceDenied(
+                    "legacy receipt is preserved but non-confirming; migration required"
+                ) from exc
+
+    def _record_verified_finding(self, finding: FindingDTO) -> None:
+        """Internal verifier sink; callers cannot promote observations here."""
+        with self.store._connect() as db:
+            self._require_scope(db, finding.scope)
+            self._add_finding(db, finding)
+
+    @staticmethod
+    def _add_finding(db: sqlite3.Connection, finding: FindingDTO) -> None:
+        receipt_ids = set(finding.evidence_receipt_ids)
+        referenced_receipts: list[ReceiptDTO] = []
+        if receipt_ids:
+            rows = db.execute(
+                "SELECT payload FROM red_receipts WHERE assessment_id=?",
+                (finding.scope.assessment_id,),
+            ).fetchall()
+            parsed = [ReceiptDTO.model_validate_json(row["payload"]) for row in rows]
+            related = {
+                item.receipt_id
+                for item in parsed
+                if item.operation_id == finding.operation_id
+            }
+            if not receipt_ids.issubset(related):
+                raise EvidenceDenied("finding references unrelated receipt")
+            referenced_receipts = [
+                item for item in parsed if item.receipt_id in receipt_ids
+            ]
+        if finding.status in {FindingState.CONFIRMED, FindingState.NOT_CONFIRMED} and (
+            not referenced_receipts
+            or any(
+                item.source != "controlled_http" or item.status != "completed"
+                for item in referenced_receipts
+            )
+            or finding.provenance != "controlled_http"
+            or finding.reproduction_scope != "registered_local_lab"
+            or finding.evidence_id
+            not in {item.evidence_id for item in referenced_receipts}
+        ):
+            raise EvidenceDenied("terminal finding requires controlled receipt evidence")
+        if (
+            finding.status == FindingState.SUSPECTED
+            and finding.provenance == "zap"
+            and (
+                not referenced_receipts
+                or any(item.source != "zap" for item in referenced_receipts)
+            )
+        ):
+            raise EvidenceDenied("ZAP suspicion requires a ZAP receipt")
+        existing = db.execute(
+            "SELECT payload FROM red_findings WHERE assessment_id=? AND finding_id=?",
+            (finding.scope.assessment_id, finding.finding_id),
+        ).fetchone()
+        if existing is not None:
+            if FindingDTO.model_validate_json(existing["payload"]) != finding:
+                raise EvidenceDenied("finding identity conflict")
+            return
+        db.execute(
+            "INSERT INTO red_findings VALUES (?,?,?)",
+            (finding.scope.assessment_id, finding.finding_id, finding.model_dump_json()),
+        )
+
+    def list_findings(self, scope: RedScopeReference) -> tuple[FindingDTO, ...]:
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            rows = db.execute(
+                "SELECT payload FROM red_findings WHERE assessment_id=? ORDER BY rowid",
+                (scope.assessment_id,),
+            ).fetchall()
+            return tuple(FindingDTO.model_validate_json(row["payload"]) for row in rows)
+
+    def ensure_pending_handoff(self, finding: FindingDTO) -> PendingHandoffDTO:
+        if finding.status != FindingState.CONFIRMED:
+            raise EvidenceDenied("pending handoff requires a confirmed finding")
+        handoff = PendingHandoffDTO(scope=finding.scope, finding_id=finding.finding_id)
+        with self.store._connect() as db:
+            self._require_scope(db, finding.scope)
+            self._ensure_pending_handoff(db, finding, handoff)
+        return handoff
+
+    @staticmethod
+    def _ensure_pending_handoff(
+        db: sqlite3.Connection,
+        finding: FindingDTO,
+        handoff: PendingHandoffDTO,
+    ) -> None:
+        row = db.execute(
+            "SELECT payload FROM red_findings WHERE assessment_id=? AND finding_id=?",
+            (finding.scope.assessment_id, finding.finding_id),
+        ).fetchone()
+        if row is None or FindingDTO.model_validate_json(row["payload"]) != finding:
+            raise EvidenceDenied("pending handoff requires the persisted finding")
+        db.execute(
+            "INSERT OR IGNORE INTO red_pending_handoffs VALUES (?,?,?)",
+            (finding.scope.assessment_id, finding.finding_id, handoff.model_dump_json()),
+        )
+
+    def finalize_assessment(
+        self,
+        scope: RedScopeReference,
+        coverage: CoverageDTO,
+        findings: tuple[FindingDTO, ...],
+    ) -> AssessmentDTO:
+        """Atomically persist findings/handoffs and the terminal coverage state."""
+        status = (
+            AssessmentState.COMPLETED
+            if coverage.coverage_complete
+            else AssessmentState.COMPLETED_WITH_LIMITATIONS
+        )
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            current, _ = self.store._load_assessment(db, scope.assessment_id)
+            completed = AssessmentDTO.model_validate(
+                current.model_copy(
+                    update={
+                        "status": status,
+                        "workflow_complete": True,
+                        "coverage": coverage,
+                    }
+                )
+            )
+            if current != completed:
+                try:
+                    require_assessment_transition(current.status, status)
+                except ValueError as exc:
+                    raise EvidenceDenied(
+                        "assessment cannot be completed from its current state"
+                    ) from exc
+            persisted = tuple(
+                FindingDTO.model_validate_json(row["payload"])
+                for row in db.execute(
+                    "SELECT payload FROM red_findings WHERE assessment_id=? ORDER BY rowid",
+                    (scope.assessment_id,),
+                ).fetchall()
+            )
+            if persisted != findings:
+                raise EvidenceDenied(
+                    "assessment finalization requires the complete verified finding set"
+                )
+            for finding in persisted:
+                if finding.status == FindingState.CONFIRMED:
+                    handoff = PendingHandoffDTO(
+                        scope=finding.scope, finding_id=finding.finding_id
+                    )
+                    self._ensure_pending_handoff(db, finding, handoff)
+            if current != completed:
+                db.execute(
+                    "UPDATE red_assessments SET assessment_json=? WHERE assessment_id=?",
+                    (completed.model_dump_json(), scope.assessment_id),
+                )
+        return completed
+
+    def list_pending_handoffs(
+        self, scope: RedScopeReference
+    ) -> tuple[PendingHandoffDTO, ...]:
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            rows = db.execute(
+                "SELECT payload FROM red_pending_handoffs WHERE assessment_id=? ORDER BY rowid",
+                (scope.assessment_id,),
+            ).fetchall()
+            return tuple(PendingHandoffDTO.model_validate_json(row["payload"]) for row in rows)
+
+    def record_coverage_gaps(
+        self,
+        scope: RedScopeReference,
+        gaps: tuple[CoverageGapDTO, ...],
+    ) -> None:
+        if any(item.scope != scope for item in gaps):
+            raise EvidenceDenied("coverage gap scope mismatch")
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            for gap in gaps:
+                existing = db.execute(
+                    "SELECT payload FROM red_coverage_gaps WHERE assessment_id=? AND gap_id=?",
+                    (scope.assessment_id, gap.gap_id),
+                ).fetchone()
+                if existing is not None:
+                    if CoverageGapDTO.model_validate_json(existing["payload"]) != gap:
+                        raise EvidenceDenied("coverage gap identity conflict")
+                    continue
+                db.execute(
+                    "INSERT INTO red_coverage_gaps VALUES (?,?,?)",
+                    (scope.assessment_id, gap.gap_id, gap.model_dump_json()),
+                )
+
+    def list_coverage_gaps(
+        self, scope: RedScopeReference
+    ) -> tuple[CoverageGapDTO, ...]:
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            rows = db.execute(
+                "SELECT payload FROM red_coverage_gaps WHERE assessment_id=? ORDER BY rowid",
+                (scope.assessment_id,),
+            ).fetchall()
+            return tuple(
+                CoverageGapDTO.model_validate_json(row["payload"]) for row in rows
+            )
 
     def append_event(
         self,
@@ -148,7 +507,7 @@ class RedEvidenceStore:
         identifier = TypeAdapter(Identifier)
         for value in (event_id, actor, action, outcome):
             identifier.validate_python(value)
-        timestamp = occurred_at or datetime.now(timezone.utc)
+        timestamp = occurred_at or datetime.now(UTC)
         if timestamp.tzinfo is None:
             raise EvidenceDenied("event timestamp requires timezone")
         raw = json.dumps(details or {}, ensure_ascii=True)

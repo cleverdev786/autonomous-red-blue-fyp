@@ -109,6 +109,7 @@ class ZapTargetedObservation(BaseModel):
 ZapJSON = Callable[[str, Mapping[str, str], float], object]
 TargetedZapRunner = Callable[[TargetedZapOperation], TargetedZapRunResult]
 SuspectedStore = Callable[[ZapTargetedObservation], None]
+ObservationStore = Callable[[ZapTargetedObservation], None]
 GateStatus = Callable[[float], object]
 _STATUS = re.compile(r"^HTTP/1\.[01] ([1-5][0-9]{2})\b")
 
@@ -297,11 +298,13 @@ class ZapAdapter:
         request_json: ZapJSON,
         run_targeted: TargetedZapRunner | None = None,
         store_suspected: SuspectedStore | None = None,
+        store_observation: ObservationStore | None = None,
     ):
         self.policy = policy
         self._request_json = request_json
         self._run_targeted = run_targeted
         self._store_suspected = store_suspected
+        self._store_observation = store_observation
 
     def _authorize(
         self,
@@ -548,11 +551,16 @@ class ZapAdapter:
             duration_seconds=result.duration_seconds,
             alert_count=len(result.alerts),
         )
-        if result.alerts:
-            if self._store_suspected is None:
-                raise ZapAdapterDenied("suspected_store_unavailable")
+        if self._store_observation is not None:
+            try:
+                self._store_observation(observation)
+            except (OSError, ValueError) as exc:
+                raise ZapAdapterDenied("observation_store_failed") from exc
+        if result.alerts and self._store_suspected is not None:
             try:
                 self._store_suspected(observation)
             except (OSError, ValueError) as exc:
                 raise ZapAdapterDenied("suspected_store_failed") from exc
+        elif result.alerts and self._store_observation is None:
+            raise ZapAdapterDenied("suspected_store_unavailable")
         return observation

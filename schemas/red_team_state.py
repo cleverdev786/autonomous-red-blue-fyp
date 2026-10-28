@@ -200,12 +200,57 @@ class OperationDTO(_RedDTO):
     status: Literal["proposed", "approved", "running", "completed", "blocked", "cancelled"]
 
 
+class ReceiptExchangeDTO(BaseModel):
+    """Secret-free digest of one bounded controlled HTTP response."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    step_id: Identifier
+    endpoint_id: Identifier
+    method: Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
+    status_code: int = Field(ge=100, le=599)
+    body_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    body_length: int = Field(ge=0, le=2000)
+
+
 class ReceiptDTO(_RedDTO):
     receipt_id: Identifier
     operation_id: Identifier
     plan_version: Identifier
+    test_id: Identifier
+    run_id: Identifier
+    target_revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    recorded_at: datetime
     source: Literal["controlled_http", "zap"]
-    status: Literal["completed", "timeout", "failed", "blocked"]
+    observation_status: Literal["suspected", "not_observed"] | None = None
+    status: Literal["completed", "timeout", "failed", "blocked", "cancelled"]
+    request_count: int = Field(ge=0, le=24)
+    exchanges: tuple[ReceiptExchangeDTO, ...] = Field(default=(), max_length=20)
+    raw_response_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    evidence_id: Identifier
+
+    @field_validator("recorded_at")
+    @classmethod
+    def timestamp_is_aware(cls, value):
+        if value.tzinfo is None:
+            raise ValueError("receipt timestamp requires timezone")
+        return value
+
+    @model_validator(mode="after")
+    def controlled_exchange_count_matches(self):
+        if self.source == "controlled_http":
+            observed = len(self.exchanges)
+            if (
+                (self.status == "completed" and self.request_count != observed)
+                or self.request_count < observed
+                or self.request_count > observed + 1
+            ):
+                raise ValueError("controlled receipt exchange count mismatch")
+            if self.observation_status is not None:
+                raise ValueError("controlled receipt cannot contain scanner classification")
+        elif self.observation_status is None:
+            raise ValueError("ZAP receipt requires an explicit observation classification")
+        return self
 
 
 class EvidenceArtifactDTO(_RedDTO):
@@ -232,13 +277,29 @@ class FindingDTO(_RedDTO):
     status: FindingState
     oracle_id: Identifier | None = None
     evidence_receipt_ids: tuple[Identifier, ...] = ()
+    severity: Literal["informational", "low", "medium", "high", "critical"] | None = None
+    category: Identifier | None = None
+    route: str | None = Field(default=None, min_length=1, max_length=500)
+    provenance: Literal["controlled_http", "zap"] | None = None
+    reproduction_scope: Literal["registered_local_lab", "targeted_scanner"] | None = None
+    evidence_id: Identifier | None = None
 
     @model_validator(mode="after")
     def check_evidence_claim(self):
         if self.status == FindingState.CONFIRMED and (
             self.oracle_id is None or not self.evidence_receipt_ids
+            or self.severity is None or self.category is None or self.route is None
+            or self.provenance != "controlled_http"
+            or self.reproduction_scope != "registered_local_lab"
+            or self.evidence_id is None
         ):
-            raise ValueError("confirmed finding requires an oracle and evidence receipts")
+            raise ValueError(
+                "confirmed finding requires an oracle and controlled evidence provenance"
+            )
+        if self.route is not None and (
+            not self.route.startswith("/") or self.route.startswith("//") or "\\" in self.route
+        ):
+            raise ValueError("finding route must be a local absolute path")
         return self
 
 
@@ -283,6 +344,26 @@ class TimelineEventDTO(_RedDTO):
 class PendingHandoffDTO(_RedDTO):
     finding_id: Identifier
     data_only: Literal[True] = True
+
+
+class RedAssessmentSummaryDTO(BaseModel):
+    """Truthful rollup that never infers safety from a zero finding count."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: RedScopeReference
+    status: Literal["completed", "completed_with_limitations"]
+    coverage: CoverageDTO
+    findings: tuple[FindingDTO, ...] = ()
+    coverage_gaps: tuple[CoverageGapDTO, ...] = ()
+    pending_handoffs: tuple[PendingHandoffDTO, ...] = ()
+    warnings: tuple[
+        Literal[
+            "unauthenticated_only_coverage",
+            "unsupported_vulnerability_classes",
+            "incomplete_or_uncertain_coverage",
+        ], ...
+    ] = ()
 
 
 class RedAssessmentDetailDTO(BaseModel):
@@ -365,12 +446,19 @@ class RedAssessmentDetailDTO(BaseModel):
             referenced = [receipts.get(rid) for rid in finding.evidence_receipt_ids]
             if any(r is None or r.operation_id != finding.operation_id for r in referenced):
                 raise ValueError("finding references unrelated receipt")
-            if finding.status in {FindingState.CONFIRMED, FindingState.NOT_CONFIRMED}:
-                if not referenced or not any(
-                    r.source == "controlled_http" and r.status == "completed"
-                    for r in referenced
-                ):
-                    raise ValueError("confirmed/negative verdict requires completed controlled receipt")
+            if (
+                finding.status in {FindingState.CONFIRMED, FindingState.NOT_CONFIRMED}
+                and (
+                    not referenced
+                    or not any(
+                        r.source == "controlled_http" and r.status == "completed"
+                        for r in referenced
+                    )
+                )
+            ):
+                raise ValueError(
+                    "confirmed/negative verdict requires completed controlled receipt"
+                )
 
         for gap in self.coverage_gaps:
             if gap.candidate_id is not None and gap.candidate_id not in candidates:

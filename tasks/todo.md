@@ -356,48 +356,56 @@ Demonstrate real, bounded SQLi/XSS/path-traversal testing with reliable evidence
 
 ### T19: Capture and normalize actual evidence receipts
 
-- [ ] **T19 fully implemented and verified**
+- [x] **T19 fully implemented and verified**
 
 **Outcome:** Persist independently identifiable HTTP and ZAP observations with hashes and reliable provenance, without secrets.
 **Depends on:** T06,T16,T17. **Size:** M. **Likely touched:** `services/controlled_executor.py; evidence store; tests/test_red_evidence_receipts.py`.
 
 **Acceptance criteria:**
-- [ ] Receipts link execution operation, plan revision, test case, target revision, runtime timestamp and hashed bounded raw response.
-- [ ] ZAP alerts and controlled reproduction are separate source types; a scanner alert cannot become a confirmed finding through serialization.
-- [ ] Failures, timeouts and cancellations retain immutable partial receipts and redacted summaries.
-- [ ] **Verification:** Tests verify integrity mismatch detection, source type and secrecy; replay one real lab receipt.
+- [x] Receipts link execution operation, plan revision, test case, target revision, runtime timestamp and hashed bounded raw response.
+- [x] ZAP alerts and controlled reproduction are separate source types; a scanner alert cannot become a confirmed finding through serialization.
+- [x] Failures, timeouts and cancellations retain immutable partial receipts and redacted summaries.
+- [x] **Verification:** Tests verify integrity mismatch detection, source type and secrecy; replay one real lab receipt.
+
+**T19 verification:** Admitted controlled HTTP execution now records an atomic, secret-free receipt and evidence artifact; ZAP records explicit suspected/not-observed observations; partial outcomes remain durable. Focused tests and the opt-in live Docker receipt replay passed.
 
 ### T20: Independently verify supported vulnerabilities
 
-- [ ] **T20 fully implemented and verified**
+- [x] **T20 fully implemented and verified**
 
 **Outcome:** Implement explicit deterministic result oracles for SQLi, reflected XSS and path traversal against actual reproducible receipts.
 **Depends on:** T13,T16,T19. **Size:** M. **Likely touched:** `agents/red/attack_verifier.py; schemas/red_team.py; tests/test_red_verification.py`.
 
 **Acceptance criteria:**
-- [ ] Confirmed requires independently validated matching evidence from an approved controlled reproduction; another scanner is not mandatory.
-- [ ] False positive, timeout, unsupported oracle and only-ZAP-alert paths yield not_confirmed/suspected/inconclusive accurately.
-- [ ] Finding includes severity, category, route, provenance, reproduction scope and verifiable evidence reference.
-- [ ] **Verification:** Positive and negative fixture tests for each class; no evidence → never confirmed; run real lab replay.
+- [x] Confirmed requires independently validated matching evidence from an approved controlled reproduction; another scanner is not mandatory.
+- [x] False positive, timeout, unsupported oracle and only-ZAP-alert paths yield not_confirmed/suspected/inconclusive accurately.
+- [x] Finding includes severity, category, route, provenance, reproduction scope and verifiable evidence reference.
+- [x] **Verification:** Positive and negative fixture tests for each class; no evidence → never confirmed; run real lab replay.
+
+**T20 verification:** Verification requires a persisted approved operation, receipt, intact evidence artifact, exact registered exchange sequence and matching raw-result hash before a trusted deterministic oracle can confirm SQLi, XSS or traversal. Scanner-only alerts remain suspected and no-alert observations are inconclusive. Positive, negative, tamper, unsupported, timeout and live-replay tests passed.
 
 ### T21: Calculate truthful assessment coverage and completion
 
-- [ ] **T21 fully implemented and verified**
+- [x] **T21 fully implemented and verified**
 
 **Outcome:** Aggregate per-test and per-candidate results into verified findings, suspect observations, untested gaps and workflow completion.
 **Depends on:** T14,T18,T20. **Size:** M. **Likely touched:** `services/red_assessment_summary.py (if necessary); schemas/red_team.py; tests/test_red_coverage.py`.
 
 **Acceptance criteria:**
-- [ ] Eligible approved test instance denominator, completed/blocked/skipped and observed-uncovered counts are computed and explicit.
-- [ ] Each confirmed finding automatically creates one durable, idempotent pending-handoff record for future Blue Team use; no Blue worker executes.
-- [ ] `completed_with_limitations` is used when material untested/uncertain coverage remains; no zero-finding = safe inference.
-- [ ] Warnings about unauthenticated-only coverage and unsupported vulnerability classes are visible in summary data.
-- [ ] **Verification:** Fixture tests for full/partial coverage, budget cutoff, unsupported route and mixed confirmed/suspected/failed outcomes.
+- [x] Eligible approved test instance denominator, completed/blocked/skipped and observed-uncovered counts are computed and explicit.
+- [x] Each confirmed finding automatically creates one durable, idempotent pending-handoff record for future Blue Team use; no Blue worker executes.
+- [x] `completed_with_limitations` is used when material untested/uncertain coverage remains; no zero-finding = safe inference.
+- [x] Warnings about unauthenticated-only coverage and unsupported vulnerability classes are visible in summary data.
+- [x] **Verification:** Fixture tests for full/partial coverage, budget cutoff, unsupported route and mixed confirmed/suspected/failed outcomes.
+
+**T21 verification:** Coverage and completion are derived from the canonical persisted candidates, operations, receipts, findings and durable coverage gaps. Confirmed findings create idempotent data-only pending handoffs; no Blue worker runs. Full, partial, budget, unsupported, blocked and mixed-outcome fixtures passed.
 
 ### Checkpoint E.21: release gate after T21
 
-- [ ] Independent evidence verification and coverage rollup pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Independent evidence verification and coverage rollup pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint E.21 evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest -q -p no:cacheprovider tests/test_red_evidence_receipts.py tests/test_red_verification.py tests/test_red_coverage.py tests/test_red_evidence_store.py -k 'not fastapi_response_model_matches_expected_contract'` passed 31 tests. The broader Red regression passed 276 tests with 1 deselected and one existing Starlette/httpx deprecation warning; the opt-in live Docker receipt replay passed 1 test. Ruff, `docker compose config -q`, `git diff --check`, registered live SQLi/XSS/traversal checks and all 8 controlled-executor functional checks passed. EngineeringSuite security and correctness review found no remaining actionable defect. Commit reference: the commit containing this checkpoint.
 
 ## Phase F: Central Orchestrator and mode execution
 
