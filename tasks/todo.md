@@ -187,21 +187,25 @@ Introduce the scanner safely, then let the Recon Agent produce policy-classified
 
 ### T10: Build bounded ZAP adapter
 
-- [ ] **T10 fully implemented and verified**
+- [x] **T10 fully implemented and verified**
 
 **Outcome:** Implement a narrow Python adapter for passive mapping and safe approved API actions rather than free-form scanner access.
 **Depends on:** T07,T09. **Size:** M. **Likely touched:** `services/zap_adapter.py (new only if needed); schemas/red_team.py; tests/test_zap_adapter.py`.
 
 **Acceptance criteria:**
-- [ ] Adapter accepts only registered target ID, documented limited operations and explicit request/depth/duration budgets.
-- [ ] Redirect/host constraints and ZAP API responses are independently validated; errors/timeouts are structured.
-- [ ] No external URLs, arbitrary scripting, broad active-scan configuration or shell execution are exposed.
-- [ ] **Verification:** Mock adapter tests for discovery, malformed output, timeouts, redirects and unapproved commands; lab-only smoke test.
+- [x] Adapter accepts only registered target ID, documented limited operations and explicit request/depth/duration budgets.
+- [x] Redirect/host constraints and ZAP API responses are independently validated; errors/timeouts are structured.
+- [x] No external URLs, arbitrary scripting, broad active-scan configuration or shell execution are exposed.
+- [x] **Verification:** Mock adapter tests for discovery, malformed output, timeouts, redirects and unapproved commands; lab-only smoke test.
+
+**T10 partial verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_zap_adapter.py` (36 passed). Fixed allowlist: passive `core/view/urls` and single registered-GET `core/action/accessUrl` with `followRedirects=false`, Standard policy snapshot and duration/depth/request bounds, canonical target-origin checks and sanitized path-only observations. No generic scripts, scanner configuration, arbitrary URL, active spider or shell access. **Live ZAP 2.17.0 API smoke:** pinned container on internal lab only, authenticated API bound to container loopback with no published port, passive view returned empty before seeding; real registered GET /health via ZapAdapter.seed completed, and next passive view rejected an off-scope URL (fail-closed). Isolated ZAP container/network removed afterward. **No active scan.** Adapter remains an injected-transport pre-dispatch contract; runtime dispatcher integration and atomic counters are future gates.
 
 ### Checkpoint C.10: release gate after T10
 
-- [ ] ZAP isolation and narrow adapter pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] ZAP isolation and narrow adapter pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint C.10 evidence:** T10 adapter mock tests and existing Red regressions; live ZAP 2.17.0 loopback-only preflight reached registered /health and rejected untrusted passive URLs; commit reference: the T10 commit containing this checkpoint.
 
 ### T11: Make Recon Agent produce endpoint candidates
 
