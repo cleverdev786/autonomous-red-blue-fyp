@@ -1,6 +1,6 @@
-"""T08: authenticated, replay-protected operator review intent API.
+"""Authenticated Red preview and replay-protected operator review APIs.
 
-Records a review request only. Does not approve, queue, dispatch or execute Red work.
+Reads stored reconnaissance or records a review request. Does not dispatch Red work.
 No secret is generated, printed or persisted by the application.
 """
 from __future__ import annotations
@@ -13,11 +13,15 @@ from typing import Literal
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from schemas.common import Identifier
+from services.reconnaissance_service import ReconnaissanceService
 from services.red_assessment_store import RedAssessmentStore, StoreConflict
-from services.red_evidence_store import RedEvidenceStore, EvidenceDenied
+from services.red_evidence_store import EvidenceDenied, RedEvidenceStore
+from services.target_registry import TargetRegistry, TargetRegistryError
+
+_IDENTIFIER = TypeAdapter(Identifier)
 
 
 class ReviewIntent(BaseModel):
@@ -38,7 +42,12 @@ def _error(status: int, code: str, message: str) -> JSONResponse:
     )
 
 
-def register_red_operator(*, state_db: Path, allowed_origins: frozenset[str]) -> APIRouter:
+def register_red_operator(
+    *,
+    state_db: Path,
+    allowed_origins: frozenset[str],
+    registry: TargetRegistry,
+) -> APIRouter:
     router = APIRouter(prefix="/api/red/operator", tags=["Red operator"])
     secret = os.getenv("MARS_RED_OPERATOR_TOKEN")
     csrf_token = secrets.token_urlsafe(32)
@@ -67,6 +76,38 @@ def register_red_operator(*, state_db: Path, allowed_origins: frozenset[str]) ->
             return blocked
         return JSONResponse(
             {"csrf_token": csrf_token},
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
+
+    @router.get("/assessments/{assessment_id}/reconnaissance-preview")
+    async def reconnaissance_preview(assessment_id: str, request: Request) -> JSONResponse:
+        blocked = authorize(request, mutation=False)
+        if blocked is not None:
+            return blocked
+        try:
+            _IDENTIFIER.validate_python(assessment_id)
+        except ValidationError:
+            return _error(404, "assessment_not_found", "Assessment is unavailable.")
+        try:
+            snapshot, authorization = RedAssessmentStore(
+                state_db, read_only=True
+            ).load(assessment_id)
+            preview = ReconnaissanceService(registry=registry).build_preview(
+                authorization=authorization,
+                candidates=snapshot.candidates,
+            )
+        except StoreConflict:
+            return _error(404, "assessment_not_found", "Assessment is unavailable.")
+        except (
+            OSError,
+            TargetRegistryError,
+            ValidationError,
+            ValueError,
+            sqlite3.DatabaseError,
+        ):
+            return _error(503, "storage_unavailable", "Preview could not be loaded.")
+        return JSONResponse(
+            preview.model_dump(mode="json"),
             headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
         )
 

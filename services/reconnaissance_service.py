@@ -13,6 +13,9 @@ from schemas.common import HttpMethod
 from schemas.red_team import (
     AttackPlanningCatalog,
     ReconnaissanceEndpoint,
+    ReconnaissancePreview,
+    ReconnaissancePreviewCandidate,
+    ReconnaissancePreviewLimitation,
     RedEndpointCandidate,
     RedPolicyUsage,
     RedScopeReference,
@@ -20,6 +23,7 @@ from schemas.red_team import (
     RegisteredTestOption,
     RestrictedReconnaissanceContext,
 )
+from schemas.targets import TargetDefinition
 from services.red_assessment_store import RedAssessmentStore, StoreConflict
 from services.red_evidence_store import RedEvidenceStore
 from services.target_registry import TargetRegistry, TargetRegistryError
@@ -169,6 +173,48 @@ class ReconnaissanceService:
                     occurred_at=mapping.observed_at,
                 )
 
+    def build_preview(
+        self,
+        *,
+        authorization: RedStandardAuthorization,
+        candidates: Iterable[RedEndpointCandidate],
+    ) -> ReconnaissancePreview:
+        """Reclassify stored candidates against the current trusted registry."""
+        scope = authorization.scope
+        target = self.registry.get_target(scope.target_id)
+        if sha256(target.model_dump_json().encode("utf-8")).hexdigest() != (
+            scope.target_fingerprint
+        ):
+            raise ValueError("registered target fingerprint changed")
+        entries: list[ReconnaissancePreviewCandidate] = []
+        limitations: dict[tuple[str, str], ReconnaissancePreviewLimitation] = {}
+        for candidate in candidates:
+            names = tuple(candidate.parameter_names)
+            _validate_path(candidate.path, names)
+            if candidate.method not in authorization.allowed_methods:
+                status, endpoint_id, reason = ("unsupported", None, "method_out_of_scope")
+            else:
+                status, endpoint_id, reason = _classify_observation(
+                    target, candidate.method.value, candidate.path, names
+                )
+            entries.append(
+                ReconnaissancePreviewCandidate(
+                    candidate=candidate,
+                    policy_status=status,
+                    registered_endpoint_id=endpoint_id,
+                )
+            )
+            if reason is not None:
+                limitations[(candidate.path, reason)] = ReconnaissancePreviewLimitation(
+                    path=candidate.path,
+                    reason=reason,
+                )
+        return ReconnaissancePreview(
+            scope=scope,
+            candidates=tuple(entries),
+            limitations=tuple(limitations[key] for key in sorted(limitations)),
+        )
+
     def build_reconnaissance_context(
         self,
         *,
@@ -269,6 +315,30 @@ def _validate_path(path: str, names: tuple[str, ...]) -> None:
         raise ValueError("unsafe passive observation")
 
 
+def _classify_observation(
+    target: TargetDefinition,
+    method: str,
+    path: str,
+    names: tuple[str, ...],
+) -> tuple[str, str | None, str | None]:
+    if method not in {"GET", "POST"}:
+        return "unsupported", None, "method_out_of_scope"
+    endpoint = next(
+        (
+            item
+            for item in target.endpoints
+            if item.path == path
+            and HttpMethod(method) in item.allowed_methods
+            and set(names).issubset(item.input_fields)
+        ),
+        None,
+    )
+    if endpoint is not None:
+        return "candidate_only", endpoint.endpoint_id, None
+    reason = "authentication_required" if path.startswith(("/admin", "/auth")) else "no_template"
+    return "unsupported", None, reason
+
+
 def _map_zap_observations(
     registry: TargetRegistry,
     target_id: str,
@@ -287,28 +357,13 @@ def _map_zap_observations(
         obs = ZapObservation.model_validate(raw.model_dump())
         names = tuple(sorted(set(obs.parameter_names)))
         _validate_path(obs.path, names)
-        if obs.method not in {"GET", "POST"}:
+        status, endpoint_id, reason = _classify_observation(target, obs.method, obs.path, names)
+        if reason == "method_out_of_scope":
             limitations[(obs.path, "method_out_of_scope")] = ReconLimitation(
                 obs.path, "method_out_of_scope"
             )
             continue
-        endpoint = next(
-            (
-                item
-                for item in target.endpoints
-                if item.path == obs.path
-                and HttpMethod(obs.method) in item.allowed_methods
-                and set(names).issubset(item.input_fields)
-            ),
-            None,
-        )
-        status = "candidate_only" if endpoint else "unsupported"
-        if not endpoint:
-            reason = (
-                "authentication_required"
-                if obs.path.startswith(("/admin", "/auth"))
-                else "no_template"
-            )
+        if reason is not None:
             limitations[(obs.path, reason)] = ReconLimitation(obs.path, reason)
         candidate_id = "zap-" + _recon_id(target_id, obs.method, obs.path, ",".join(names))
         candidate = RedEndpointCandidate(
@@ -322,7 +377,7 @@ def _map_zap_observations(
         candidates[candidate_id] = ReconCandidateEntry(
             candidate=candidate,
             admission_status=status,
-            registered_endpoint_id=endpoint.endpoint_id if endpoint else None,
+            registered_endpoint_id=endpoint_id,
         )
     signature = _recon_id(
         target_id,

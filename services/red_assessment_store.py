@@ -34,8 +34,11 @@ _ID = TypeAdapter(Identifier)
 class RedAssessmentStore:
     """Small SQLite seam with immutable identity/approval and append-only plans."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self.path = Path(path)
+        self.read_only = read_only
+        if read_only:
+            return
         with self._connect() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS red_assessments (
@@ -85,7 +88,8 @@ class RedAssessmentStore:
 
     @contextmanager
     def _connect(self):
-        with closing(sqlite3.connect(self.path, timeout=5)) as db:
+        database = f"{self.path.resolve().as_uri()}?mode=ro" if self.read_only else self.path
+        with closing(sqlite3.connect(database, timeout=5, uri=self.read_only)) as db:
             db.row_factory = sqlite3.Row
             db.execute("PRAGMA foreign_keys = ON")
             with db:

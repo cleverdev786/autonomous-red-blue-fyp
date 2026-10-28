@@ -224,21 +224,23 @@ Introduce the scanner safely, then let the Recon Agent produce policy-classified
 
 ### T12: Expose read-only reconnaissance preview
 
-- [ ] **T12 fully implemented and verified**
+- [x] **T12 fully implemented and verified**
 
 **Outcome:** Provide a server-backed way to inspect current endpoint candidates and unsupported/rejected routes before executing tests.
 **Depends on:** T05,T06,T11. **Size:** S. **Likely touched:** `dashboard/api/console.py; schemas/red_team.py; tests/test_red_recon_api.py`.
 
 **Acceptance criteria:**
-- [ ] Read-only API returns scoped candidates, source, method, policy status and limitations for one assessment.
-- [ ] A preview never creates an execution receipt or falsely reports a test as run.
-- [ ] Invalid assessment IDs or unauthorized evidence access are rejected.
-- [ ] **Verification:** API tests for populated/empty preview and no execution-side effects.
+- [x] Read-only API returns scoped candidates, source, method, policy status and limitations for one assessment.
+- [x] A preview never creates an execution receipt or falsely reports a test as run.
+- [x] Invalid assessment IDs or unauthorized evidence access are rejected.
+- [x] **Verification:** API tests for populated/empty preview and no execution-side effects.
+
+**T12 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_recon_api.py tests/test_red_recon_candidates.py` (24 passed). The authenticated GET projects stored candidates through the frozen assessment method scope and target fingerprint, reports registered/unsupported status and limitations, labels itself `read_only_preview` with execution disabled, rejects missing/invalid credentials, untrusted origins, registry drift and malformed/unknown assessment IDs, opens existing SQLite state in read-only mode, does not create a missing database, and leaves existing SQLite bytes unchanged. The broader unaffected Red persistence/policy/recon regression passed 96 tests; 20 additional Red schema tests passed with one legacy TestClient case deselected because the installed Starlette 1.7.0 test client requires unavailable `httpx2`. Proof/output location: `tests/test_red_recon_api.py`, `tests/test_red_recon_candidates.py`, and this tracker entry. Review reference: parallel EngineeringSuite standards and T12-spec review on 2026-10-28, with required findings resolved. Commit reference: `development` HEAD with subject `feat(red): expose scoped reconnaissance preview (T12)`. No Docker or scanner was used.
 
 ### Checkpoint C.12: release gate after T12
 
-- [ ] Candidate discovery and no-execution preview pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Candidate discovery and no-execution preview pass.
+- [x] Record passing command, output location and reviewer/commit reference.
 
 ## Phase D: Rule-based Attack Planning
 

@@ -236,6 +236,41 @@ class RedEndpointCandidate(BaseModel):
         return path
 
 
+class ReconnaissancePreviewCandidate(BaseModel):
+    """Server-classified view of one stored candidate; never execution authority."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    candidate: RedEndpointCandidate
+    policy_status: Literal["candidate_only", "unsupported"]
+    registered_endpoint_id: Identifier | None = None
+
+    @model_validator(mode="after")
+    def validate_registration(self):
+        if (self.policy_status == "candidate_only") != (self.registered_endpoint_id is not None):
+            raise ValueError("candidate-only status requires a registered endpoint")
+        return self
+
+
+class ReconnaissancePreviewLimitation(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str = Field(min_length=1, max_length=500)
+    reason: Literal["authentication_required", "method_out_of_scope", "no_template"]
+
+
+class ReconnaissancePreview(BaseModel):
+    """Read-only projection of persisted reconnaissance; does not run a test."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: RedScopeReference
+    effect: Literal["read_only_preview"] = "read_only_preview"
+    execution_enabled: Literal[False] = False
+    candidates: tuple[ReconnaissancePreviewCandidate, ...] = ()
+    limitations: tuple[ReconnaissancePreviewLimitation, ...] = ()
+
+
 class ReconnaissanceWork(_RedWork):
     """Candidate mapping under an already fixed scope; no execution permission."""
 
