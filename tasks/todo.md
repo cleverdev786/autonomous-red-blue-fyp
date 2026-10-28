@@ -304,47 +304,55 @@ Demonstrate real, bounded SQLi/XSS/path-traversal testing with reliable evidence
 
 ### T16: Wire real controlled HTTP reproductions
 
-- [ ] **T16 fully implemented and verified**
+- [x] **T16 fully implemented and verified**
 
 **Outcome:** Adapt the existing controlled executor to accept policy-admitted operation references and return actual lab receipts.
 **Depends on:** T07,T13,T15. **Size:** M. **Likely touched:** `services/controlled_executor.py; services/isolated_compose_executor.py; tests/test_red_real_execution.py`.
 
 **Acceptance criteria:**
-- [ ] Existing SQLi/XSS/traversal registered reproductions invoke the real approved lab target, not previews or mock-only transport.
-- [ ] Operation returns actual method/target fingerprint, timing, evidence IDs and bounded error classification.
-- [ ] Attempts outside allowed identity, class, method or budget are blocked before network calls.
-- [ ] **Verification:** Focused real Docker smoke cases for three test IDs plus blocked-host negative test; unit coverage for errors.
+- [x] Existing SQLi/XSS/traversal registered reproductions invoke the real approved lab target, not previews or mock-only transport.
+- [x] Operation returns actual method/target fingerprint, timing, evidence IDs and bounded error classification.
+- [x] Attempts outside allowed identity, class, method or budget are blocked before network calls.
+- [x] **Verification:** Focused real Docker smoke cases for three test IDs plus blocked-host negative test; unit coverage for errors.
+
+**T16 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_real_execution.py` (8 passed). The persisted-operation admission gate is rechecked immediately before the fixed registered executor and returns a bounded receipt containing the trusted target fingerprint, method, vulnerability class, timing, evidence IDs and structured error class. Identity, vulnerability-class, method, external-host and request-budget denials made zero transport calls. **Real Docker lab smoke:** the already-running healthy isolated `vulnerable-store` and `controlled-executor` services ran the fixed `run_verification_test` entry point for `sqli-login-bypass-001`, `xss-reflection-001` and `path-traversal-private-file-001`; all three completed with two requests and their expected deterministic evidence IDs. No preview, arbitrary URL, redirect, scanner, container reset or data reset was used.
 
 ### T17: Permit individually approved targeted ZAP tests
 
-- [ ] **T17 fully implemented and verified**
+- [x] **T17 fully implemented and verified**
 
 **Outcome:** Add explicit named ZAP targeted operations where they provide verified value for SQLi, XSS or traversal, no broad active scans.
 **Depends on:** T07,T10,T14,T16. **Size:** M. **Likely touched:** `services/zap_adapter.py; services/controlled_executor.py; tests/test_red_zap_active.py`.
 
 **Acceptance criteria:**
-- [ ] Only specific vetted scanner rule/endpoint/method combinations can run; agent-selected arbitrary ZAP rules are denied.
-- [ ] Any ZAP alert is stored as a suspected observation pending separate controlled verification.
-- [ ] Full-site active-scan flags and uncontrolled requests cannot be sent from the Red API or executor.
-- [ ] **Verification:** Mock/ZAP-lab tests for approved targeted operation, denied full scan and alert classification.
+- [x] Only specific vetted scanner rule/endpoint/method combinations can run; agent-selected arbitrary ZAP rules are denied.
+- [x] Any ZAP alert is stored as a suspected observation pending separate controlled verification.
+- [x] Full-site active-scan flags and uncontrolled requests cannot be sent from the Red API or executor.
+- [x] **Verification:** Mock/ZAP-lab tests for approved targeted operation, denied full scan and alert classification.
+
+**T17 verification:** The only active operation is reflected-XSS rule `40012` against the registered GET search endpoint with recursion disabled. The opt-in ZAP network now resolves the target name only to a dedicated two-request proxy; the real target has no ZAP-network attachment, redirects are not followed, the gate must be fresh, and all ZAP/gate calls share the approved hard deadline. Generic rules, URLs, full-site flags, stale gates, zero-request scans and over-budget results fail closed. Alerts are append-only sanitized `suspected` observations and can never confirm a finding. `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest -q -p no:cacheprovider tests/test_red_zap_active.py tests/test_zap_request_gate.py` passed 10 tests; the broader E.18 command below covers the adapter and Compose policy as well. No unrestricted or external scan ran.
 
 ### T18: Restore clean target state when tests interfere
 
-- [ ] **T18 fully implemented and verified**
+- [x] **T18 fully implemented and verified**
 
 **Outcome:** Build safe, target-owned reset/recreate operations around existing trusted Compose controls and fingerprint verification.
 **Depends on:** T03,T06,T09,T16. **Size:** M. **Likely touched:** `services/isolated_compose_executor.py; compose.yaml; tests/test_red_reset.py`.
 
 **Acceptance criteria:**
-- [ ] Before interfering tests, the orchestrator can establish a known clean disposable state; restart alone is not assumed to clear persistent data.
-- [ ] Evidence is committed before reset, and reset cannot affect unrelated projects/volumes.
-- [ ] Unknown clean-state outcomes block further sensitive operations or mark them inconclusive.
-- [ ] **Verification:** Integration test for state mutation → reset → baseline state restored; unrelated container untouched.
+- [x] Before interfering tests, the orchestrator can establish a known clean disposable state; restart alone is not assumed to clear persistent data.
+- [x] Evidence is committed before reset, and reset cannot affect unrelated projects/volumes.
+- [x] Unknown clean-state outcomes block further sensitive operations or mark them inconclusive.
+- [x] **Verification:** Integration test for state mutation → reset → baseline state restored; unrelated container untouched.
+
+**T18 verification:** The reset gate first validates hash-bound execution evidence and exact Git, daemon, image, project, network, container and volume ownership. It writes an append-only intent before mutation, dispatches only to the already inspected application container ID, recreates the target-owned SQLite schema and file trees, checks the complete expected SQLite object/row and file manifest, runs the fixed functional suite, and rechecks Docker identity. Any unknown result is durably recorded as `inconclusive` and blocks replay. Focused offline tests (including an unexpected table and files) passed 50 cases. **Real Docker lab check:** one synthetic product row changed the persisted count from 3 to 4; the fixed target reset returned it to 3, removed the row, and all eight functional checks passed. Before/after inventory contained the same two healthy project container IDs (`15c734300bc0`, `7cffcc6cbcd5`); no unrelated live container existed to snapshot, while the implementation and injected-runner tests prove the mutating command can name only the admitted application container ID and never a project, volume, teardown or prune action.
 
 ### Checkpoint E.18: release gate after T18
 
-- [ ] Controlled execution, ZAP targeting and state reset pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Controlled execution, ZAP targeting and state reset pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint E.18 evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest -q -p no:cacheprovider tests/test_red_real_execution.py tests/test_red_zap_active.py tests/test_zap_adapter.py tests/test_zap_compose_policy.py tests/test_zap_request_gate.py tests/test_red_target_reset.py tests/test_isolated_compose_executor.py dummy_apps/vulnerable_store/tests/test_baseline.py::test_reset_restores_known_database_state tests/test_red_templates.py tests/test_red_planner_rules.py tests/test_red_plan_staleness.py tests/test_red_recon_candidates.py tests/test_red_store.py tests/test_red_admission.py tests/test_red_evidence_store.py tests/test_red_schema_contracts.py tests/test_red_policy.py tests/test_red_agent_contracts.py tests/test_red_team_mvp.py::test_reconnaissance_and_planning_views_are_separate_and_narrow -k 'not fastapi_response_model_matches_expected_contract'` passed 252 tests with 1 deselected and one existing Starlette/httpx deprecation warning. A final post-review T17 run passed 10 tests; Ruff and `git diff --check` passed. EngineeringSuite security/code review found no remaining T18 issue and its final T17 deadline/zero-request findings were fixed and re-tested. Commit reference: the commit containing this checkpoint.
 
 ### T19: Capture and normalize actual evidence receipts
 

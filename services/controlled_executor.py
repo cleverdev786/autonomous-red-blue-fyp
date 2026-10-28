@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-import time
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 from urllib.parse import urljoin
 
 import httpx
@@ -14,12 +15,17 @@ from pydantic import TypeAdapter
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
 from schemas.common import Identifier, PolicyReasonCode
-from schemas.red_team import HttpExchangeEvidence, TestExecutionResult
+from schemas.red_team import (
+    ControlledHttpReceipt,
+    HttpExchangeEvidence,
+    RedPolicyUsage,
+    TestExecutionResult,
+)
 from schemas.verification import PolicyDecision
 from security_tests.base import RequestStep
 from security_tests.registry import SecurityTestRegistry
+from services.red_admission import AdmissionRequest, TrustedRedAdmission
 from services.target_registry import TargetRegistry, TargetRegistryError
-
 
 _IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
 
@@ -316,7 +322,7 @@ class ControlledExecutor:
     @staticmethod
     def _request_id(*, run_id: str, attempt_number: int, request_index: int) -> str:
         """Create a deterministic opaque request ID from trusted run correlation."""
-        material = f"{run_id}:{attempt_number}:{request_index}".encode("utf-8")
+        material = f"{run_id}:{attempt_number}:{request_index}".encode()
         return f"req-{sha256(material).hexdigest()[:24]}"
 
     def _validate_step(self, *, metadata, step: RequestStep) -> None:
@@ -368,3 +374,104 @@ class ControlledExecutor:
 
     def _elapsed_ms(self, started: float) -> int:
         return max(0, int((self.clock() - started) * 1000))
+
+
+class PolicyAdmittedExecutor:
+    """Bind the T07 persisted-operation gate to the registered HTTP executor."""
+
+    def __init__(
+        self,
+        *,
+        admission: TrustedRedAdmission,
+        executor: ControlledExecutor,
+    ) -> None:
+        self.admission = admission
+        self.executor = executor
+
+    def execute(
+        self,
+        *,
+        request: AdmissionRequest,
+        usage: RedPolicyUsage,
+        attempt_number: int,
+        run_id: str,
+    ) -> ControlledHttpReceipt:
+        """Revalidate one operation immediately before its fixed HTTP replay."""
+        decision = self.admission.check(request, usage)
+        if not decision.allowed:
+            raise ControlledExecutionBlocked(decision)
+
+        snapshot, authorization = self.admission.store.load(
+            request.scope.assessment_id
+        )
+        operation = next(
+            (
+                item
+                for item in snapshot.operations
+                if item.operation_id == request.operation_id
+            ),
+            None,
+        )
+        if (
+            operation is None
+            or operation.status != "approved"
+            or operation.plan_version != request.plan_version
+            or operation.test_id is None
+            or authorization.scope != request.scope
+        ):
+            raise ControlledExecutionBlocked(
+                PolicyDecision(
+                    allowed=False,
+                    reason_code=PolicyReasonCode.INVALID_STATE,
+                    message="Admitted operation changed before dispatch.",
+                )
+            )
+
+        metadata = self.executor.target_registry.get_security_test(operation.test_id)
+        result = self.executor.execute_registered_test(
+            test_id=operation.test_id,
+            attempt_number=attempt_number,
+            run_id=run_id,
+        )
+        if (
+            result.target_id != authorization.scope.target_id
+            or result.test_id != operation.test_id
+        ):
+            raise ControlledExecutionBlocked(
+                PolicyDecision(
+                    allowed=False,
+                    reason_code=PolicyReasonCode.PROHIBITED_OPERATION,
+                    message="Executor result identity mismatch.",
+                )
+            )
+
+        status = (
+            "timeout"
+            if result.timed_out
+            else "completed"
+            if result.completed
+            else "failed"
+        )
+        receipt_material = (
+            f"{authorization.scope.authorization_fingerprint}:"
+            f"{operation.operation_id}:{operation.plan_version}:"
+            f"{run_id}:{attempt_number}"
+        ).encode()
+        return ControlledHttpReceipt(
+            receipt_id=f"receipt-{sha256(receipt_material).hexdigest()[:24]}",
+            operation_id=operation.operation_id,
+            plan_version=operation.plan_version,
+            run_id=result.run_id,
+            attempt_number=result.attempt_number,
+            target_id=result.target_id,
+            target_fingerprint=authorization.scope.target_fingerprint,
+            test_id=result.test_id,
+            vulnerability_class=metadata.vulnerability_class,
+            method=metadata.method,
+            request_count=result.request_count,
+            duration_ms=result.duration_ms,
+            status_code=result.status_code,
+            status=status,
+            error_class=result.error_code,
+            evidence_ids=tuple(item.evidence_id for item in result.evidence),
+        )

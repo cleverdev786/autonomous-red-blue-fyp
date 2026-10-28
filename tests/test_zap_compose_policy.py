@@ -3,12 +3,11 @@
 Static-only tests: no image pull, startup, or vulnerability scan.
 """
 
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 
 import yaml
-
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "compose.yaml"
@@ -59,25 +58,29 @@ def test_zap_only_shares_private_target_network_and_no_host_egress():
     assert networks["zap-target"]["driver"] == "bridge"
     zap = config["services"]["zap"]
     assert set(zap["networks"]) == {"zap-target"}
-    assert {"zap-target", "security-lab"} == set(config["services"]["vulnerable-store"]["networks"])
+    assert set(config["services"]["vulnerable-store"]["networks"]) == {"security-lab"}
     assert set(config["services"]["controlled-executor"]["networks"]) == {"security-lab"}
     assert [
         name for name, service in config["services"].items()
         if "zap-target" in service["networks"]
-    ] == ["vulnerable-store", "zap"]
+    ] == ["zap", "zap-request-gate"]
+    gate = config["services"]["zap-request-gate"]
+    assert set(gate["networks"]) == {"security-lab", "zap-target"}
+    assert gate["networks"]["zap-target"]["aliases"] == ["vulnerable-store"]
     assert "ports" not in zap
     assert "network_mode" not in zap
     assert "extra_hosts" not in zap
 
 
-def test_zap_process_is_idle_until_later_authorized_dispatch():
+def test_zap_api_is_loopback_only_and_target_is_hard_limited_gate():
     zap = read_yaml(OVERLAY)["services"]["zap"]
     assert zap["entrypoint"] == ["/bin/sh", "-c"]
     assert "command -v zap.sh" in zap["command"][0]
-    assert "sleep" in zap["command"][0]
+    assert "zap.sh -daemon" in zap["command"][0]
+    assert "-host 127.0.0.1" in zap["command"][0]
+    assert "api.disablekey=true" in zap["command"][0]
     assert "zap-baseline.py" not in str(zap)
     assert "zap-full-scan.py" not in str(zap)
-    assert "zap.sh -daemon" not in str(zap)
     assert "ZAP_API_KEY" not in str(zap)
     assert zap.get("restart", "no") == "no"
     assert zap["stop_grace_period"] == "5s"
@@ -122,3 +125,14 @@ def test_no_docker_socket_or_host_bind_mounts_even_in_overlay():
     zap = rendered(zap=True)["services"]["zap"]
     assert not zap.get("volumes")
     assert not zap.get("ports")
+
+
+def test_request_gate_has_fixed_mode_no_public_port_and_tight_limits():
+    gate = read_yaml(OVERLAY)["services"]["zap-request-gate"]
+    assert gate["command"] == ["python", "-m", "infrastructure.zap_request_gate"]
+    assert gate["environment"] == {"MARS_ZAP_GATE_MODE": "xss-reflection-001"}
+    assert gate["read_only"] is True and gate["privileged"] is False
+    assert gate["cap_drop"] == ["ALL"]
+    assert gate["mem_limit"] == "64m" and gate["cpus"] <= 0.25
+    assert gate["pids_limit"] <= 32
+    assert "ports" not in gate and "volumes" not in gate

@@ -3,8 +3,30 @@
 services:
   vulnerable-store:
     networks:
-      - security-lab
-      - zap-target
+      security-lab:
+        aliases: [vulnerable-store-origin]
+
+  zap-request-gate:
+    image: fyp-red-blue-lab:local
+    profiles: [zap]
+    user: "10001:10001"
+    read_only: true
+    privileged: false
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    command: ["python", "-m", "infrastructure.zap_request_gate"]
+    environment:
+      MARS_ZAP_GATE_MODE: xss-reflection-001
+    networks:
+      security-lab: {}
+      zap-target:
+        aliases: [vulnerable-store]
+    tmpfs: [/tmp:rw,noexec,nosuid,size=16m]
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32
+    restart: "no"
 
   zap:
     image: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:0075662e5c287cf0a68caebabbfea872e5dc461912ad6d7345fa02a290d0ccb6
@@ -17,9 +39,14 @@ services:
     security_opt: [no-new-privileges:true]
     init: true
     working_dir: /zap
-    # No web API, passive scan or active scan in T09. This is a bounded preflight.
+    # API is container-loopback only; the target path is the hard-limited gate.
     entrypoint: ["/bin/sh", "-c"]
-    command: ["command -v zap.sh >/dev/null && exec sleep 180"]
+    command:
+      - >-
+        command -v zap.sh >/dev/null && exec zap.sh -daemon
+        -host 127.0.0.1 -port 8090 -config api.disablekey=true
+        -config api.addrs.addr.name=127.0.0.1
+        -config api.addrs.addr.regex=false
     networks: [zap-target]
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m

@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
+from dummy_apps.vulnerable_store.app.baseline import exact_baseline
 from dummy_apps.vulnerable_store.app.config import StoreSettings
 from dummy_apps.vulnerable_store.app.main import create_app
 from dummy_apps.vulnerable_store.app.models import Product, User
@@ -132,7 +133,11 @@ def test_reset_restores_known_database_state(app, app_settings: StoreSettings) -
         user = session.scalar(select(User).where(User.username == "student1"))
         assert user is not None
         user.display_name = "Changed Name"
+        session.execute(text("CREATE TABLE injected_state (value TEXT)"))
+        session.execute(text("INSERT INTO injected_state VALUES ('must disappear')"))
         session.commit()
+    (app_settings.seed_files_dir / "unexpected.txt").write_text("remove me")
+    (app_settings.scenario_files_dir / "private" / "unexpected.txt").write_text("remove me")
 
     reset_database(
         engine=app.state.engine,
@@ -148,6 +153,7 @@ def test_reset_restores_known_database_state(app, app_settings: StoreSettings) -
     assert product_count == 3
     assert restored_user is not None
     assert restored_user.display_name == "Demo Student One"
+    assert exact_baseline(app_settings) is True
 
 
 def test_login_input_is_not_interpreted_as_sql(client: TestClient) -> None:

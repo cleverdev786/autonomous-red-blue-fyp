@@ -46,7 +46,11 @@ TIMEOUT = 180
 # All are within the trusted Docker build COPY directories.
 CONTAINER_FILES = (
     "dummy_apps/vulnerable_store/app/scenario_routes.py",
+    "dummy_apps/vulnerable_store/app/reset.py",
+    "dummy_apps/vulnerable_store/app/baseline.py",
+    "dummy_apps/vulnerable_store/app/seed.py",
     "infrastructure/executor/run_verification_test.py",
+    "verification/functional.py",
     "services/controlled_executor.py",
     "config/targets/vulnerable-store.json",
     "config/security_tests/sqli-login-bypass-001.json",
@@ -210,6 +214,24 @@ class RealExecutionReceipt(BaseModel):
     ]
     reason: str
     observation_sha256: str | None = None
+
+
+class TargetResetReceipt(BaseModel):
+    """Proof that the pinned target alone was reset and its baseline rechecked."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["isolated-target-reset-v1"] = "isolated-target-reset-v1"
+    case_id: str = Field(pattern=CASE_ID)
+    project: Literal[PROJECT] = PROJECT
+    app_container_id: str = Field(pattern=HEX64)
+    volume: Literal[VOLUME] = VOLUME
+    source_receipt_sha256: str = Field(pattern=HEX64)
+    reset_stdout_sha256: str = Field(pattern=HEX64)
+    exact_baseline_sha256: str = Field(pattern=HEX64)
+    functional_verification_sha256: str = Field(pattern=HEX64)
+    baseline_verified: bool
+    status: Literal["restored", "inconclusive"]
+    reason: str = Field(min_length=1, max_length=160)
 
 
 class IsolatedDockerExecutor:
@@ -523,4 +545,141 @@ class IsolatedDockerExecutor:
         )
         self._save_new(case / "receipt.json",
                        (receipt.model_dump_json(indent=2) + "\n").encode())
+        return receipt
+
+    @staticmethod
+    def _read_bounded_file(path: Path, limit: int = MAX_OUTPUT) -> bytes:
+        if path.is_symlink() or not path.is_file():
+            raise IsolatedExecutionBlocked("committed execution evidence unavailable")
+        try:
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(descriptor, "rb") as stream:
+                data = stream.read(limit + 1)
+        except OSError as exc:
+            raise IsolatedExecutionBlocked("committed execution evidence unavailable") from exc
+        if len(data) > limit:
+            raise IsolatedExecutionBlocked("committed execution evidence exceeded bound")
+        return data
+
+    def _committed_execution_receipt(self) -> tuple[RealExecutionReceipt, bytes]:
+        case = self.evidence / self.pin.case_id
+        if (
+            case.is_symlink()
+            or not case.is_dir()
+            or case.resolve(strict=True).parent != self.evidence
+        ):
+            raise IsolatedExecutionBlocked("committed execution evidence required before reset")
+        raw = self._read_bounded_file(case / "receipt.json")
+        try:
+            receipt = RealExecutionReceipt.model_validate_json(raw)
+        except Exception as exc:
+            raise IsolatedExecutionBlocked("committed execution evidence is invalid") from exc
+        if (
+            receipt.case_id != self.pin.case_id
+            or receipt.run_id != self.pin.run_id
+            or receipt.source_head != self.pin.source_head
+            or receipt.source_tree != self.pin.source_tree
+            or receipt.daemon_id != self.pin.daemon_id
+            or receipt.image_id != self.pin.image_id
+            or receipt.app_container_id != self.pin.app_container_id
+            or receipt.executor_container_id != self.pin.executor_container_id
+            or receipt.admission_sha256 != self.digest
+        ):
+            raise IsolatedExecutionBlocked("committed execution evidence identity mismatch")
+        if sha256(self._read_bounded_file(case / "stdout.raw")).hexdigest() != receipt.stdout_sha256:
+            raise IsolatedExecutionBlocked("committed execution stdout integrity failed")
+        if sha256(self._read_bounded_file(case / "stderr.raw")).hexdigest() != receipt.stderr_sha256:
+            raise IsolatedExecutionBlocked("committed execution stderr integrity failed")
+        if receipt.observation_sha256 is not None and (
+            sha256(self._read_bounded_file(case / "observation.json")).hexdigest()
+            != receipt.observation_sha256
+        ):
+            raise IsolatedExecutionBlocked("committed observation integrity failed")
+        return receipt, raw
+
+    def reset_registered_target(self) -> TargetResetReceipt:
+        """Reset only the admitted target, then prove its fixed baseline.
+
+        No restart, volume removal, project teardown, or caller-selected Docker
+        resource is available through this method.
+        """
+        _receipt, receipt_raw = self._committed_execution_receipt()
+        case = self.evidence / self.pin.case_id
+        receipt_path = case / "reset-receipt.json"
+        if receipt_path.exists() or (case / "reset-intent.json").exists():
+            raise IsolatedExecutionBlocked("target reset was already recorded")
+        self._source_snapshot()
+        before = self._runtime_snapshot()
+        intent = {
+            "case_id": self.pin.case_id,
+            "project": PROJECT,
+            "app_container_id": self.pin.app_container_id,
+            "executor_container_id": self.pin.executor_container_id,
+            "volume": VOLUME,
+            "source_receipt_sha256": sha256(receipt_raw).hexdigest(),
+            "before": before,
+        }
+        self._save_new(case / "reset-intent.json", self._json_bytes(intent))
+        reset_stdout = b""
+        exact_stdout = b""
+        functional_stdout = b""
+        try:
+            reset = self._run(self._docker(
+                "container", "exec", "-i", self.pin.app_container_id,
+                "python", "-m", "dummy_apps.vulnerable_store.app.reset",
+            ))
+            reset_stdout = reset.stdout
+            exact = self._run(self._docker(
+                "container", "exec", "-i", self.pin.app_container_id,
+                "python", "-m", "dummy_apps.vulnerable_store.app.baseline",
+            ))
+            exact_stdout = exact.stdout
+            exact_result = json.loads(exact_stdout)
+            if type(exact_result) is not dict or exact_result.get("passed") is not True:
+                raise IsolatedExecutionBlocked("exact baseline verification failed after reset")
+            functional = self._run(self._docker(
+                "container", "exec", "-i", self.pin.executor_container_id,
+                "python", "-m", "verification.functional",
+            ))
+            functional_stdout = functional.stdout
+            functional_result = json.loads(functional_stdout)
+            if (
+                type(functional_result) is not dict
+                or functional_result.get("passed") is not True
+            ):
+                raise IsolatedExecutionBlocked("functional verification failed after reset")
+            self._source_snapshot()
+            after = self._runtime_snapshot()
+            if after != before:
+                raise IsolatedExecutionBlocked("Docker identity changed across target reset")
+        except Exception as exc:
+            receipt = TargetResetReceipt(
+                case_id=self.pin.case_id,
+                app_container_id=self.pin.app_container_id,
+                source_receipt_sha256=sha256(receipt_raw).hexdigest(),
+                reset_stdout_sha256=sha256(reset_stdout).hexdigest(),
+                exact_baseline_sha256=sha256(exact_stdout).hexdigest(),
+                functional_verification_sha256=sha256(functional_stdout).hexdigest(),
+                baseline_verified=False,
+                status="inconclusive",
+                reason="reset or clean-state verification failed; sensitive work is blocked",
+            )
+            self._save_new(
+                receipt_path, (receipt.model_dump_json(indent=2) + "\n").encode(),
+            )
+            raise IsolatedExecutionBlocked(
+                "baseline verification failed after reset; state recorded as inconclusive"
+            ) from exc
+        receipt = TargetResetReceipt(
+            case_id=self.pin.case_id,
+            app_container_id=self.pin.app_container_id,
+            source_receipt_sha256=sha256(receipt_raw).hexdigest(),
+            reset_stdout_sha256=sha256(reset_stdout).hexdigest(),
+            exact_baseline_sha256=sha256(exact_stdout).hexdigest(),
+            functional_verification_sha256=sha256(functional_stdout).hexdigest(),
+            baseline_verified=True,
+            status="restored",
+            reason="exact target baseline and fixed functional checks passed",
+        )
+        self._save_new(receipt_path, (receipt.model_dump_json(indent=2) + "\n").encode())
         return receipt

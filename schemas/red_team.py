@@ -141,6 +141,34 @@ class TestExecutionResult(BaseModel):
     error_code: Identifier | None = None
 
 
+class ControlledHttpReceipt(BaseModel):
+    """Bounded result of one policy-admitted registered HTTP reproduction."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    receipt_id: Identifier
+    operation_id: Identifier
+    plan_version: Identifier
+    run_id: Identifier
+    attempt_number: int = Field(ge=1)
+    target_id: Identifier
+    target_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
+    test_id: Identifier
+    vulnerability_class: VulnerabilityClass
+    method: HttpMethod
+    request_count: int = Field(ge=0)
+    duration_ms: int = Field(ge=0)
+    status_code: int | None = Field(default=None, ge=100, le=599)
+    status: Literal["completed", "timeout", "failed"]
+    error_class: Literal[
+        "request-timeout",
+        "transport-error",
+        "redirect-blocked",
+        "evidence-not-observed",
+    ] | None = None
+    evidence_ids: tuple[Identifier, ...] = ()
+
+
 class AttackVerification(BaseModel):
     """Red Team verification decision over structured execution evidence."""
 
@@ -169,7 +197,7 @@ class RedTeamRunResult(BaseModel):
     final_state: WorkflowState
 
     @model_validator(mode="after")
-    def validate_final_state(self) -> "RedTeamRunResult":
+    def validate_final_state(self) -> RedTeamRunResult:
         if self.final_state not in {
             WorkflowState.BLUE_MONITORING,
             WorkflowState.REJECTED,

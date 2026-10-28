@@ -102,7 +102,10 @@ def container_config(name):
 
 
 
-def configured(environment, *, scenario="sqli-login-001", fault=None, process=None):
+def configured(
+    environment, *, scenario="sqli-login-001", fault=None, process=None,
+    command_hook=None,
+):
     root, external, manifest, pin, registry = environment
     if scenario != pin.scenario_id:
         pin = pin.model_copy(update={"scenario_id": scenario})
@@ -116,6 +119,10 @@ def configured(environment, *, scenario="sqli-login-001", fault=None, process=No
     def runner(argv, cwd):
         assert cwd == root
         calls.append(argv)
+        if command_hook is not None:
+            hooked = command_hook(argv)
+            if hooked is not None:
+                return BinaryResult(0, hooked, b"")
         if argv[0] == "git":
             if "symbolic-ref" in argv:
                 answer = pin.source_branch
