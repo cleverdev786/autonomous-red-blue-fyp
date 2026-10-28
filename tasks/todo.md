@@ -209,16 +209,18 @@ Introduce the scanner safely, then let the Recon Agent produce policy-classified
 
 ### T11: Make Recon Agent produce endpoint candidates
 
-- [ ] **T11 fully implemented and verified**
+- [x] **T11 fully implemented and verified**
 
 **Outcome:** Wire approved ZAP crawling/passive observations into deterministic endpoint normalization/deduplication and policy classification.
 **Depends on:** T04,T06,T10. **Size:** M. **Likely touched:** `agents/red/reconnaissance.py; services/reconnaissance_service.py; tests/test_red_recon_candidates.py`.
 
 **Acceptance criteria:**
-- [ ] Agent outputs normalized method/path/parameter candidates with discovered/source timestamps, target identity and admission status.
-- [ ] New routes remain candidates until policy admits operations; protected/authentication-only areas generate coverage limitations.
-- [ ] Deterministic reruns produce stable candidate identities and major-step events.
-- [ ] **Verification:** Unit test mixed ZAP observations/duplicates/unknown methods and real lab crawl candidate output.
+- [x] Agent outputs normalized method/path/parameter candidates with discovered/source timestamps, target identity and admission status.
+- [x] New routes remain candidates until policy admits operations; protected/authentication-only areas generate coverage limitations.
+- [x] Deterministic reruns produce stable candidate identities and major-step events.
+- [x] **Verification:** Unit test mixed ZAP observations/duplicates/unknown methods and real lab crawl candidate output.
+
+**T11 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_recon_candidates.py` (13 passed). Deterministic scoped candidate classification, SHA-256 identities, stable reruns, idempotent persistence across later observation timestamps, authentication and unsupported-route limitations, bounded registered GET seeding with preflight budget checks, forged-scope rejection, and append-only started/completed events. **Real Docker-lab verification:** pinned ZAP 2.17.0 inside the opt-in isolated network with authenticated container-loopback API; bounded registered GET observations of `/health` and `/documents` produced two candidate-only records, both persisted to a temporary assessment SQLite store with two durable Red journal events. ZAP container and temporary network were removed, original MARS services stayed healthy. No unrestricted spider, active scan, execution approval, or dispatch was enabled. Commit reference: the commit containing this T11 checkpoint.
 
 ### T12: Expose read-only reconnaissance preview
 
