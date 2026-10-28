@@ -5,8 +5,11 @@ No tool execution, network access, or approval issuance occurs in this module.
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import closing, contextmanager
+from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 
 from pydantic import TypeAdapter
@@ -20,6 +23,7 @@ from schemas.red_team_state import (
     RedAssessmentDetailDTO,
     StageDTO,
     StageState,
+    SurfaceRevisionDTO,
     require_stage_transition,
 )
 
@@ -52,6 +56,13 @@ class RedAssessmentStore:
                     candidate_id TEXT NOT NULL,
                     payload TEXT NOT NULL,
                     PRIMARY KEY (assessment_id, candidate_id),
+                    FOREIGN KEY (assessment_id) REFERENCES red_assessments(assessment_id)
+                );
+                CREATE TABLE IF NOT EXISTS red_surfaces (
+                    assessment_id TEXT NOT NULL,
+                    surface_revision TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    PRIMARY KEY (assessment_id, surface_revision),
                     FOREIGN KEY (assessment_id) REFERENCES red_assessments(assessment_id)
                 );
                 CREATE TABLE IF NOT EXISTS red_plans (
@@ -163,6 +174,14 @@ class RedAssessmentStore:
     def add_plan(self, plan: PlanVersionDTO) -> None:
         with self._connect() as db:
             self._require_scope(db, plan.scope)
+            latest_surface = db.execute(
+                "SELECT surface_revision FROM red_surfaces WHERE assessment_id=? ORDER BY rowid DESC LIMIT 1",
+                (plan.scope.assessment_id,),
+            ).fetchone()
+            if latest_surface is not None and latest_surface["surface_revision"] != plan.surface_revision:
+                raise StoreConflict("plan references a stale surface revision")
+            if latest_surface is not None and plan.status == "approved" and plan.plan_digest is None:
+                raise StoreConflict("approved current-surface plan requires a digest")
             exists = db.execute(
                 "SELECT 1 FROM red_plans WHERE assessment_id=? AND plan_version=?",
                 (plan.scope.assessment_id, plan.plan_version),
@@ -173,6 +192,87 @@ class RedAssessmentStore:
                 "INSERT INTO red_plans VALUES (?,?,?,?)",
                 (plan.scope.assessment_id, plan.plan_version, plan.model_dump_json(), plan.status),
             )
+
+    def record_surface(
+        self,
+        scope: RedScopeReference,
+        *,
+        candidates: tuple[RedEndpointCandidate, ...],
+        observed_at: datetime,
+    ) -> SurfaceRevisionDTO:
+        """Persist one immutable surface and invalidate dependent unrun work."""
+        if observed_at.tzinfo is None:
+            raise StoreConflict("surface timestamp must be timezone-aware")
+        ordered = tuple(sorted(candidates, key=lambda item: item.candidate_id))
+        body = {
+            "scope": scope.model_dump(mode="json"),
+            "observed_at": observed_at.isoformat(),
+            "candidates": [item.model_dump(mode="json") for item in ordered],
+        }
+        digest = sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        surface = SurfaceRevisionDTO(
+            scope=scope,
+            surface_revision=f"surface-{digest[:20]}",
+            snapshot_digest=digest,
+            candidate_ids=tuple(item.candidate_id for item in ordered),
+            observed_at=observed_at,
+        )
+        with self._connect() as db:
+            self._require_scope(db, scope)
+            for candidate in ordered:
+                row = db.execute(
+                    "SELECT payload FROM red_candidates WHERE assessment_id=? AND candidate_id=?",
+                    (scope.assessment_id, candidate.candidate_id),
+                ).fetchone()
+                saved = (
+                    RedEndpointCandidate.model_validate_json(row["payload"])
+                    if row is not None else None
+                )
+                if saved is None or saved.model_dump(exclude={"observed_at"}) != (
+                    candidate.model_dump(exclude={"observed_at"})
+                ):
+                    raise StoreConflict("surface references unknown or altered candidate")
+            existing = db.execute(
+                "SELECT payload FROM red_surfaces WHERE assessment_id=? AND surface_revision=?",
+                (scope.assessment_id, surface.surface_revision),
+            ).fetchone()
+            if existing is not None:
+                if SurfaceRevisionDTO.model_validate_json(existing["payload"]) != surface:
+                    raise StoreConflict("surface revision collision")
+                return surface
+
+            running = db.execute(
+                """SELECT 1 FROM red_operations
+                   WHERE assessment_id=? AND json_extract(payload, '$.status')='running' LIMIT 1""",
+                (scope.assessment_id,),
+            ).fetchone()
+            if running is not None:
+                raise StoreConflict("cannot revise surface while an operation is running")
+            db.execute(
+                "INSERT INTO red_surfaces VALUES (?,?,?)",
+                (scope.assessment_id, surface.surface_revision, surface.model_dump_json()),
+            )
+            db.execute(
+                """UPDATE red_plans SET status='stale'
+                   WHERE assessment_id=? AND status IN ('draft','approved')
+                     AND json_extract(payload, '$.surface_revision') != ?""",
+                (scope.assessment_id, surface.surface_revision),
+            )
+            operation_rows = db.execute(
+                "SELECT operation_id, payload FROM red_operations WHERE assessment_id=?",
+                (scope.assessment_id,),
+            ).fetchall()
+            for row in operation_rows:
+                operation = OperationDTO.model_validate_json(row["payload"])
+                if operation.status in {"proposed", "approved"}:
+                    blocked = operation.model_copy(update={"status": "blocked"})
+                    db.execute(
+                        "UPDATE red_operations SET payload=? WHERE assessment_id=? AND operation_id=?",
+                        (blocked.model_dump_json(), scope.assessment_id, operation.operation_id),
+                    )
+        return surface
 
     def set_plan_stale(self, assessment_id: str, plan_version: str) -> None:
         with self._connect() as db:
@@ -258,7 +358,9 @@ class RedAssessmentStore:
 
             def rows(table: str):
                 # Private constants only; never interpolate caller-supplied table names.
-                assert table in {"red_candidates", "red_plans", "red_stages", "red_operations"}
+                assert table in {
+                    "red_candidates", "red_surfaces", "red_plans", "red_stages", "red_operations"
+                }
                 return db.execute(
                     f"SELECT * FROM {table} WHERE assessment_id=? ORDER BY rowid",
                     (assessment_id,),
@@ -275,6 +377,10 @@ class RedAssessmentStore:
                 candidates=tuple(
                     RedEndpointCandidate.model_validate_json(row["payload"])
                     for row in rows("red_candidates")
+                ),
+                surfaces=tuple(
+                    SurfaceRevisionDTO.model_validate_json(row["payload"])
+                    for row in rows("red_surfaces")
                 ),
                 plans=tuple(plans),
                 stages=tuple(

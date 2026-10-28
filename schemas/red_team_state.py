@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from schemas.common import Identifier
+from schemas.common import Identifier, NonEmptyText
 from schemas.red_team import RedEndpointCandidate, RedScopeReference
 
 
@@ -176,6 +176,20 @@ class PlanVersionDTO(_RedDTO):
     plan_version: Identifier
     surface_revision: Identifier
     status: Literal["draft", "approved", "stale"]
+    plan_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+
+
+class SurfaceRevisionDTO(_RedDTO):
+    surface_revision: Identifier
+    snapshot_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    candidate_ids: tuple[Identifier, ...] = ()
+    observed_at: datetime
+
+    @model_validator(mode="after")
+    def unique_candidates(self):
+        if len(self.candidate_ids) != len(set(self.candidate_ids)):
+            raise ValueError("surface candidate IDs must be unique")
+        return self
 
 
 class OperationDTO(_RedDTO):
@@ -237,6 +251,27 @@ class CoverageGapDTO(_RedDTO):
         "timeout", "skipped", "not_tested",
     ]
     candidate_id: Identifier | None = None
+    test_id: Identifier | None = None
+    recommendation: NonEmptyText | None = None
+
+
+class PlanningDecisionDTO(BaseModel):
+    """Deterministic planning output; references only vetted operations."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    plan: PlanVersionDTO
+    operations: tuple[OperationDTO, ...] = ()
+    coverage_gaps: tuple[CoverageGapDTO, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_links(self):
+        scope = self.plan.scope
+        if any(item.scope != scope for item in (*self.operations, *self.coverage_gaps)):
+            raise ValueError("planning output scope mismatch")
+        if any(item.plan_version != self.plan.plan_version for item in self.operations):
+            raise ValueError("planning operation references another plan")
+        return self
 
 
 class TimelineEventDTO(_RedDTO):
@@ -257,6 +292,7 @@ class RedAssessmentDetailDTO(BaseModel):
     assessment: AssessmentDTO
     stages: tuple[StageDTO, ...] = ()
     candidates: tuple[RedEndpointCandidate, ...] = ()
+    surfaces: tuple[SurfaceRevisionDTO, ...] = ()
     plans: tuple[PlanVersionDTO, ...] = ()
     operations: tuple[OperationDTO, ...] = ()
     receipts: tuple[ReceiptDTO, ...] = ()
@@ -270,7 +306,7 @@ class RedAssessmentDetailDTO(BaseModel):
     def validate_linkage(self):
         scope = self.assessment.scope
         for group in (
-            self.stages, self.plans, self.operations, self.receipts,
+            self.stages, self.surfaces, self.plans, self.operations, self.receipts,
             self.evidence, self.findings, self.coverage_gaps,
             self.events, self.pending_handoffs,
         ):
@@ -284,6 +320,7 @@ class RedAssessmentDetailDTO(BaseModel):
             return {getattr(item, key): item for item in items}
 
         candidates = index(self.candidates, "candidate_id")
+        surfaces = index(self.surfaces, "surface_revision")
         plans = index(self.plans, "plan_version")
         operations = index(self.operations, "operation_id")
         receipts = index(self.receipts, "receipt_id")
@@ -295,6 +332,14 @@ class RedAssessmentDetailDTO(BaseModel):
         for stage in self.stages:
             if stage.plan_version is not None and stage.plan_version not in plans:
                 raise ValueError("stage references unknown plan version")
+
+        if surfaces:
+            for surface in self.surfaces:
+                if any(candidate_id not in candidates for candidate_id in surface.candidate_ids):
+                    raise ValueError("surface references unknown candidate")
+            for plan in self.plans:
+                if plan.surface_revision not in surfaces:
+                    raise ValueError("plan references unknown surface revision")
 
         for op in self.operations:
             plan = plans.get(op.plan_version)

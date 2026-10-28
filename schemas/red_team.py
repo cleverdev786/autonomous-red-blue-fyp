@@ -47,15 +47,30 @@ class ReconnaissanceResult(BaseModel):
     rationale: NonEmptyText
 
 
+class RegisteredTestResourceCost(BaseModel):
+    """Bounded cost of one registered test descriptor."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    max_requests: int = Field(ge=1, le=20)
+    timeout_seconds: int = Field(ge=1, le=120)
+
+
 class RegisteredTestOption(BaseModel):
-    """Restricted registered-test metadata visible only to attack planning."""
+    """Vetted, parameter-bound descriptor visible only to attack planning."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     test_id: Identifier
+    target_id: Identifier
     vulnerability_class: VulnerabilityClass
     endpoint_id: Identifier
+    path: str = Field(min_length=1, max_length=300)
+    method: HttpMethod
     allowed_parameter_names: tuple[Identifier, ...] = ()
+    request_template_id: Identifier
+    oracle_id: Identifier
+    resource_cost: RegisteredTestResourceCost
     safe_description: NonEmptyText
 
 

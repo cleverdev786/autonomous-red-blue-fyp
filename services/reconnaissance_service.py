@@ -21,6 +21,7 @@ from schemas.red_team import (
     RedScopeReference,
     RedStandardAuthorization,
     RegisteredTestOption,
+    RegisteredTestResourceCost,
     RestrictedReconnaissanceContext,
 )
 from schemas.targets import TargetDefinition
@@ -159,6 +160,11 @@ class ReconnaissanceService:
                             fresh, _ = store.load(scope.assessment_id)
                             if entry.candidate not in fresh.candidates:
                                 raise
+                store.record_surface(
+                    scope,
+                    candidates=tuple(entry.candidate for entry in mapping.candidates),
+                    observed_at=mapping.observed_at,
+                )
             if event.event_id not in previous:
                 journal.append_event(
                     scope,
@@ -252,11 +258,21 @@ class ReconnaissanceService:
 
     def _registered_option(self, test_id: str) -> RegisteredTestOption:
         metadata = self.registry.get_security_test(test_id)
+        endpoint = self.registry.get_endpoint(metadata.target_id, metadata.endpoint_id)
         return RegisteredTestOption(
             test_id=metadata.test_id,
+            target_id=metadata.target_id,
             vulnerability_class=metadata.vulnerability_class,
             endpoint_id=metadata.endpoint_id,
+            path=endpoint.path,
+            method=metadata.method,
             allowed_parameter_names=metadata.allowed_parameter_names,
+            request_template_id=metadata.request_template_id,
+            oracle_id=metadata.success_evidence_rule_id,
+            resource_cost=RegisteredTestResourceCost(
+                max_requests=metadata.max_requests,
+                timeout_seconds=metadata.timeout_seconds,
+            ),
             safe_description=metadata.description,
         )
 

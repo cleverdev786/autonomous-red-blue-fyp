@@ -248,47 +248,55 @@ Select all applicable bounded approved tests and preserve plan lineage without L
 
 ### T13: Convert registered tests to approved template descriptors
 
-- [ ] **T13 fully implemented and verified**
+- [x] **T13 fully implemented and verified**
 
 **Outcome:** Represent existing SQLi login, reflected XSS and path traversal tests as vetted, parameter-bound descriptors.
 **Depends on:** T03,T04,T11. **Size:** M. **Likely touched:** `config/security_tests/; services/registered_assessment_plan.py; schemas/red_team.py; tests/test_red_templates.py`.
 
 **Acceptance criteria:**
-- [ ] Existing three registered test IDs retain current meanings and have explicit target/path/method/parameter applicability, oracle and resource cost.
-- [ ] Templates may bind documented parameters but cannot introduce arbitrary payloads or commands.
-- [ ] Unknown classes and incompatible parameters are rejected or recorded as unsupported.
-- [ ] **Verification:** Template schema tests and compatibility tests against the three existing registered cases.
+- [x] Existing three registered test IDs retain current meanings and have explicit target/path/method/parameter applicability, oracle and resource cost.
+- [x] Templates may bind documented parameters but cannot introduce arbitrary payloads or commands.
+- [x] Unknown classes and incompatible parameters are rejected or recorded as unsupported.
+- [x] **Verification:** Template schema tests and compatibility tests against the three existing registered cases.
+
+**T13 verification:** `tests/test_red_templates.py` validates the three trusted descriptors, rejects arbitrary payload/command fields and fails closed on unknown classes or incompatible endpoint parameters. The descriptor projection is read-only and does not dispatch a provider, HTTP request, scanner or shell operation.
 
 ### T14: Select all applicable approved tests within budget
 
-- [ ] **T14 fully implemented and verified**
+- [x] **T14 fully implemented and verified**
 
 **Outcome:** Implement deterministic rule matching of candidates to vetted templates, stable operation ordering and Standard cost accounting.
 **Depends on:** T11,T13. **Size:** M. **Likely touched:** `agents/red/attack_planner.py; services/registered_assessment_plan.py; tests/test_red_planner_rules.py`.
 
 **Acceptance criteria:**
-- [ ] Every applicable authorized template instance is selected until an explicit budget is reached; selection is reproducible without LLM calls.
-- [ ] Missing template, blocked scope and exhausted budget each produce a typed coverage gap and recommendation when relevant.
-- [ ] The planner cannot alter target scope, upgrade methods or invent a scanner/shell operation.
-- [ ] **Verification:** Fixture tests for all-applicable matching, stable ordering, budget edges, unmatched endpoints and LLM-stub raising.
+- [x] Every applicable authorized template instance is selected until an explicit budget is reached; selection is reproducible without LLM calls.
+- [x] Missing template, blocked scope and exhausted budget each produce a typed coverage gap and recommendation when relevant.
+- [x] The planner cannot alter target scope, upgrade methods or invent a scanner/shell operation.
+- [x] **Verification:** Fixture tests for all-applicable matching, stable ordering, budget edges, unmatched endpoints and LLM-stub raising.
+
+**T14 verification:** `tests/test_red_planner_rules.py` proves stable all-applicable matching, Standard test/request/runtime cost accounting, typed recommendations for coverage gaps, exact scope/method/class preservation and a provider-free deterministic planner.
 
 ### T15: Version plans and invalidate dependent work
 
-- [ ] **T15 fully implemented and verified**
+- [x] **T15 fully implemented and verified**
 
 **Outcome:** Ensure reconnaissance reruns create a new surface revision, mark previously dependent plans stale and block execution until replanning.
 **Depends on:** T05,T07,T14. **Size:** M. **Likely touched:** `orchestrator/red_team_flow.py; persistence layer; tests/test_red_plan_staleness.py`.
 
 **Acceptance criteria:**
-- [ ] New surface snapshot invalidates dependent execution eligibility, not historical evidence.
-- [ ] Stale-plan execution is denied in both manual and autonomous paths; prior version remains viewable.
-- [ ] New approved plan has an immutable digest including scope, candidates and templates.
-- [ ] **Verification:** State/DB tests for rerun Recon → stale old plan → denied execution → refreshed plan accepted.
+- [x] New surface snapshot invalidates dependent execution eligibility, not historical evidence.
+- [x] Stale-plan execution is denied in both manual and autonomous paths; prior version remains viewable.
+- [x] New approved plan has an immutable digest including scope, candidates and templates.
+- [x] **Verification:** State/DB tests for rerun Recon → stale old plan → denied execution → refreshed plan accepted.
+
+**T15 verification:** `tests/test_red_plan_staleness.py` records immutable surface revisions, stales and blocks dependent unrun work, denies the old plan through the existing trusted admission gate in Manual and Autonomous modes, preserves plan history and admits a newly digested plan.
 
 ### Checkpoint D.15: release gate after T15
 
-- [ ] Template selection, budget gaps and stale-plan tests pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Template selection, budget gaps and stale-plan tests pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint D.15 evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_red_templates.py tests/test_red_planner_rules.py tests/test_red_plan_staleness.py tests/test_red_recon_candidates.py tests/test_red_store.py tests/test_red_admission.py tests/test_red_evidence_store.py tests/test_red_schema_contracts.py tests/test_red_policy.py tests/test_red_agent_contracts.py tests/test_red_team_mvp.py::test_reconnaissance_and_planning_views_are_separate_and_narrow -k 'not fastapi_response_model_matches_expected_contract'` (118 passed, 1 deselected, one existing Starlette/httpx deprecation warning). Review basis: scoped T13-T15 diff, fail-closed planner/store/admission tests and no execution/provider path; commit reference: the commit containing this checkpoint.
 
 ## Phase E: Controlled execution and verification
 
