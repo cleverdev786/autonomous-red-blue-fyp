@@ -339,7 +339,7 @@ class PlanningWorkResult(_RedWorkResult):
     stage: Literal["planning"] = "planning"
     plan_version: Identifier | None = None
     operation_ids: tuple[Identifier, ...] = ()
-    coverage_gap_codes: tuple[Identifier, ...] = ()
+    coverage_gap_ids: tuple[Identifier, ...] = ()
 
     @model_validator(mode="after")
     def validate_plan(self):

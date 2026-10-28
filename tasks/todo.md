@@ -413,16 +413,18 @@ Coordinate Manual and Autonomous assessments, scheduling, cancellation and recov
 
 ### T22: Build the Central Orchestrator stage state machine
 
-- [ ] **T22 fully implemented and verified**
+- [x] **T22 fully implemented and verified**
 
 **Outcome:** Evolve existing red_team_flow into model-free manager with trusted stages and one durable per-assessment source of truth.
 **Depends on:** T04,T06,T15,T21. **Size:** M. **Likely touched:** `orchestrator/red_team_flow.py; schemas/red_team.py; tests/test_red_orchestrator_states.py`.
 
 **Acceptance criteria:**
-- [ ] Only legal transitions dispatch agents; every transition has a typed event and persists before/after a worker operation.
-- [ ] Manual stage independence and autonomous dependency order share the same agent implementation/policy.
-- [ ] Restarting the coordinator does not imply successful completion of interrupted work.
-- [ ] **Verification:** State-machine tests for normal path, blocked prerequisites, restart and unexpected stage errors.
+- [x] Only legal transitions dispatch agents; every transition has a typed event and persists before/after a worker operation.
+- [x] Manual stage independence and autonomous dependency order share the same agent implementation/policy.
+- [x] Restarting the coordinator does not imply successful completion of interrupted work.
+- [x] **Verification:** State-machine tests for normal path, blocked prerequisites, restart and unexpected stage errors.
+
+**T22 verification:** `RedStageCoordinator` dispatches the four typed model-free workers through one prerequisite policy for Manual and Autonomous modes. Stage state and typed events commit atomically in the assessment SQLite database; the transition transaction rechecks the assessment is running. A successful stage requires its canonical surface, plan/operations/gaps, receipt/evidence or finding/gap output to be durable and scope-bound. Simulated interruption remains `running` after coordinator restart and cannot be redispatched as success. Nine focused state-machine tests, the 75-test persistence/contract regression, and the 285-test broad Red regression passed with 1 deselected test and one existing Starlette/httpx deprecation warning. Ruff and `git diff --check` passed; EngineeringSuite review found no remaining actionable defect.
 
 ### T23: Add simple resource-aware assessment queue
 

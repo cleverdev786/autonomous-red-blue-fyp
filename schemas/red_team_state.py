@@ -172,6 +172,29 @@ class StageDTO(_RedDTO):
     plan_version: Identifier | None = None
 
 
+class StageTransitionEventDTO(_RedDTO):
+    """One durable coordinator transition around a Red worker dispatch."""
+
+    event_id: Identifier
+    stage: Literal["reconnaissance", "planning", "execution", "verification"]
+    previous_status: StageState
+    status: StageState
+    phase: Literal["before_worker", "after_worker", "recovery"]
+    occurred_at: datetime
+
+    @field_validator("occurred_at")
+    @classmethod
+    def timestamp_is_aware(cls, value):
+        if value.tzinfo is None:
+            raise ValueError("stage transition timestamp requires timezone")
+        return value
+
+    @model_validator(mode="after")
+    def transition_is_legal(self):
+        require_stage_transition(self.previous_status, self.status)
+        return self
+
+
 class PlanVersionDTO(_RedDTO):
     plan_version: Identifier
     surface_revision: Identifier
@@ -306,6 +329,7 @@ class FindingDTO(_RedDTO):
 class CoverageGapDTO(_RedDTO):
     gap_id: Identifier
     status: GapState = GapState.OPEN
+    surface_revision: Identifier | None = None
     reason: Literal[
         "no_template", "method_out_of_scope", "unsupported_class",
         "authentication_required", "budget_exhausted", "execution_blocked",
@@ -463,6 +487,11 @@ class RedAssessmentDetailDTO(BaseModel):
         for gap in self.coverage_gaps:
             if gap.candidate_id is not None and gap.candidate_id not in candidates:
                 raise ValueError("coverage gap references unknown candidate")
+            if (
+                gap.surface_revision is not None
+                and gap.surface_revision not in surfaces
+            ):
+                raise ValueError("coverage gap references unknown surface revision")
 
         for handoff in self.pending_handoffs:
             if not any(

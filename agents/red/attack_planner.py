@@ -227,6 +227,7 @@ class DeterministicAttackPlanner:
             scope=work.scope,
             gap_id=f"gap-{digest[:20]}",
             reason=reason,
+            surface_revision=work.surface_revision,
             candidate_id=candidate_id,
             test_id=test_id,
             recommendation=recommendation,

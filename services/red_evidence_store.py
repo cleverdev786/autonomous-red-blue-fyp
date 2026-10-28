@@ -29,7 +29,11 @@ from schemas.red_team_state import (
     OperationDTO,
     PendingHandoffDTO,
     ReceiptDTO,
+    StageDTO,
+    StageState,
+    StageTransitionEventDTO,
     require_assessment_transition,
+    require_stage_transition,
 )
 from services.red_assessment_store import RedAssessmentStore, StoreConflict
 
@@ -40,7 +44,8 @@ class EvidenceDenied(ValueError):
 
 _SAFE_DETAIL_KEYS = frozenset(
     {"stage", "reason_code", "operation_id", "status", "test_id",
-     "endpoint_id", "method", "status_code", "oracle_id"}
+     "endpoint_id", "method", "status_code", "oracle_id",
+     "previous_status", "phase"}
 )
 _SAFE_VALUE = re.compile(r"^[a-zA-Z0-9_.-]{1,100}$")
 _SECRET_HINT = re.compile(
@@ -526,6 +531,114 @@ class RedEvidenceStore:
                 )
             except sqlite3.IntegrityError as exc:
                 raise EvidenceDenied("duplicate event") from exc
+
+    def transition_stage(
+        self,
+        stage: StageDTO,
+        event: StageTransitionEventDTO,
+    ) -> None:
+        """Atomically persist one legal stage state and its typed timeline event."""
+        if (
+            event.scope != stage.scope
+            or event.stage != stage.stage
+            or event.status != stage.status
+        ):
+            raise EvidenceDenied("stage transition event mismatch")
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self._require_scope(db, stage.scope)
+            assessment, _ = self.store._load_assessment(
+                db, stage.scope.assessment_id
+            )
+            if assessment.status != AssessmentState.RUNNING:
+                raise EvidenceDenied("stage transition requires a running assessment")
+            row = db.execute(
+                "SELECT payload FROM red_stages WHERE assessment_id=? AND stage=?",
+                (stage.scope.assessment_id, stage.stage),
+            ).fetchone()
+            previous = (
+                StageDTO.model_validate_json(row["payload"]).status
+                if row is not None
+                else StageState.NOT_STARTED
+            )
+            if event.previous_status != previous:
+                raise EvidenceDenied("stage transition does not match persisted state")
+            try:
+                require_stage_transition(previous, stage.status)
+            except ValueError as exc:
+                raise EvidenceDenied("invalid stage transition") from exc
+            if stage.plan_version is not None:
+                plan = db.execute(
+                    "SELECT 1 FROM red_plans WHERE assessment_id=? AND plan_version=?",
+                    (stage.scope.assessment_id, stage.plan_version),
+                ).fetchone()
+                if plan is None:
+                    raise EvidenceDenied("stage references unknown plan")
+            details = json.dumps(
+                {
+                    "stage": stage.stage,
+                    "previous_status": previous.value,
+                    "status": stage.status.value,
+                    "phase": event.phase,
+                },
+                sort_keys=True,
+            )
+            try:
+                db.execute(
+                    """INSERT INTO red_stages (assessment_id,stage,plan_version,payload)
+                       VALUES (?,?,?,?)
+                       ON CONFLICT(assessment_id,stage) DO UPDATE SET
+                           plan_version=excluded.plan_version,payload=excluded.payload""",
+                    (
+                        stage.scope.assessment_id,
+                        stage.stage,
+                        stage.plan_version,
+                        stage.model_dump_json(),
+                    ),
+                )
+                db.execute(
+                    """INSERT INTO red_events
+                       (assessment_id,event_id,actor,action,outcome,occurred_at,details)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (
+                        stage.scope.assessment_id,
+                        event.event_id,
+                        "red-orchestrator",
+                        "stage-transition",
+                        stage.status.value,
+                        event.occurred_at.isoformat(),
+                        details,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise EvidenceDenied("duplicate stage transition event") from exc
+
+    def list_stage_events(
+        self, scope: RedScopeReference
+    ) -> tuple[StageTransitionEventDTO, ...]:
+        with self.store._connect() as db:
+            self._require_scope(db, scope)
+            rows = db.execute(
+                """SELECT event_id,occurred_at,details FROM red_events
+                   WHERE assessment_id=? AND action='stage-transition'
+                   ORDER BY sequence""",
+                (scope.assessment_id,),
+            ).fetchall()
+        events = []
+        for row in rows:
+            details = json.loads(row["details"])
+            events.append(
+                StageTransitionEventDTO(
+                    scope=scope,
+                    event_id=row["event_id"],
+                    stage=details["stage"],
+                    previous_status=details["previous_status"],
+                    status=details["status"],
+                    phase=details["phase"],
+                    occurred_at=datetime.fromisoformat(row["occurred_at"]),
+                )
+            )
+        return tuple(events)
 
     def list_events(self, scope: RedScopeReference) -> list[dict]:
         with self.store._connect() as db:
