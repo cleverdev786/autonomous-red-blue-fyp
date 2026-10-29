@@ -134,7 +134,7 @@ def create_console_app(database_path: str | Path | None = None, *,
         CORSMiddleware,
         allow_origins=sorted(ALLOWED_ORIGINS),
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Red-CSRF"],
         allow_credentials=False,
     )
     router = APIRouter(prefix="/api/console")

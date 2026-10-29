@@ -72,6 +72,13 @@ class RedAssessmentQueue:
                     FOREIGN KEY (assessment_id)
                         REFERENCES red_assessments(assessment_id)
                 );
+                CREATE TABLE IF NOT EXISTS red_autonomous_dispatches (
+                    assessment_id TEXT PRIMARY KEY,
+                    command_id TEXT NOT NULL UNIQUE,
+                    started_at TEXT NOT NULL,
+                    FOREIGN KEY (assessment_id)
+                        REFERENCES red_assessments(assessment_id)
+                );
             """)
             legacy = db.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='red_queue_jobs_t23'"
@@ -161,6 +168,63 @@ class RedAssessmentQueue:
                 for job_id, work, resource, enqueued_at, budget in validated
             )
 
+    def enqueue_operator(
+        self,
+        *,
+        job_id: str,
+        work: QueuedRedWork,
+        resource: QueueResourceDTO,
+        enqueued_at: datetime,
+    ) -> QueueJobDTO:
+        """Atomically keep one operator-issued job active per assessment stage."""
+        validated = self._validate_enqueue(job_id, work, resource, enqueued_at)
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            return self._enqueue(db, *validated, exclusive_stage=True)
+
+    def enqueue_progressive_start(
+        self,
+        *,
+        command_id: str,
+        job_id: str,
+        work: QueuedRedWork,
+        resource: QueueResourceDTO,
+        enqueued_at: datetime,
+    ) -> QueueJobDTO:
+        """Atomically bind one autonomous command to its first queued stage."""
+        TypeAdapter(Identifier).validate_python(command_id)
+        validated = self._validate_enqueue(job_id, work, resource, enqueued_at)
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            existing = db.execute(
+                "SELECT command_id FROM red_autonomous_dispatches WHERE assessment_id=?",
+                (work.scope.assessment_id,),
+            ).fetchone()
+            if existing is not None and existing["command_id"] != command_id:
+                raise QueueDenied("autonomous start command is immutable")
+            if existing is None:
+                db.execute(
+                    "INSERT INTO red_autonomous_dispatches VALUES (?,?,?)",
+                    (work.scope.assessment_id, command_id, enqueued_at.isoformat()),
+                )
+            return self._enqueue(db, *validated, exclusive_stage=True)
+
+    def progressive_command(self, scope: RedScopeReference) -> str | None:
+        with self.store._connect() as db:
+            self.store._require_scope(db, scope)
+            row = db.execute(
+                "SELECT command_id FROM red_autonomous_dispatches WHERE assessment_id=?",
+                (scope.assessment_id,),
+            ).fetchone()
+        return row["command_id"] if row is not None else None
+
+    def progressive_assessment_ids(self) -> tuple[str, ...]:
+        with self.store._connect() as db:
+            rows = db.execute(
+                "SELECT assessment_id FROM red_autonomous_dispatches ORDER BY rowid"
+            ).fetchall()
+        return tuple(row["assessment_id"] for row in rows)
+
     def _validate_enqueue(
         self,
         job_id: str,
@@ -211,6 +275,8 @@ class RedAssessmentQueue:
         resource: QueueResourceDTO,
         enqueued_at: datetime,
         budget: RedStandardBudget,
+        *,
+        exclusive_stage: bool = False,
     ) -> QueueJobDTO:
         work_json = work.model_dump_json()
         resource_json = resource.model_dump_json()
@@ -228,10 +294,16 @@ class RedAssessmentQueue:
             if (
                 job.work != work
                 or job.resource != resource
-                or job.enqueued_at != enqueued_at
             ):
                 raise QueueDenied("queue job identity conflict")
             return job
+        if exclusive_stage and db.execute(
+            """SELECT 1 FROM red_queue_jobs
+               WHERE assessment_id=? AND stage=?
+                 AND status IN ('queued','running') LIMIT 1""",
+            (work.scope.assessment_id, work.stage),
+        ).fetchone() is not None:
+            raise QueueDenied(f"{work.stage} already has active work")
         if db.execute(
             """SELECT 1 FROM red_queue_cancellations
                WHERE assessment_id=?""",
@@ -438,6 +510,35 @@ class RedAssessmentQueue:
                 )
                 self._finalize_cancellation(db, job.work.scope, finished_at)
             return job
+
+    def finalize_progressive_failure(self, scope: RedScopeReference) -> None:
+        """Terminalize an active progressive assessment after a durable job failure."""
+        with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self.store._require_scope(db, scope)
+            current, _ = self.store._load_assessment(db, scope.assessment_id)
+            if current.status == AssessmentState.FAILED:
+                return
+            if current.status != AssessmentState.RUNNING:
+                raise QueueDenied("only a running assessment can fail")
+            if db.execute(
+                "SELECT 1 FROM red_autonomous_dispatches WHERE assessment_id=?",
+                (scope.assessment_id,),
+            ).fetchone() is None or db.execute(
+                """SELECT 1 FROM red_queue_jobs
+                   WHERE assessment_id=? AND status='failed' LIMIT 1""",
+                (scope.assessment_id,),
+            ).fetchone() is None:
+                raise QueueDenied("progressive failure requires a failed queue job")
+            require_assessment_transition(current.status, AssessmentState.FAILED)
+            failed = AssessmentDTO.model_validate(current.model_copy(update={
+                "status": AssessmentState.FAILED,
+                "workflow_complete": True,
+            }))
+            db.execute(
+                "UPDATE red_assessments SET assessment_json=? WHERE assessment_id=?",
+                (failed.model_dump_json(), scope.assessment_id),
+            )
 
     def request_cancellation(
         self,

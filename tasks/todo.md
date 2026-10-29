@@ -491,34 +491,42 @@ Build server-backed dashboard, controls, timeline and findings without inventing
 
 ### T26: Expose Red read APIs for dashboard and workspaces
 
-- [ ] **T26 fully implemented and verified**
+- [x] **T26 fully implemented and verified**
 
 **Outcome:** Provide stable, typed, paginated target/summary/assessment/events/findings/coverage reads using existing console conventions.
 **Depends on:** T05,T06,T21,T22. **Size:** M. **Likely touched:** `dashboard/api/console.py; schemas/red_team.py; tests/test_red_read_api.py`.
 
 **Acceptance criteria:**
-- [ ] Global and selected-target filters agree across counts, findings, assessment index and history.
-- [ ] Event responses summarize major worker steps rather than full technical trace or secrets.
-- [ ] Empty/loading/failed data have predictable response semantics and preview-only results cannot appear as executed.
-- [ ] **Verification:** TestClient tests for filters, pagination, nonexistent ID, no findings, stale plan and cancellation state.
+- [x] Global and selected-target filters agree across counts, findings, assessment index and history.
+- [x] Event responses summarize major worker steps rather than full technical trace or secrets.
+- [x] Empty/loading/failed data have predictable response semantics and preview-only results cannot appear as executed.
+- [x] **Verification:** TestClient tests for filters, pagination, nonexistent ID, no findings, stale plan and cancellation state.
+
+**T26 verification:** Authenticated, read-only FastAPI endpoints now expose typed target, summary, assessment workspace, major-event timeline, filterable finding, sanitized finding-detail and coverage projections. Target/status/category/severity filters share persisted scope, SQL count/filter/pagination is applied before DTO hydration, missing storage is a predictable `503` without creating a database, and unknown resources or invalid filters return stable `404`/`422` errors. Timeline and finding detail omit actors, raw evidence, storage paths and secrets; preview candidates do not count as planned or executed operations. In-process ASGI integration tests cover nonzero pagination, global and assessment-scoped filters, invalid filters, nonexistent IDs, no findings, stale plans, cancellation and sanitized evidence. The focused read/recon suite passed 25 tests, and the exact current-tree F.25/T26 Red regression passed 138 tests. Ruff and `git diff --check` passed. Two EngineeringSuite review passes found no remaining actionable issues. No T27 implementation was started.
 
 ### T27: Expose Red write APIs for authorized commands
 
-- [ ] **T27 fully implemented and verified**
+- [x] **T27 fully implemented and verified**
 
 **Outcome:** Add create draft, authorize/start, manual stage run/rerun and cancel endpoints atop the trusted supervisor.
 **Depends on:** T08,T25,T26. **Size:** M. **Likely touched:** `dashboard/api/console.py; schemas/red_team.py; tests/test_red_write_api.py`.
 
 **Acceptance criteria:**
-- [ ] Server validates operator identity/CSRF/idempotency, immutable authorization and legal stage prerequisites on every call.
-- [ ] Creating a draft cannot execute; duplicate start/manual/cancel requests cannot repeat active attacks.
-- [ ] HTTP conflicts/errors explain locked mode, stale plan, budget exhaustion or blocked operation without side effects.
-- [ ] **Verification:** API integration tests for full draft→authorize→start and manual commands, plus CSRF, replay and forged scope.
+- [x] Server validates operator identity/CSRF/idempotency, immutable authorization and legal stage prerequisites on every call.
+- [x] Creating a draft cannot execute; duplicate start/manual/cancel requests cannot repeat active attacks.
+- [x] HTTP conflicts/errors explain locked mode, stale plan, budget exhaustion or blocked operation without side effects.
+- [x] **Verification:** API integration tests for full draft→authorize→start and manual commands, plus CSRF, replay and forged scope.
+
+**T27 verification:** Authenticated JSON-only commands now create an awaiting-authorization draft, record one immutable explicit authorization, start Autonomous reconnaissance with durable progressive continuation and crash-window recovery, sequence every approved operation through execution and verification, queue eligible Manual stages/reruns, and request durable cancellation. The API constructs scope, tasks, resources and timestamps from trusted persisted state and the registered Standard policy; callers cannot supply URLs, commands, resource limits or authorization fingerprints. Request IDs remain stable after state advancement, same-key retries return the original durable effect, and distinct operator commands cannot queue duplicate active work for one stage. Failed progressive jobs terminalize without replay, zero-approved-operation plans complete truthfully with limitations, and finalization is serialized across concurrent recovery workers. Stable `409` codes distinguish authorization, locked mode, stale plan, exhausted budget, active work and blocked prerequisites. Fifteen T27 ASGI/service integration tests cover draft→authorize→start→completion, multiple operations, recovery ordering/concurrency, failure, Manual run/cancel, CSRF/auth/origin denial, replay, forged fields, unknown IDs, stale plans and cancellation. The exact current-tree bounded Red regression passed 170 tests; Ruff and `git diff --check` passed. No T28 implementation was started.
+
+**Starlette compatibility follow-up:** Starlette 1.7+ deprecates its legacy `httpx` TestClient fallback and prefers `httpx2`; the project installed `httpx 0.28.1` without `httpx2`, producing the recurring `StarletteDeprecationWarning`. `httpx2>=2.0,<3.0` is now a development dependency, `pip check` passes, and importing FastAPI's TestClient with `StarletteDeprecationWarning` promoted to an error is clean. This host still blocks inside AnyIO's synchronous TestClient portal even with Starlette 1.10 and `httpx2`; that separate host/runtime issue is unchanged, so API integration tests continue to use the non-blocking in-process ASGI transport.
 
 ### Checkpoint G.27: release gate after T27
 
-- [ ] Read/write APIs including authorization tests pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Read/write APIs including authorization tests pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint G.27 evidence:** The T26/T27 API suites, isolated-build-input checks and the bounded T23–T25 queue, mode, cancellation, orchestration, execution, evidence, admission, verification, reset and template regression passed 170 tests in 63.06 seconds. EngineeringSuite TDD, API-design, security, Ponytail and parallel review checks drove stable post-transition idempotency, atomic active-stage command gating, per-operation Autonomous continuation, concurrent crash recovery, truthful failure/zero-operation completion and explicit blocked-operation errors. Ruff, dependency compatibility checks and `git diff --check` passed. Commit reference: the future commit containing T26 and T27.
 
 ### T28: Build dashboard metrics and assessment index
 

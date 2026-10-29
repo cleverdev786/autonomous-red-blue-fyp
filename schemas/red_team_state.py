@@ -501,3 +501,182 @@ class RedAssessmentDetailDTO(BaseModel):
                 raise ValueError("handoff requires a confirmed finding")
 
         return self
+
+
+class RedPaginationDTO(BaseModel):
+    """Stable offset pagination shared by Red dashboard list reads."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    offset: int = Field(ge=0)
+    limit: int = Field(ge=1, le=200)
+    total: int = Field(ge=0)
+
+
+class RedTargetReadDTO(BaseModel):
+    """Safe target catalogue projection; runtime coordinates stay server-side."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    target_id: Identifier
+    compatibility: Literal["supported"] = "supported"
+    supported_classes: tuple[
+        Literal["path_traversal", "sql_injection", "xss"], ...
+    ]
+    limitations: tuple[Literal["unauthenticated_only"], ...] = (
+        "unauthenticated_only",
+    )
+
+
+class RedTargetPageDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    items: tuple[RedTargetReadDTO, ...]
+    pagination: RedPaginationDTO
+
+
+class RedAssessmentListItemDTO(BaseModel):
+    """Compact server-authoritative assessment history row."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    assessment_id: Identifier
+    target_id: Identifier
+    mode: Literal["manual", "autonomous"]
+    profile: Literal["standard"]
+    status: AssessmentState
+    workflow_complete: bool
+    coverage: CoverageDTO
+    current_plan_version: Identifier | None = None
+    current_surface_revision: Identifier | None = None
+    stage_statuses: dict[
+        Literal["reconnaissance", "planning", "execution", "verification"],
+        StageState,
+    ] = Field(default_factory=dict)
+
+
+class RedAssessmentPageDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    items: tuple[RedAssessmentListItemDTO, ...]
+    pagination: RedPaginationDTO
+
+
+class RedAssessmentWorkspaceDTO(BaseModel):
+    """Assessment workspace state without raw receipts or evidence locations."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    assessment: RedAssessmentListItemDTO
+    stages: tuple[StageDTO, ...] = ()
+    plans: tuple[PlanVersionDTO, ...] = ()
+    candidate_count: int = Field(ge=0)
+    planned_operation_count: int = Field(ge=0)
+    finding_counts: dict[FindingState, int]
+    coverage_gap_count: int = Field(ge=0)
+
+
+class RedEventReadDTO(BaseModel):
+    """Bounded major-step timeline projection; technical details are omitted."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    event_id: Identifier
+    action: Identifier
+    status: Identifier
+    stage: Literal[
+        "reconnaissance", "planning", "execution", "verification"
+    ] | None = None
+    occurred_at: datetime
+
+    @field_validator("occurred_at")
+    @classmethod
+    def event_timestamp_is_aware(cls, value):
+        if value.tzinfo is None:
+            raise ValueError("event timestamp requires timezone")
+        return value
+
+
+class RedEventPageDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    items: tuple[RedEventReadDTO, ...]
+    pagination: RedPaginationDTO
+
+
+class RedFindingReadDTO(BaseModel):
+    """Finding-table projection with an evidence flag, never a filesystem path."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    finding_id: Identifier
+    assessment_id: Identifier
+    target_id: Identifier
+    status: FindingState
+    severity: Literal["informational", "low", "medium", "high", "critical"] | None
+    category: Identifier | None
+    route: str | None
+    provenance: Literal["controlled_http", "zap"] | None
+    reproduction_scope: Literal["registered_local_lab", "targeted_scanner"] | None
+    has_evidence: bool
+
+
+class RedFindingPageDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    items: tuple[RedFindingReadDTO, ...]
+    pagination: RedPaginationDTO
+    coverage_gap_count: int = Field(ge=0)
+
+
+class RedEvidenceMetadataReadDTO(BaseModel):
+    """Integrity metadata only; storage references and evidence bytes are omitted."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    evidence_id: Identifier
+    receipt_id: Identifier
+    operation_id: Identifier | None
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    content_type: str = Field(min_length=3, max_length=100)
+
+
+class RedFindingDetailDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    finding: RedFindingReadDTO
+    operation_id: Identifier
+    plan_version: Identifier
+    test_id: Identifier | None
+    oracle_id: Identifier | None
+    evidence_receipt_ids: tuple[Identifier, ...] = ()
+    evidence: tuple[RedEvidenceMetadataReadDTO, ...] = ()
+
+
+class RedCoverageReadDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    assessment_id: Identifier
+    target_id: Identifier
+    coverage: CoverageDTO
+    gaps: tuple[CoverageGapDTO, ...] = ()
+    warnings: tuple[
+        Literal[
+            "unauthenticated_only_coverage",
+            "unsupported_vulnerability_classes",
+            "incomplete_or_uncertain_coverage",
+        ], ...
+    ] = ()
+
+
+class RedDashboardSummaryDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    target_id: Identifier | None = None
+    assessment_count: int = Field(ge=0)
+    confirmed_findings: int = Field(ge=0)
+    suspected_findings: int = Field(ge=0)
+    tested: int = Field(ge=0)
+    eligible: int = Field(ge=0)
+    active_assessments: int = Field(ge=0)
+    queued_assessments: int = Field(ge=0)
+    active_stages: int = Field(ge=0)
+    coverage_gaps: int = Field(ge=0)
+
+
+class RedCommandReceiptDTO(BaseModel):
+    """Stable acknowledgement for one idempotent operator command."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    assessment_id: Identifier
+    request_id: Identifier
+    status: Literal[
+        "awaiting_authorization", "queued", "cancellation_requested", "cancelled"
+    ]
+    job_ids: tuple[Identifier, ...] = ()

@@ -26,6 +26,7 @@ from schemas.red_team_state import (
     EvidenceArtifactDTO,
     FindingDTO,
     FindingState,
+    GapState,
     OperationDTO,
     PendingHandoffDTO,
     ReceiptDTO,
@@ -76,6 +77,8 @@ class RedEvidenceStore:
     def __init__(self, store: RedAssessmentStore, evidence_root: Path) -> None:
         self.store = store
         self.evidence_root = Path(evidence_root).resolve()
+        if store.read_only:
+            return
         self.evidence_root.mkdir(parents=True, exist_ok=True, mode=0o700)
         with self.store._connect() as db:
             db.executescript("""
@@ -370,6 +373,69 @@ class RedEvidenceStore:
             ).fetchall()
             return tuple(FindingDTO.model_validate_json(row["payload"]) for row in rows)
 
+    def list_findings_page(
+        self,
+        *,
+        assessment_id: str | None = None,
+        target_id: str | None = None,
+        status: str | None = None,
+        category: str | None = None,
+        severity: str | None = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[tuple[FindingDTO, ...], int]:
+        """Count and page persisted findings before DTO hydration."""
+        clauses: list[str] = []
+        parameters: list[object] = []
+        filters = (
+            ("assessment_id", assessment_id),
+            ("json_extract(payload, '$.scope.target_id')", target_id),
+            ("json_extract(payload, '$.status')", status),
+            ("json_extract(payload, '$.category')", category),
+            ("json_extract(payload, '$.severity')", severity),
+        )
+        for column, value in filters:
+            if value is not None:
+                clauses.append(f"{column}=?")
+                parameters.append(value)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        with self.store._connect() as db:
+            total = db.execute(
+                "SELECT COUNT(*) FROM red_findings" + where,
+                parameters,
+            ).fetchone()[0]
+            rows = db.execute(
+                "SELECT payload FROM red_findings"
+                + where
+                + " ORDER BY rowid LIMIT ? OFFSET ?",
+                (*parameters, limit, offset),
+            ).fetchall()
+        return (
+            tuple(FindingDTO.model_validate_json(row["payload"]) for row in rows),
+            total,
+        )
+
+    def count_open_coverage_gaps(
+        self,
+        *,
+        assessment_id: str | None = None,
+        target_id: str | None = None,
+    ) -> int:
+        clauses = ["json_extract(payload, '$.status')=?"]
+        parameters: list[object] = [GapState.OPEN.value]
+        if assessment_id is not None:
+            clauses.append("assessment_id=?")
+            parameters.append(assessment_id)
+        if target_id is not None:
+            clauses.append("json_extract(payload, '$.scope.target_id')=?")
+            parameters.append(target_id)
+        with self.store._connect() as db:
+            return db.execute(
+                "SELECT COUNT(*) FROM red_coverage_gaps WHERE "
+                + " AND ".join(clauses),
+                parameters,
+            ).fetchone()[0]
+
     def ensure_pending_handoff(self, finding: FindingDTO) -> PendingHandoffDTO:
         if finding.status != FindingState.CONFIRMED:
             raise EvidenceDenied("pending handoff requires a confirmed finding")
@@ -409,6 +475,7 @@ class RedEvidenceStore:
             else AssessmentState.COMPLETED_WITH_LIMITATIONS
         )
         with self.store._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
             self._require_scope(db, scope)
             current, _ = self.store._load_assessment(db, scope.assessment_id)
             completed = AssessmentDTO.model_validate(

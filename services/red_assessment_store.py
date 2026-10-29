@@ -147,7 +147,12 @@ class RedAssessmentStore:
                     previous["authorization_json"]
                 ) != authorization:
                     raise StoreConflict("authorization snapshot differs from existing request")
-                if AssessmentDTO.model_validate_json(previous["assessment_json"]) != assessment:
+                saved = AssessmentDTO.model_validate_json(previous["assessment_json"])
+                if (
+                    saved.scope != assessment.scope
+                    or saved.mode != assessment.mode
+                    or saved.profile != assessment.profile
+                ):
                     raise StoreConflict("idempotency request reused with a different assessment")
                 return previous["assessment_id"]
             try:
@@ -393,3 +398,41 @@ class RedAssessmentStore:
                 ),
             )
             return snapshot, authorization
+
+    def list_assessments(
+        self,
+        *,
+        target_id: str | None = None,
+        status: str | None = None,
+        offset: int = 0,
+        limit: int | None = 50,
+    ) -> tuple[tuple[RedAssessmentDetailDTO, ...], int]:
+        """Return validated assessment snapshots in newest-first creation order."""
+        clauses = []
+        parameters: list[object] = []
+        if target_id is not None:
+            clauses.append("json_extract(assessment_json, '$.scope.target_id')=?")
+            parameters.append(target_id)
+        if status is not None:
+            clauses.append("json_extract(assessment_json, '$.status')=?")
+            parameters.append(status)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        with self._connect() as db:
+            total = db.execute(
+                "SELECT COUNT(*) FROM red_assessments" + where,
+                parameters,
+            ).fetchone()[0]
+            query = (
+                "SELECT assessment_id FROM red_assessments"
+                + where
+                + " ORDER BY rowid DESC"
+            )
+            page_parameters = [*parameters]
+            if limit is not None:
+                query += " LIMIT ? OFFSET ?"
+                page_parameters.extend((limit, offset))
+            elif offset:
+                query += " LIMIT -1 OFFSET ?"
+                page_parameters.append(offset)
+            rows = db.execute(query, page_parameters).fetchall()
+        return tuple(self.load(row["assessment_id"])[0] for row in rows), total
