@@ -428,21 +428,25 @@ Coordinate Manual and Autonomous assessments, scheduling, cancellation and recov
 
 ### T23: Add simple resource-aware assessment queue
 
-- [ ] **T23 fully implemented and verified**
+- [x] **T23 fully implemented and verified**
 
 **Outcome:** Use existing Python/SQLite facilities to serialize heavy Docker work and support queued assessments without additional message brokers.
 **Depends on:** T05,T09,T22. **Size:** M. **Likely touched:** `orchestrator/red_team_flow.py; persistence layer; tests/test_red_queue.py`.
 
 **Acceptance criteria:**
-- [ ] Two assessments cannot run conflicting operations on one target instance simultaneously; heavy ZAP jobs obey resource budget.
-- [ ] Queue order, statuses and requests survive process restarts where feasible without double execution.
-- [ ] No Celery, Redis or new scheduler service is added for a single-machine lab without demonstrated need.
-- [ ] **Verification:** Queue concurrency tests with two jobs; kill/restart worker test; inspect CPU/memory bounds in Docker smoke.
+- [x] Two assessments cannot run conflicting operations on one target instance simultaneously; heavy ZAP jobs obey resource budget.
+- [x] Queue order, statuses and requests survive process restarts where feasible without double execution.
+- [x] No Celery, Redis or new scheduler service is added for a single-machine lab without demonstrated need.
+- [x] **Verification:** Queue concurrency tests with two jobs; kill/restart worker test; inspect CPU/memory bounds in Docker smoke.
+
+**T23 verification:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest -q -p no:cacheprovider tests/test_red_queue.py tests/test_red_orchestrator_states.py` passed 22 tests. SQLite `BEGIN IMMEDIATE` claims preserve FIFO order and one durable lease, serialize heavy work per target, bind denormalized columns to typed payloads, retain interrupted leases without silent redelivery, and enforce frozen per-job plus aggregate HTTP/runtime/ZAP crawl budgets. A 163-test model-free Red regression passed with one pre-existing Starlette/httpx warning. Ruff, both base and ZAP-profile Compose validation, and `git diff --check` passed. Docker inspection confirmed existing controlled-executor limits of 0.25 CPU/128 MiB, vulnerable-store limits of 0.5 CPU/256 MiB, and rendered ZAP limits of 0.5 CPU/512 MiB; the existing lab containers were stopped, so they were not restarted because the vulnerable-store entrypoint resets scenario data. No broker, scanner, container execution, recovery policy or T24 behavior was added.
 
 ### Checkpoint F.23: release gate after T23
 
-- [ ] Orchestrator and scheduling tests pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Orchestrator and scheduling tests pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint F.23 evidence:** Queue/orchestrator output is recorded in `tests/test_red_queue.py` and `tests/test_red_orchestrator_states.py` (22 passed); the broader regression passed 163 tests. EngineeringSuite TDD, Ponytail, security and code-review findings were resolved, including fail-closed persisted-row provenance and aggregate ZAP crawl-budget enforcement. Commit reference: the commit containing this checkpoint.
 
 ### T24: Implement prompt cancellation and safe recovery
 

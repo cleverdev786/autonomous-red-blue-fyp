@@ -42,6 +42,7 @@ from schemas.verification import PolicyDecision
 from services.audit_service import AuditService
 from services.controlled_executor import ControlledExecutionBlocked, ControlledExecutor
 from services.reconnaissance_service import ReconnaissanceService
+from services.red_assessment_queue import RedAssessmentQueue
 from services.red_evidence_store import RedEvidenceStore
 from services.target_registry import TargetRegistry
 
@@ -376,6 +377,61 @@ class RedStageCoordinator:
         if isinstance(task, PlanningWork):
             return result.plan_version
         return RedStageCoordinator._task_plan_version(task)
+
+
+class RedQueuedStageRunner:
+    """Claim one durable queue lease and dispatch it through the T22 coordinator."""
+
+    def __init__(
+        self,
+        *,
+        queue: RedAssessmentQueue,
+        coordinator: RedStageCoordinator,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        if queue.store.path.resolve() != coordinator.journal.store.path.resolve():
+            raise ValueError("queue and coordinator must share one assessment database")
+        self.queue = queue
+        self.coordinator = coordinator
+        self.clock = clock
+
+    def run_next(
+        self, *, worker_id: str, claimed_at: datetime | None = None
+    ) -> RedWorkResult | None:
+        job = self.queue.claim_next(
+            worker_id=worker_id,
+            claimed_at=claimed_at or self.clock(),
+        )
+        if job is None:
+            return None
+        assert job.worker_id is not None and job.lease_id is not None
+        assessment, _ = self.queue.store.load(job.work.scope.assessment_id)
+        try:
+            if assessment.assessment.mode == "manual":
+                result = self.coordinator.run_manual(job.work)
+            else:
+                result = self.coordinator.run_autonomous((job.work,))[0]
+        except Exception:
+            self.queue.finish(
+                job_id=job.job_id,
+                lease_id=job.lease_id,
+                worker_id=job.worker_id,
+                status="failed",
+                finished_at=self.clock(),
+            )
+            raise
+        self.queue.finish(
+            job_id=job.job_id,
+            lease_id=job.lease_id,
+            worker_id=job.worker_id,
+            status=(
+                "completed"
+                if result.status == RedWorkerStatus.SUCCEEDED
+                else "failed"
+            ),
+            finished_at=self.clock(),
+        )
+        return result
 
 
 class RedTeamFlow:
