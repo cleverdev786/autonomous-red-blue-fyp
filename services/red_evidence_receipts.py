@@ -41,7 +41,10 @@ class RedEvidenceRecorder:
     ) -> ReceiptDTO:
         raw = _canonical_result(result)
         status = (
-            "timeout" if result.timed_out else "completed" if result.completed else "failed"
+            "cancelled"
+            if result.error_code == "cancellation-requested"
+            else "timeout" if result.timed_out
+            else "completed" if result.completed else "failed"
         )
         exchanges = tuple(
             ReceiptExchangeDTO(

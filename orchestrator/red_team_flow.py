@@ -69,6 +69,10 @@ class RedStageExecutionError(RedTeamFlowError):
     """A worker raised or returned data outside its typed stage contract."""
 
 
+class RedStageCancelled(RedTeamFlowError):
+    """A durable stop request cancelled stage dispatch or its remaining work."""
+
+
 _RED_STAGE_ORDER = (
     "reconnaissance",
     "planning",
@@ -99,11 +103,21 @@ class RedStageCoordinator:
         self.clock = clock
         self.event_id_factory = event_id_factory
 
-    def run_manual(self, task: RedWork) -> RedWorkResult:
+    def run_manual(
+        self,
+        task: RedWork,
+        *,
+        cancellation_requested: Callable[[], bool] = lambda: False,
+    ) -> RedWorkResult:
         self._require_mode(task, "manual")
-        return self._run_stage(task)
+        return self._run_stage(task, cancellation_requested)
 
-    def run_autonomous(self, tasks: Sequence[RedWork]) -> tuple[RedWorkResult, ...]:
+    def run_autonomous(
+        self,
+        tasks: Sequence[RedWork],
+        *,
+        cancellation_requested: Callable[[], bool] = lambda: False,
+    ) -> tuple[RedWorkResult, ...]:
         work = tuple(tasks)
         if not work:
             raise ValueError("autonomous dispatch requires at least one stage task")
@@ -115,7 +129,7 @@ class RedStageCoordinator:
         self._require_mode(work[0], "autonomous")
         results = []
         for task in work:
-            result = self._run_stage(task)
+            result = self._run_stage(task, cancellation_requested)
             results.append(result)
             if result.status != RedWorkerStatus.SUCCEEDED:
                 break
@@ -130,7 +144,33 @@ class RedStageCoordinator:
         if snapshot.assessment.status != AssessmentState.RUNNING:
             raise RedStageBlocked("assessment is not running")
 
-    def _run_stage(self, task: RedWork) -> RedWorkResult:
+    def validate_for_queue(self, task: RedWork, expected_mode: str) -> None:
+        """Validate one command without mutating stage or queue state."""
+        snapshot, authorization = self.journal.store.load(task.scope.assessment_id)
+        if snapshot.assessment.scope != task.scope or authorization.scope != task.scope:
+            raise RedStageBlocked("task scope differs from persisted authorization")
+        if snapshot.assessment.mode != expected_mode:
+            raise RedStageBlocked(f"assessment is not in {expected_mode} mode")
+        if snapshot.assessment.status not in {
+            AssessmentState.QUEUED, AssessmentState.RUNNING,
+        }:
+            raise RedStageBlocked("assessment is not dispatchable")
+        current = next(
+            (item for item in snapshot.stages if item.stage == task.stage), None
+        )
+        if current is not None and current.status in {
+            StageState.RUNNING, StageState.QUEUED,
+        }:
+            raise RedStageBlocked(f"{task.stage} already has active work")
+        denial = self._prerequisite_denial(task)
+        if denial is not None:
+            raise RedStageBlocked(denial)
+
+    def _run_stage(
+        self,
+        task: RedWork,
+        cancellation_requested: Callable[[], bool],
+    ) -> RedWorkResult:
         snapshot, authorization = self.journal.store.load(task.scope.assessment_id)
         if authorization.scope != task.scope or snapshot.assessment.scope != task.scope:
             raise RedStageBlocked("task scope differs from persisted authorization")
@@ -166,9 +206,21 @@ class RedStageCoordinator:
         self._transition(
             task, state, StageState.RUNNING, "before_worker", plan_version,
         )
+        if cancellation_requested():
+            self._transition(
+                task, StageState.RUNNING, StageState.CANCELLED,
+                "after_worker", plan_version,
+            )
+            raise RedStageCancelled(f"{task.stage} cancelled before worker dispatch")
         try:
             result = validate_worker_result(task, self.workers[task.stage](task))
         except Exception as exc:
+            if cancellation_requested():
+                self._transition(
+                    task, StageState.RUNNING, StageState.CANCELLED,
+                    "after_worker", plan_version,
+                )
+                raise RedStageCancelled(f"{task.stage} cancelled in flight") from exc
             self._transition(
                 task,
                 StageState.RUNNING,
@@ -177,6 +229,13 @@ class RedStageCoordinator:
                 plan_version,
             )
             raise RedStageExecutionError(f"{task.stage} worker failed") from exc
+
+        if cancellation_requested():
+            self._transition(
+                task, StageState.RUNNING, StageState.CANCELLED,
+                "after_worker", plan_version,
+            )
+            raise RedStageCancelled(f"{task.stage} cancelled in flight")
 
         final_state = StageState(result.status.value)
         final_plan = self._result_plan_version(task, result)
@@ -225,12 +284,20 @@ class RedStageCoordinator:
             ):
                 return "planning requires the persisted reconnaissance surface"
         elif isinstance(task, ExecutionWork):
+            plan = next(
+                (item for item in snapshot.plans if item.plan_version == task.plan_version),
+                None,
+            )
             operation = next(
                 (item for item in snapshot.operations if item.operation_id == task.operation_id),
                 None,
             )
             if (
                 operation is None
+                or plan is None
+                or plan.status != "approved"
+                or not snapshot.surfaces
+                or plan.surface_revision != snapshot.surfaces[-1].surface_revision
                 or operation.plan_version != task.plan_version
                 or operation.status != "approved"
             ):
@@ -406,11 +473,27 @@ class RedQueuedStageRunner:
             return None
         assert job.worker_id is not None and job.lease_id is not None
         assessment, _ = self.queue.store.load(job.work.scope.assessment_id)
+        cancellation_requested = lambda: self.queue.cancellation_requested(
+            job_id=job.job_id, lease_id=job.lease_id
+        )
         try:
             if assessment.assessment.mode == "manual":
-                result = self.coordinator.run_manual(job.work)
+                result = self.coordinator.run_manual(
+                    job.work, cancellation_requested=cancellation_requested,
+                )
             else:
-                result = self.coordinator.run_autonomous((job.work,))[0]
+                result = self.coordinator.run_autonomous(
+                    (job.work,), cancellation_requested=cancellation_requested,
+                )[0]
+        except RedStageCancelled:
+            self.queue.finish(
+                job_id=job.job_id,
+                lease_id=job.lease_id,
+                worker_id=job.worker_id,
+                status="cancelled",
+                finished_at=self.clock(),
+            )
+            return None
         except Exception:
             self.queue.finish(
                 job_id=job.job_id,

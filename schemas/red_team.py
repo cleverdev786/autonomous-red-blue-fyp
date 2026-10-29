@@ -159,12 +159,13 @@ class ControlledHttpReceipt(BaseModel):
     request_count: int = Field(ge=0)
     duration_ms: int = Field(ge=0)
     status_code: int | None = Field(default=None, ge=100, le=599)
-    status: Literal["completed", "timeout", "failed"]
+    status: Literal["completed", "timeout", "failed", "cancelled"]
     error_class: Literal[
         "request-timeout",
         "transport-error",
         "redirect-blocked",
         "evidence-not-observed",
+        "cancellation-requested",
     ] | None = None
     evidence_ids: tuple[Identifier, ...] = ()
 

@@ -450,34 +450,40 @@ Coordinate Manual and Autonomous assessments, scheduling, cancellation and recov
 
 ### T24: Implement prompt cancellation and safe recovery
 
-- [ ] **T24 fully implemented and verified**
+- [x] **T24 fully implemented and verified**
 
 **Outcome:** Stop scheduling on cancellation; manage bounded idempotent retries, unknown outcomes and preserved evidence.
 **Depends on:** T06,T18,T22,T23. **Size:** M. **Likely touched:** `orchestrator/red_team_flow.py; services/controlled_executor.py; tests/test_red_cancel_retry.py`.
 
 **Acceptance criteria:**
-- [ ] Stop revokes pending tasks, requests in-flight cancellation and records honest completed/interrupted operation state.
-- [ ] Only safe retryable operations are repeated within a configured limit; uncertain active attack status becomes inconclusive.
-- [ ] Previously captured evidence and plan history remain retrievable after cancel/fail/restart.
-- [ ] **Verification:** Tests cancel before start, during ZAP/HTTP action, duplicate cancel, timeout and post-restart recovery.
+- [x] Stop revokes pending tasks, requests in-flight cancellation and records honest completed/interrupted operation state.
+- [x] Only safe retryable operations are repeated within a configured limit; uncertain active attack status becomes inconclusive.
+- [x] Previously captured evidence and plan history remain retrievable after cancel/fail/restart.
+- [x] **Verification:** Tests cancel before start, during ZAP/HTTP action, duplicate cancel, timeout and post-restart recovery.
+
+**T24 verification:** Durable SQLite cancellation requests atomically revoke queued jobs, exclude cancelled assessments from new claims, cooperatively stop bounded HTTP/ZAP work, and finalize the assessment only after active leases settle. Restart recovery distinguishes a durable completed receipt from an unknown outcome; unknown execution produces a partial receipt and `inconclusive` finding and is never silently replayed. The frozen Standard profile permits `max_retries=0`, so no operation is retryable in this release. Plans, receipts, evidence and findings remain available after cancellation or failure. `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest -q -p no:cacheprovider tests/test_red_cancel_retry.py tests/test_red_queue.py tests/test_red_orchestrator_states.py tests/test_red_real_execution.py tests/test_red_evidence_receipts.py tests/test_red_zap_active.py tests/test_zap_request_gate.py` passed 51 tests; the broader model-free Red regression passed 187 tests with 1 intentional deselection and one existing Starlette/httpx warning. Ruff and `git diff --check` passed. The MARS dashboard responded on `127.0.0.1:8090`; `vulnerable-store` and `controlled-executor` were recreated without deleting volumes and both reported healthy. No T25 implementation was started. Commit reference: the future commit containing T24.
 
 ### T25: Implement authorized Manual and Autonomous dispatch
 
-- [ ] **T25 fully implemented and verified**
+- [x] **T25 fully implemented and verified**
 
 **Outcome:** Use one approved assessment snapshot to run either user-selected stages or sequential autonomous Red operations.
 **Depends on:** T07,T15,T22,T23,T24. **Size:** M. **Likely touched:** `orchestrator/red_team_flow.py; tests/test_red_modes.py; existing API controller seam`.
 
 **Acceptance criteria:**
-- [ ] Autonomous requires explicit operator authorization once per target/scope/profile and completes within that authorization.
-- [ ] Manual executes individual stages only when prerequisites are current, preserving independent reruns and old plans.
-- [ ] Mode is immutable while assessment nonterminal; cancellation remains available and no page-load auto-execution exists.
-- [ ] **Verification:** One complete lab assessment in each mode and negative tests for no authorization, stale plan and mid-run mode change.
+- [x] Autonomous requires explicit operator authorization once per target/scope/profile and completes within that authorization.
+- [x] Manual executes individual stages only when prerequisites are current, preserving independent reruns and old plans.
+- [x] Mode is immutable while assessment nonterminal; cancellation remains available and no page-load auto-execution exists.
+- [x] **Verification:** One complete lab assessment in each mode and negative tests for no authorization, stale plan and mid-run mode change.
+
+**T25 verification:** `RedAssessmentSupervisor` records one immutable explicit operator authorization, then dispatches either an atomic ordered four-stage Autonomous workload or individually selected Manual stages over the existing durable queue. Manual prerequisite checks reject stale plans before queue mutation, independent reruns preserve prior plan history, and mode changes are denied while the assessment remains active. Construction performs no dispatch. `tests/test_red_modes.py` completes the registered controlled-lab fixture in both modes and covers missing/wrong authorization, duplicate authorization, atomic over-budget denial, stale plans, mid-run mode changes and cancellation. The T24/T25 queue, recovery, evidence, execution, verification, persistence and mode regression passed 133 tests. Ruff, base and ZAP-profile Compose validation, and `git diff --check` passed. Both lab containers remained healthy and the MARS dashboard responded on `127.0.0.1:8090`. No T26 work was started.
 
 ### Checkpoint F.25: release gate after T25
 
-- [ ] Safe stop/recovery and both modes pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Safe stop/recovery and both modes pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint F.25 evidence:** `PYTHONDONTWRITEBYTECODE=1 .venv/bin/pytest -q -p no:cacheprovider tests/test_red_modes.py tests/test_red_cancel_retry.py tests/test_red_queue.py tests/test_red_orchestrator_states.py tests/test_red_real_execution.py tests/test_red_evidence_receipts.py tests/test_red_zap_active.py tests/test_zap_request_gate.py tests/test_red_store.py tests/test_red_admission.py tests/test_red_verification.py tests/test_red_target_reset.py tests/test_red_templates.py` passed 133 tests. EngineeringSuite TDD, security, Ponytail and code-review checks resolved partial Autonomous queue persistence by making multi-stage dispatch one transaction. Reviewer: Codex EngineeringSuite review. Commit reference: the commit containing this checkpoint.
 
 ## Phase G: FastAPI and React assessment experience
 

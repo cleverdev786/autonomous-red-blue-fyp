@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
@@ -145,6 +145,7 @@ class ControlledExecutor:
         test_id: str,
         attempt_number: int,
         run_id: str,
+        cancellation_requested: Callable[[], bool] = lambda: False,
     ) -> TestExecutionResult:
         """Execute one fixed local test sequence with trusted correlation metadata.
 
@@ -204,13 +205,23 @@ class ControlledExecutor:
             )
             raise ControlledExecutionBlocked(decision)
 
+        started = self.clock()
+        if cancellation_requested():
+            return self._cancelled_result(
+                run_id, metadata.target_id, test_id, attempt_number,
+                started, [], None,
+            )
         self.limits.consume_attack_attempts()
 
-        started = self.clock()
         exchanges: list[HttpExchangeEvidence] = []
         last_status: int | None = None
 
         for index, step in enumerate(steps, start=1):
+            if cancellation_requested():
+                return self._cancelled_result(
+                    run_id, metadata.target_id, test_id, attempt_number,
+                    started, exchanges, last_status,
+                )
             self._validate_step(metadata=metadata, step=step)
             self._require(
                 self.policy_engine.validate_http_request_budget(self.limits)
@@ -286,6 +297,12 @@ class ControlledExecutor:
             )
             exchanges.append(exchange)
 
+            if cancellation_requested():
+                return self._cancelled_result(
+                    run_id, metadata.target_id, test_id, attempt_number,
+                    started, exchanges, last_status,
+                )
+
             # Current MVP redirect policy: do not follow redirects at all.
             # This is stricter than revalidation and prevents redirect escape.
             if 300 <= response.status_code <= 399:
@@ -319,6 +336,31 @@ class ControlledExecutor:
             exchanges=tuple(exchanges),
             duration_ms=self._elapsed_ms(started),
             error_code=None if evidence else "evidence-not-observed",
+        )
+
+    def _cancelled_result(
+        self,
+        run_id: str,
+        target_id: str,
+        test_id: str,
+        attempt_number: int,
+        started: float,
+        exchanges: list[HttpExchangeEvidence],
+        last_status: int | None,
+    ) -> TestExecutionResult:
+        return TestExecutionResult(
+            run_id=run_id,
+            target_id=target_id,
+            test_id=test_id,
+            attempt_number=attempt_number,
+            request_count=len(exchanges),
+            completed=False,
+            timed_out=False,
+            status_code=last_status,
+            evidence=(),
+            exchanges=tuple(exchanges),
+            duration_ms=self._elapsed_ms(started),
+            error_code="cancellation-requested",
         )
 
     @staticmethod
@@ -401,6 +443,7 @@ class PolicyAdmittedExecutor:
         usage: RedPolicyUsage,
         attempt_number: int,
         run_id: str,
+        cancellation_requested: Callable[[], bool] = lambda: False,
     ) -> ControlledHttpReceipt:
         """Revalidate one operation immediately before its fixed HTTP replay."""
         decision = self.admission.check(request, usage)
@@ -438,6 +481,7 @@ class PolicyAdmittedExecutor:
             test_id=operation.test_id,
             attempt_number=attempt_number,
             run_id=run_id,
+            cancellation_requested=cancellation_requested,
         )
         if (
             result.target_id != authorization.scope.target_id
@@ -452,8 +496,9 @@ class PolicyAdmittedExecutor:
             )
 
         status = (
-            "timeout"
-            if result.timed_out
+            "cancelled"
+            if result.error_code == "cancellation-requested"
+            else "timeout" if result.timed_out
             else "completed"
             if result.completed
             else "failed"

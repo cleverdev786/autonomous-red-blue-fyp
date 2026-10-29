@@ -171,11 +171,13 @@ class FixedTargetedZapRunner:
         gate_status: GateStatus,
         monotonic: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
+        cancellation_requested: Callable[[], bool] = lambda: False,
     ):
         self._request_json = request_json
         self._gate_status = gate_status
         self._monotonic = monotonic
         self._sleep = sleep
+        self._cancellation_requested = cancellation_requested
 
     def _call(self, route: str, params: Mapping[str, str], timeout: float) -> dict:
         value = self._request_json(route, params, timeout)
@@ -191,6 +193,8 @@ class FixedTargetedZapRunner:
         scan_id: str | None = None
 
         def bounded_call(route: str, params: Mapping[str, str]) -> dict:
+            if self._cancellation_requested():
+                raise ZapAdapterDenied("targeted_runner_cancelled")
             remaining = deadline - self._monotonic()
             if remaining <= 0:
                 raise ZapAdapterDenied("targeted_runner_failed")
@@ -200,6 +204,8 @@ class FixedTargetedZapRunner:
             return result
 
         def bounded_gate_status() -> object:
+            if self._cancellation_requested():
+                raise ZapAdapterDenied("targeted_runner_cancelled")
             remaining = deadline - self._monotonic()
             if remaining <= 0:
                 raise ZapAdapterDenied("targeted_runner_failed")
