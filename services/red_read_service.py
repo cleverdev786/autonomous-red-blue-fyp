@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from schemas.red_team import RedStandardBudget
 from schemas.red_team_state import (
     AssessmentState,
     FindingDTO,
@@ -22,6 +23,7 @@ from schemas.red_team_state import (
     RedPaginationDTO,
     RedTargetPageDTO,
     RedTargetReadDTO,
+    StageDTO,
     StageState,
 )
 from services.red_assessment_store import RedAssessmentStore
@@ -40,11 +42,17 @@ class RedReadConflict(ValueError):
 class RedReadService:
     """Build API DTOs from validated persisted state without dispatch authority."""
 
-    def __init__(self, store: RedAssessmentStore, registry: TargetRegistry) -> None:
+    def __init__(
+        self,
+        store: RedAssessmentStore,
+        registry: TargetRegistry,
+        standard_budget: RedStandardBudget,
+    ) -> None:
         if not store.read_only:
             raise ValueError("Red dashboard reads require a read-only store")
         self.store = store
         self.registry = registry
+        self.standard_budget = standard_budget
         self.journal = RedEvidenceStore(
             store,
             store.path.with_name(store.path.name + ".evidence"),
@@ -59,6 +67,7 @@ class RedReadService:
                     self.registry.get_security_test(test_id).vulnerability_class.value
                     for test_id in target.allowed_test_ids
                 })),
+                standard_budget=self.standard_budget,
             )
             for target in targets[offset:offset + limit]
         )
@@ -75,7 +84,7 @@ class RedReadService:
         self,
         *,
         target_id: str | None,
-        status: str | None,
+        status: str | None = None,
         offset: int,
         limit: int,
     ) -> RedAssessmentPageDTO:
@@ -94,14 +103,15 @@ class RedReadService:
 
     def workspace(self, assessment_id: str) -> RedAssessmentWorkspaceDTO:
         snapshot, _ = self.store.load(assessment_id)
+        stages = self._projected_stages(snapshot)
         findings = self.journal.list_findings(snapshot.assessment.scope)
         gaps = self.journal.list_coverage_gaps(snapshot.assessment.scope)
         counts = {state: 0 for state in FindingState}
         for finding in findings:
             counts[finding.status] += 1
         return RedAssessmentWorkspaceDTO(
-            assessment=self._assessment_item(snapshot),
-            stages=snapshot.stages,
+            assessment=self._assessment_item(snapshot, stages=stages),
+            stages=stages,
             plans=snapshot.plans,
             candidate_count=len(snapshot.candidates),
             planned_operation_count=len(snapshot.operations),
@@ -278,11 +288,17 @@ class RedReadService:
             warnings=tuple(warnings),
         )
 
-    def summary(self, *, target_id: str | None) -> RedDashboardSummaryDTO:
+    def summary(
+        self,
+        *,
+        target_id: str | None,
+        status: str | None = None,
+    ) -> RedDashboardSummaryDTO:
         if target_id is not None:
             self.registry.get_target(target_id)
         snapshots, total = self.store.list_assessments(
             target_id=target_id,
+            status=status,
             offset=0,
             limit=None,
         )
@@ -321,14 +337,16 @@ class RedReadService:
             active_stages=sum(
                 stage.status in {StageState.QUEUED, StageState.RUNNING}
                 for snapshot in snapshots
-                for stage in snapshot.stages
+                for stage in self._projected_stages(snapshot)
             ),
             coverage_gaps=sum(gap.status == GapState.OPEN for gap in gaps),
         )
 
-    @staticmethod
     def _assessment_item(
+        self,
         snapshot: RedAssessmentDetailDTO,
+        *,
+        stages: tuple[StageDTO, ...] | None = None,
     ) -> RedAssessmentListItemDTO:
         assessment = snapshot.assessment
         current_plan = next(
@@ -350,8 +368,46 @@ class RedReadService:
             current_surface_revision=(
                 current_surface.surface_revision if current_surface is not None else None
             ),
-            stage_statuses={stage.stage: stage.status for stage in snapshot.stages},
+            stage_statuses={
+                stage.stage: stage.status
+                for stage in stages or self._projected_stages(snapshot)
+            },
         )
+
+    def _projected_stages(
+        self,
+        snapshot: RedAssessmentDetailDTO,
+    ) -> tuple[StageDTO, ...]:
+        """Overlay durable active queue state without mutating the read model."""
+        projected = {stage.stage: stage for stage in snapshot.stages}
+        with self.store._connect() as db:
+            table = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='red_queue_jobs'"
+            ).fetchone()
+            if table is None:
+                return snapshot.stages
+            rows = db.execute(
+                """SELECT stage,status FROM red_queue_jobs
+                   WHERE assessment_id=? AND status IN ('queued','running')
+                   ORDER BY sequence""",
+                (snapshot.assessment.scope.assessment_id,),
+            ).fetchall()
+        for row in rows:
+            stage = row["stage"]
+            status = StageState(row["status"])
+            current = projected.get(stage)
+            projected[stage] = (
+                current.model_copy(update={"status": status})
+                if current is not None else StageDTO(
+                    scope=snapshot.assessment.scope,
+                    stage=stage,
+                    status=status,
+                )
+            )
+        order = {stage: index for index, stage in enumerate(
+            ("reconnaissance", "planning", "execution", "verification")
+        )}
+        return tuple(sorted(projected.values(), key=lambda item: order[item.stage]))
 
     @staticmethod
     def _finding_item(finding: FindingDTO) -> RedFindingReadDTO:

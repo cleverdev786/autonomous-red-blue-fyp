@@ -567,7 +567,11 @@ class RedAssessmentQueue:
                     (scope.assessment_id,),
                 ).fetchall()
                 return tuple(self._job(row) for row in rows)
-            if assessment.status not in {AssessmentState.QUEUED, AssessmentState.RUNNING}:
+            if assessment.status not in {
+                AssessmentState.AWAITING_AUTHORIZATION,
+                AssessmentState.QUEUED,
+                AssessmentState.RUNNING,
+            }:
                 raise QueueDenied("assessment is not cancellable")
             db.execute(
                 "INSERT INTO red_queue_cancellations VALUES (?,?,?,NULL)",

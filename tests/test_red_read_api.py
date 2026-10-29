@@ -209,6 +209,18 @@ def test_targets_and_assessment_index_are_typed_filtered_and_paginated(site):
             "compatibility": "supported",
             "supported_classes": ["path_traversal", "sql_injection", "xss"],
             "limitations": ["unauthenticated_only"],
+            "standard_budget": {
+                "profile": "standard",
+                "max_http_requests": 24,
+                "max_crawl_requests": 12,
+                "max_tests": 3,
+                "max_runtime_seconds": 180,
+                "max_parallel_operations": 1,
+                "max_depth": 2,
+                "max_retries": 0,
+                "max_cpu_cores": 0.5,
+                "max_memory_mb": 512,
+            },
         }],
         "pagination": {"offset": 0, "limit": 50, "total": 1},
     }
@@ -353,6 +365,44 @@ def test_summary_and_empty_cancelled_reads_use_the_same_target_filter(site):
     assert state_db.read_bytes() == before
 
 
+def test_summary_status_filter_matches_assessment_history(site):
+    app, state_db, _, _ = site
+    before = state_db.read_bytes()
+
+    running = _get(
+        app,
+        "/api/red/summary?target_id=vulnerable-store&status=running",
+    )
+    cancelled = _get(app, "/api/red/summary?status=cancelled")
+
+    assert running.status_code == cancelled.status_code == 200
+    assert running.json() == {
+        "target_id": "vulnerable-store",
+        "assessment_count": 1,
+        "confirmed_findings": 0,
+        "suspected_findings": 1,
+        "tested": 0,
+        "eligible": 0,
+        "active_assessments": 1,
+        "queued_assessments": 0,
+        "active_stages": 0,
+        "coverage_gaps": 1,
+    }
+    assert cancelled.json() == {
+        "target_id": None,
+        "assessment_count": 1,
+        "confirmed_findings": 0,
+        "suspected_findings": 0,
+        "tested": 0,
+        "eligible": 0,
+        "active_assessments": 0,
+        "queued_assessments": 0,
+        "active_stages": 0,
+        "coverage_gaps": 0,
+    }
+    assert state_db.read_bytes() == before
+
+
 def test_global_findings_filter_and_nonzero_pagination_are_stable(site):
     app, state_db, _, _ = site
     before = state_db.read_bytes()
@@ -475,6 +525,7 @@ def test_filters_and_authentication_fail_closed_without_side_effects(site):
     before = state_db.read_bytes()
 
     bad_status = _get(app, "/api/red/assessments?status=pretend-success")
+    bad_summary_status = _get(app, "/api/red/summary?status=pretend-success")
     missing_target = _get(app, "/api/red/summary?target_id=unknown-target")
 
     async def unauthenticated():
@@ -488,6 +539,8 @@ def test_filters_and_authentication_fail_closed_without_side_effects(site):
     denied = asyncio.run(unauthenticated())
     assert bad_status.status_code == 422
     assert bad_status.json()["error"]["code"] == "invalid_filter"
+    assert bad_summary_status.status_code == 422
+    assert bad_summary_status.json()["error"]["code"] == "invalid_filter"
     assert missing_target.status_code == 404
     assert missing_target.json()["error"]["code"] == "target_not_found"
     assert denied.status_code == 401

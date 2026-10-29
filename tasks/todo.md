@@ -530,91 +530,107 @@ Build server-backed dashboard, controls, timeline and findings without inventing
 
 ### T28: Build dashboard metrics and assessment index
 
-- [ ] **T28 fully implemented and verified**
+- [x] **T28 fully implemented and verified**
 
 **Outcome:** Replace Red placeholder with a dashboard showing four real metrics, target/status filters and assessment history.
 **Depends on:** T26. **Size:** M. **Likely touched:** `dashboard/frontend/src/App.tsx or Red panel; dashboard/frontend/src/api.ts; dashboard/frontend/src/product.css; frontend tests`.
 
 **Acceptance criteria:**
-- [ ] Four primary metrics are verified findings, tested/eligible endpoints, active/queued assessments and agent health/activity.
-- [ ] All Targets / Selected Target and status filters update metrics, findings totals and history consistently.
-- [ ] Existing theme, navigation, empty states and real backend data are preserved; no fake counters.
-- [ ] **Verification:** `cd dashboard/frontend && npm test && npm run build`; browser dark/light/mobile dashboard review.
+- [x] Four primary metrics are verified findings, tested/eligible endpoints, active/queued assessments and agent health/activity.
+- [x] All Targets / Selected Target and status filters update metrics, findings totals and history consistently.
+- [x] Existing theme, navigation, empty states and real backend data are preserved; no fake counters.
+- [x] **Verification:** `cd dashboard/frontend && npm test && npm run build`; browser dark/light/mobile dashboard review.
+
+**T28 verification:** The Red placeholder now uses authenticated T26 reads to render server-authoritative verified/suspected findings, endpoint coverage, active/queued assessments, agent activity and a bounded paginated assessment index. Target and status filters are applied to both summary metrics and history; invalid summary statuses fail closed. Operator credentials remain in React memory only and can be replaced without reloading. The frontend contract/render suite and full frontend test chain passed, the production TypeScript/Vite build completed, and the T26/T27 API regression passed 30 tests. Ruff and `git diff --check` passed. Live FastAPI/React browser review used persisted Red fixture data to verify All Targets, selected-target and cancelled-status results, credential recovery, existing navigation and empty-safe UI in light, dark and 390×844 mobile layouts; no browser warnings or errors were reported. Independent EngineeringSuite review identified the credential-recovery and first-page-only history gaps, which were fixed with an explicit change-credential path and 25-row previous/next pagination before final verification. No T29 implementation was started.
 
 ### T29: Build New Assessment and remembered mode selection
 
-- [ ] **T29 fully implemented and verified**
+- [x] **T29 fully implemented and verified**
 
 **Outcome:** Add deliberate assessment creation with target, Standard budget summary, scope review, operator authorization and mode preference.
 **Depends on:** T27,T28. **Size:** M. **Likely touched:** `dashboard/frontend/src/App.tsx or Red assessment form; dashboard/frontend/src/api.ts; frontend tests`.
 
 **Acceptance criteria:**
-- [ ] Manual/Autonomous preference is remembered but no assessment starts on selection or page load.
-- [ ] New Assessment explicitly authorizes fixed target/classes/budgets before start, and mode is locked during the active run.
-- [ ] Error or rejected authorization returns clear feedback; stop/cancel remains accessible.
-- [ ] **Verification:** Frontend tests for remembered mode and lock; browser confirm no network execution before explicit approval.
+- [x] Manual/Autonomous preference is remembered but no assessment starts on selection or page load.
+- [x] New Assessment explicitly authorizes fixed target/classes/budgets before start, and mode is locked during the active run.
+- [x] Error or rejected authorization returns clear feedback; stop/cancel remains accessible.
+- [x] **Verification:** Frontend tests for remembered mode and lock; browser confirm no network execution before explicit approval.
+
+**T29 verification:** New Assessment now remembers Manual/Autonomous locally, reviews the registered target, supported classes and the server-authoritative Standard budget, and keeps draft creation, authorization and Autonomous start as separate explicit commands with stable retry IDs. Mode and scope become locked only after draft creation; pre-draft review remains editable. Command responses are schema- and endpoint-status checked, rejected authorization is explained, and `cancellation_requested` remains visibly non-terminal. Non-terminal assessments are recovered after reload or credential reconnect with cancellation still available; an awaiting-authorization draft can now be cancelled idempotently without first granting execution authority. The component-controller regression proves page load, selection and review issue no command POST, while each explicit action issues only its expected command. The full frontend test chain passed, the production TypeScript/Vite build completed, the T26/T27 read/write API regression passed 31 tests, Ruff and `git diff --check` passed. Live FastAPI/React browser verification against the healthy controlled Docker lab confirmed remembered mode, complete fixed-budget review, editable pre-draft setup, no execution before approval, locked post-draft mode, reload recovery and terminal draft cancellation. Independent EngineeringSuite reviews drove complete depth/retry disclosure, reload-safe cancellation, truthful pending-cancellation messaging and stronger controller-level safety coverage. No T30 implementation was started.
 
 ### T30: Build four Manual agent control panels
 
-- [ ] **T30 fully implemented and verified**
+- [x] **T30 fully implemented and verified**
 
 **Outcome:** Render compact Recon, Plan, Execute and Verify worker cards, server-authoritative statuses and safe Run/Rerun/Inspect.
 **Depends on:** T27,T29. **Size:** M. **Likely touched:** `dashboard/frontend/src/App.tsx or Red agent cards; dashboard/frontend/src/api.ts; frontend tests`.
 
 **Acceptance criteria:**
-- [ ] Each card displays current status, last action, task count, failure state and independently valid manual controls.
-- [ ] Invalid stage action is disabled with explanation; rerun recon makes old plan visibly stale.
-- [ ] Inspect opens existing stage history without leaking raw payloads or requiring LLM data.
-- [ ] **Verification:** Frontend state tests and browser run of each eligible manual stage including stale-plan block.
+- [x] Each card displays current status, last action, task count, failure state and independently valid manual controls.
+- [x] Invalid stage action is disabled with explanation; rerun recon makes old plan visibly stale.
+- [x] Inspect opens existing stage history without leaking raw payloads or requiring LLM data.
+- [x] **Verification:** Frontend state tests and browser run of each eligible manual stage including stale-plan block.
+
+**T30 verification:** The selected Manual assessment workspace renders Recon, Planning, Execution and Verification cards from persisted workspace/events/queue state, with focusable prerequisite explanations, safe bounded history and stale-plan disclosure. Active queue jobs now overlay the read projection so queued/running status is never guessed in React. A disposable browser-backed assessment queued and completed all four explicit stage commands in order; the stale-plan and invalid-prerequisite states are covered by the workspace render regression.
 
 ### Checkpoint G.30: release gate after T30
 
-- [ ] Dashboard, creation and manual panels usable.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Dashboard, creation and manual panels usable.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint G.30 evidence:** `npm test`, `npm run build`, and the 31-test T26/T27 read/write regression passed. Production output: `dashboard/frontend/dist/`. EngineeringSuite frontend, TDD, Ponytail and quality review applied; changes remain uncommitted pending an explicit commit request.
 
 ### T31: Build Autonomous live assessment timeline
 
-- [ ] **T31 fully implemented and verified**
+- [x] **T31 fully implemented and verified**
 
 **Outcome:** Make selected assessments open a dedicated workspace with current stage, progress, major events and a usable Stop action.
 **Depends on:** T26,T27,T29. **Size:** M. **Likely touched:** `dashboard/frontend/src/App.tsx or Red workspace; dashboard/frontend/src/api.ts; frontend tests`.
 
 **Acceptance criteria:**
-- [ ] One Red dashboard stays navigable while different assessment detail workspaces are available.
-- [ ] Timeline displays major stage actions, timestamps and statuses via bounded polling; mode selector stays locked until terminal.
-- [ ] Cancel/failed/blocked/queued states render accurately without fake progress or unbounded polling.
-- [ ] **Verification:** Frontend tests for polling/mode-lock/stop and browser live assessment with queued and terminal paths.
+- [x] One Red dashboard stays navigable while different assessment detail workspaces are available.
+- [x] Timeline displays major stage actions, timestamps and statuses via bounded polling; mode selector stays locked until terminal.
+- [x] Cancel/failed/blocked/queued states render accurately without fake progress or unbounded polling.
+- [x] **Verification:** Frontend tests for polling/mode-lock/stop and browser live assessment with queued and terminal paths.
+
+**T31 verification:** Assessment-history rows open a dedicated workspace with a dashboard return path. Autonomous stages render a four-step event timeline with timestamps and server status; non-terminal views poll four bounded endpoints every three seconds and clean up the timer, while terminal views stop polling. Stop remains visible for active work and cancellation, blocked, failed, queued and terminal states stay distinct.
 
 ### T32: Add findings table and evidence detail panel
 
-- [ ] **T32 fully implemented and verified**
+- [x] **T32 fully implemented and verified**
 
 **Outcome:** Show verification outcomes, severity/category/target, a detail inspector, coverage gaps and Reports/Blue-handoff placeholders only where real data exists.
 **Depends on:** T20,T21,T26,T31. **Size:** M. **Likely touched:** `dashboard/frontend/src/App.tsx or Red finding components; dashboard/frontend/src/api.ts; frontend tests`.
 
 **Acceptance criteria:**
-- [ ] Findings table differentiates confirmed, suspected, not confirmed and inconclusive; gaps are disclosed separately.
-- [ ] Clicking a finding opens validated evidence/provenance and reproduction/coverage context; no raw secrets or harmful HTML injection.
-- [ ] Full export links to existing Reports only if implemented; future Blue handoff is labeled pending and performs no Blue workflow.
-- [ ] **Verification:** Frontend tests for filters/evidence and escaping; browser inspect confirmed/suspected/gap result states.
+- [x] Findings table differentiates confirmed, suspected, not confirmed and inconclusive; gaps are disclosed separately.
+- [x] Clicking a finding opens validated evidence/provenance and reproduction/coverage context; no raw secrets or harmful HTML injection.
+- [x] Full export links to existing Reports only if implemented; future Blue handoff is labeled pending and performs no Blue workflow.
+- [x] **Verification:** Frontend tests for filters/evidence and escaping; browser inspect confirmed/suspected/gap result states.
+
+**T32 verification:** The workspace validates and filters all four finding outcomes, separates coverage gaps, and opens a sanitized evidence inspector containing identifiers, integrity digests and bounded provenance only. Malicious route text is escaped. Reports links to the existing workspace; Blue handoff is explicitly pending and has no action. Browser verification inspected a persisted outcome and evidence metadata.
 
 ### T33: Polish accessibility, errors and responsive behavior
 
-- [ ] **T33 fully implemented and verified**
+- [x] **T33 fully implemented and verified**
 
 **Outcome:** Finish real UX states without creating a new design system or extra dependencies.
 **Depends on:** T28,T29,T30,T31,T32. **Size:** M. **Likely touched:** `dashboard/frontend/src/product.css; Red components; frontend tests`.
 
 **Acceptance criteria:**
-- [ ] Keyboard access, focus, disabled explanations, contrast and readable table/controls work across dark/light themes.
-- [ ] Loading, empty, offline, blocked, timeout and cancelled states are distinct and honest.
-- [ ] Mobile/narrow layouts retain critical stop, authorization and agent controls.
-- [ ] **Verification:** Run frontend tests/build; browser manual review at desktop/tablet/mobile in both themes.
+- [x] Keyboard access, focus, disabled explanations, contrast and readable table/controls work across dark/light themes.
+- [x] Loading, empty, offline, blocked, timeout and cancelled states are distinct and honest.
+- [x] Mobile/narrow layouts retain critical stop, authorization and agent controls.
+- [x] **Verification:** Run frontend tests/build; browser manual review at desktop/tablet/mobile in both themes.
+
+**T33 verification:** The existing design system now uses Geist/JetBrains Mono stacks and a Futuristic Dark SOC palette with near-black glass surfaces, violet/cyan accents, bento layouts, restrained glows and reduced-motion-safe hover polish while preserving light mode. Keyboard-focusable disabled controls reference their explanations; loading, empty, offline, timeout, blocked and terminal copy remains distinct. Responsive CSS keeps stop and stage controls full-width on narrow layouts. Full frontend tests/build, theme/contrast checks and focused dark/light browser review passed.
 
 ### Checkpoint G.33: release gate after T33
 
-- [ ] Autonomous timeline, findings, responsive/accessibility checks pass.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] Autonomous timeline, findings, responsive/accessibility checks pass.
+- [x] Record passing command, output location and reviewer/commit reference.
+
+**Checkpoint G.33 evidence:** `cd dashboard/frontend && npm test && npm run build` passed; `31 passed` for the bounded Red read/write API regression; Ruff and `git diff --check` passed. Output: `dashboard/frontend/dist/`. EngineeringSuite redesign, frontend, TDD, Ponytail, browser and quality guidance applied. Commit reference remains pending an explicit commit request. T34 was not started.
 
 ## Phase H: End-to-end acceptance and handoff
 

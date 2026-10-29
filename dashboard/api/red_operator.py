@@ -124,6 +124,7 @@ def register_red_operator(
         return RedReadService(
             RedAssessmentStore(state_db, read_only=True),
             registry,
+            command_service.policy.budget,
         )
 
     def ok(data) -> JSONResponse:
@@ -414,7 +415,11 @@ def register_red_operator(
         return _error(503, "storage_unavailable", message)
 
     @router.get("/summary", response_model=RedDashboardSummaryDTO)
-    async def summary(request: Request, target_id: str | None = None) -> JSONResponse:
+    async def summary(
+        request: Request,
+        target_id: str | None = None,
+        status: str | None = None,
+    ) -> JSONResponse:
         blocked = authorize(request, mutation=False)
         if blocked is not None:
             return blocked
@@ -423,8 +428,13 @@ def register_red_operator(
                 _IDENTIFIER.validate_python(target_id)
             except ValidationError:
                 return _error(404, "target_not_found", "Target is unavailable.")
+        if status is not None:
+            try:
+                AssessmentState(status)
+            except ValueError:
+                return _error(422, "invalid_filter", "Assessment status is invalid.")
         try:
-            return ok(read_service().summary(target_id=target_id))
+            return ok(read_service().summary(target_id=target_id, status=status))
         except TargetRegistryError:
             return _error(404, "target_not_found", "Target is unavailable.")
         except (OSError, ValidationError, ValueError, sqlite3.DatabaseError):

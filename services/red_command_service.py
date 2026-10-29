@@ -75,7 +75,11 @@ class RedCommandService:
             workflow_complete=False,
             coverage=CoverageDTO(),
         )
-        stored_id = RedAssessmentStore(self.state_db).create(
+        store = RedAssessmentStore(self.state_db)
+        RedEvidenceStore(store, self.state_db.with_name(
+            self.state_db.name + ".evidence"
+        ))
+        stored_id = store.create(
             assessment,
             authorization,
             request_id=request_id,
@@ -151,11 +155,22 @@ class RedCommandService:
 
     def cancel(self, assessment_id: str, *, request_id: str) -> RedCommandReceiptDTO:
         snapshot, _ = self._load(assessment_id)
-        jobs = self._supervisor().cancel(
-            snapshot.assessment.scope,
-            cancellation_id=request_id,
-            requested_at=self.clock(),
-        )
+        supervisor = self._supervisor()
+        if snapshot.assessment.status in {
+            AssessmentState.AWAITING_AUTHORIZATION,
+            AssessmentState.CANCELLED,
+        }:
+            jobs = supervisor.queue.request_cancellation(
+                snapshot.assessment.scope,
+                cancellation_id=request_id,
+                requested_at=self.clock(),
+            )
+        else:
+            jobs = supervisor.cancel(
+                snapshot.assessment.scope,
+                cancellation_id=request_id,
+                requested_at=self.clock(),
+            )
         updated, _ = self._load(assessment_id)
         status = (
             "cancelled"

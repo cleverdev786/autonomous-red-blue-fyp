@@ -118,6 +118,10 @@ def test_draft_authorize_start_is_idempotent_and_never_runs_on_create(empty_site
         "status": "awaiting_authorization",
         "job_ids": [],
     }
+    summary = _request(app, "GET", "/api/red/summary")
+    assert summary.status_code == 200
+    assert summary.json()["assessment_count"] == 1
+    assert summary.json()["active_assessments"] == 0
     before_authorization = _request(
         app,
         "POST",
@@ -159,11 +163,43 @@ def test_draft_authorize_start_is_idempotent_and_never_runs_on_create(empty_site
     assert started.status_code == replay.status_code == 202
     assert started.json() == replay.json()
     assert len(started.json()["job_ids"]) == 1
+    workspace = _request(app, "GET", f"/api/red/assessments/{assessment_id}")
+    assert workspace.status_code == 200
+    assert workspace.json()["assessment"]["stage_statuses"] == {
+        "reconnaissance": "queued",
+    }
+    assert workspace.json()["stages"][0]["status"] == "queued"
     supervisor_store = RedAssessmentStore(state_db)
     queue = RedAssessmentQueue(supervisor_store)
     jobs = queue.list_jobs(supervisor_store.load(assessment_id)[0].assessment.scope)
     assert len(jobs) == 1 and jobs[0].work.stage == "reconnaissance"
     assert _request(app, "POST", "/api/red/assessments", draft).status_code == 201
+
+
+def test_unauthorized_draft_can_be_cancelled_idempotently(empty_site):
+    app, state_db = empty_site
+    created = _request(app, "POST", "/api/red/assessments", {
+        "request_id": "create-cancellable-draft",
+        "target_id": "vulnerable-store",
+        "mode": "manual",
+        "approval_id": "approval-cancellable-draft",
+    })
+    assessment_id = created.json()["assessment_id"]
+    path = f"/api/red/assessments/{assessment_id}/cancel"
+    command = {"request_id": "cancel-unauthorized-draft"}
+
+    cancelled = _request(app, "POST", path, command)
+    replay = _request(app, "POST", path, command)
+
+    assert cancelled.status_code == replay.status_code == 202
+    assert cancelled.json() == replay.json() == {
+        "assessment_id": assessment_id,
+        "request_id": "cancel-unauthorized-draft",
+        "status": "cancelled",
+        "job_ids": [],
+    }
+    snapshot, _ = RedAssessmentStore(state_db).load(assessment_id)
+    assert snapshot.assessment.status == AssessmentState.CANCELLED
 
 
 def test_autonomous_start_durably_continues_all_stages(autonomous_site):
@@ -185,7 +221,7 @@ def test_autonomous_start_durably_continues_all_stages(autonomous_site):
         {"request_id": "start-progressive-api"},
     ).status_code == 202
 
-    first_claim = NOW + timedelta(days=1)
+    first_claim = supervisor.queue.list_jobs(scope)[0].enqueued_at + timedelta(minutes=1)
     supervisor.runner.clock = lambda: first_claim + timedelta(minutes=1)
     results = [supervisor.runner.run_next(
         worker_id="worker-progressive-0",
@@ -199,7 +235,7 @@ def test_autonomous_start_durably_continues_all_stages(autonomous_site):
     ))
 
     for index in range(2, 4):
-        claimed_at = NOW + timedelta(days=1, minutes=index * 2)
+        claimed_at = first_claim + timedelta(minutes=index * 2)
         supervisor.runner.clock = (
             lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
         )

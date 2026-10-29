@@ -26,6 +26,7 @@ import { Sidebar, SidebarLink } from "./components/ui/sidebar";
 import { AssessmentsPanel } from "./assessments/AssessmentsPanel";
 import { ModelStatus } from "./system/ModelStatus";
 import type { LocalModelSession } from "./api";
+import { RedDashboard } from "./red/RedDashboard";
 
 type RunsState =
   | { kind: "loading"; runs: RunItem[] }
@@ -313,7 +314,8 @@ export default function App() {
           </section>}
           {route.section === "Assessments" && <AssessmentsPanel />}
           {view === "Overview" && <OverviewPanel state={overviewState} />}
-          {(view === "Red Team" || view === "Blue Team") && (
+          {view === "Red Team" && <RedDashboard />}
+          {view === "Blue Team" && (
             <section className="panel">
               <p className="muted">Page content will be added later.</p>
             </section>

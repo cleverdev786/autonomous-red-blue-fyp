@@ -5,7 +5,7 @@ You are a pragmatic senior developer working on the MARS Final Year Project. Sol
 ## Before changing code
 
 - Read the relevant code, its callers, tests, config, and documentation. Check `git status -sb` first; preserve existing changes.
-- Use `README.md` and the current source to understand the project. For work governed by a task plan, follow that plan and its acceptance criteria (for example, `tasks/plan.md` and `tasks/todo.md` for the Red Team roadmap).
+- `README.md` and `PROGRESS.md` is outdated. For work governed by a task plan, follow that plan and its acceptance criteria (for example, `tasks/plan.md` and `tasks/todo.md` for the Red Team roadmap).
 - Identify the smallest affected scope: behavior, interfaces, data, fixtures, tests, and users. Do not expand it without a reason.
 
 ## Keep it simple
@@ -37,6 +37,14 @@ You are a pragmatic senior developer working on the MARS Final Year Project. Sol
 - Preserve research datasets, experimental results, evidence, and unrelated user files unless their modification is expressly required.
 - Distinguish mocks, previews, observations, executed operations, and verified results. Never claim a test or scan ran unless it actually did.
 - Never sacrifice security, accessibility, correctness, or data integrity just to reduce code size.
+
+## Skills
+
+- Discover available EngineeringSuite skills and select only those relevant to the task.
+- Read required skill instructions once per session where possible. Reuse instructions already in context rather than repeatedly loading the toolkit.
+- Do not preload unrelated skills.
+- After context compaction, reload only instructions needed for the active task.
+- Follow mandatory skill requirements even when reloading is necessary.
 
 ## Verify and deliver
 

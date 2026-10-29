@@ -14,7 +14,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from schemas.common import Identifier, NonEmptyText
-from schemas.red_team import RedEndpointCandidate, RedScopeReference
+from schemas.red_team import RedEndpointCandidate, RedScopeReference, RedStandardBudget
 
 
 class AssessmentState(str, Enum):
@@ -524,6 +524,7 @@ class RedTargetReadDTO(BaseModel):
     limitations: tuple[Literal["unauthenticated_only"], ...] = (
         "unauthenticated_only",
     )
+    standard_budget: RedStandardBudget
 
 
 class RedTargetPageDTO(BaseModel):
