@@ -167,3 +167,23 @@ def test_scope_restrictions_create_gaps_and_cannot_upgrade_method_or_target() ->
         assert "scope" in str(exc)
     else:
         raise AssertionError("forged target scope must be rejected")
+
+
+def test_unavailable_authenticated_route_has_a_specific_gap() -> None:
+    planner, work, catalog, authorization = planning_inputs()
+    candidate = work.candidates[0].model_copy(
+        update={
+            "candidate_id": "candidate-admin",
+            "path": "/admin/panel",
+            "parameter_names": (),
+        }
+    )
+
+    result = planner.plan(
+        work=work.model_copy(update={"candidates": (candidate,)}),
+        catalog=catalog,
+        authorization=authorization,
+    )
+
+    assert result.operations == ()
+    assert result.coverage_gaps[0].reason == "authentication_required"

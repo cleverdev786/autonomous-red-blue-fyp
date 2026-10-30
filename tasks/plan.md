@@ -1,9 +1,9 @@
 # MARS Red Team | Final implementation plan
 
 **Decision baseline:** 2026-10-26, rounds 1–10 including Q51–Q54.  
-**Implementation status:** PLANNED, not implemented or deployed.  
+**Implementation status:** T01–T36 implemented, verified and committed on `development`; push is handed off to the repository owner.
 **Primary tracker:** [`tasks/todo.md`](todo.md). Check tasks in order, including the checkpoint gates.  
-**Supersedes:** the preliminary Red Team plan committed as `c03b0de` once these replacement documents are placed in the repository. The existing repository has **not** been modified by this planning session.
+**Supersedes:** the preliminary Red Team plan committed as `c03b0de`. Task-level implementation and evidence are recorded in `tasks/todo.md`; operating instructions and measured acceptance results are in `docs/RED_TEAM_RUNBOOK.md` and `docs/RED_TEAM_ACCEPTANCE_REPORT.md`.
 
 ## 1. Objective and release boundary
 
@@ -237,4 +237,4 @@ Each task in [`tasks/todo.md`](todo.md) is one focused, verifiable slice; the ta
 
 ## 10. Release approval gate
 
-Implementation is **not** started by this document. On later explicit implementation authorization, begin **T01 only**, verify the working tree and execute tasks/checkpoints in order. Do not claim a completed Red Team until the final gates in `tasks/todo.md` pass against an authorized Docker target with reproducible evidence.
+Implementation and technical verification through T36 are complete. T34 and T35 passed against the authorized isolated Docker target with reproducible sanitized evidence, and the release checkpoint is committed. Push is delegated to the repository owner and was not performed by Codex. This does not authorize deployment, arbitrary target testing, or final research experiments.

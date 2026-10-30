@@ -7,15 +7,18 @@ its existing operator APIs remain accessible to the React UI.
 ## Start the local development stack
 
 Double-click **MARS Dashboard.desktop** or run **./launch-mars.sh** from the
-project root. It starts the Docker Compose lab if Docker is available,
+project root. It starts the required Docker Compose lab,
 starts the MARS application on 127.0.0.1:8090 if it is not already running,
 and opens http://127.0.0.1:8090/dashboard/. The root page redirects there.
 Starting the app never automatically loads an LLM or executes an attack.
 Historical Q8 runtime pins and archive-display approvals remain supported.
 
-If Docker cannot start, MARS reports the issue and can still provide
-its local sandbox assessments. The Docker security-lab network is internal;
-do not expose the intentionally vulnerable app to unapproved networks.
+The launcher now requires Docker, builds and waits for both registered lab
+services, and fails closed rather than opening a partial stack. Stop everything
+with the desktop entry's **Stop MARS services** action or `./stop-mars.sh`.
+Normal stop preserves the named runtime volume. The Docker security-lab network
+is internal; do not expose the intentionally vulnerable app to unapproved
+networks. See `docs/RED_TEAM_RUNBOOK.md` for the complete lifecycle.
 
 ## Run model-free Red and Blue verification
 
@@ -42,10 +45,11 @@ approved `Origin` header. After fetching `GET /api/red/operator/csrf`, supply
 its `csrf_token` as `X-Red-CSRF` with a unique `request_id` on
 `POST /api/red/operator/reviews`. Replay IDs are rejected durably.
 
-This endpoint **only records a review request** for an existing proposed Red
-operation in the append-only journal. It does not approve an operation, change
-its status, queue work, or execute a test. Other Red execution controls remain
-disabled until their separate safety gates are implemented.
+The release's effectful Red endpoints reuse these protections and additionally
+enforce immutable assessment authorization, legal state transitions and
+idempotent command IDs. The browser cannot provide a URL, command, resource
+budget or authorization fingerprint. A review request alone still does not
+approve, queue or execute an operation.
 
 ## Optional confined ZAP image preflight (T09)
 

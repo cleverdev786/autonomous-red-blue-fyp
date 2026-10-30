@@ -578,7 +578,7 @@ Build server-backed dashboard, controls, timeline and findings without inventing
 - [x] Dashboard, creation and manual panels usable.
 - [x] Record passing command, output location and reviewer/commit reference.
 
-**Checkpoint G.30 evidence:** `npm test`, `npm run build`, and the 31-test T26/T27 read/write regression passed. Production output: `dashboard/frontend/dist/`. EngineeringSuite frontend, TDD, Ponytail and quality review applied; changes remain uncommitted pending an explicit commit request.
+**Checkpoint G.30 evidence:** `npm test`, `npm run build`, and the 31-test T26/T27 read/write regression passed. Production output: `dashboard/frontend/dist/`. EngineeringSuite frontend, TDD, Ponytail and quality review applied; included in commit `ea0b922`.
 
 ### T31: Build Autonomous live assessment timeline
 
@@ -630,7 +630,7 @@ Build server-backed dashboard, controls, timeline and findings without inventing
 - [x] Autonomous timeline, findings, responsive/accessibility checks pass.
 - [x] Record passing command, output location and reviewer/commit reference.
 
-**Checkpoint G.33 evidence:** `cd dashboard/frontend && npm test && npm run build` passed; `31 passed` for the bounded Red read/write API regression; Ruff and `git diff --check` passed. Output: `dashboard/frontend/dist/`. EngineeringSuite redesign, frontend, TDD, Ponytail, browser and quality guidance applied. Commit reference remains pending an explicit commit request. T34 was not started.
+**Checkpoint G.33 evidence:** `cd dashboard/frontend && npm test && npm run build` passed; `31 passed` for the bounded Red read/write API regression; Ruff and `git diff --check` passed. Output: `dashboard/frontend/dist/`. EngineeringSuite redesign, frontend, TDD, Ponytail, browser and quality guidance applied. Commit: `ea0b922`.
 
 ## Phase H: End-to-end acceptance and handoff
 
@@ -638,58 +638,64 @@ Prove functionality, security and reproducibility; finish runbook and research r
 
 ### T34: Prove true end-to-end SQLi/XSS/traversal workflow
 
-- [ ] **T34 fully implemented and verified**
+- [x] **T34 fully implemented and verified**
 
 **Outcome:** Perform controlled tests on the authorized Docker lab and compare observations, plan, execution and independent verification across Manual and Autonomous flows.
 **Depends on:** T25,T27,T32. **Size:** M. **Likely touched:** `tests/integration/ (or existing end-to-end directory); fixtures; test documentation`.
 
 **Acceptance criteria:**
-- [ ] The three registered classes produce reproducible actual Docker evidence and appropriate findings, not mocked execution claims.
-- [ ] One Manual stage rerun and one Autonomous assessment prove stable plans, timeline, queue and stop behavior.
-- [ ] Suspected-only observations, unavailable authenticated routes and missing-template gaps are correctly reported.
-- [ ] **Verification:** Run focused Python integration suite and frontend build; inspect evidence receipts/target hashes in exported fixture.
+- [x] The three registered classes produce reproducible actual Docker evidence and appropriate findings, not mocked execution claims.
+- [x] One Manual stage rerun and one Autonomous assessment prove stable plans, timeline, queue and stop behavior.
+- [x] Suspected-only observations, unavailable authenticated routes and missing-template gaps are correctly reported.
+- [x] **Verification:** Run focused Python integration suite and frontend build; inspect evidence receipts/target hashes in exported fixture.
+
+**T34 evidence:** `MARS_RUN_T34_E2E=1 MARS_T34_EXPORT=/tmp/mars-red-t34-acceptance.json .venv/bin/pytest -q tests/integration/test_red_t34_e2e.py` passed (`1 passed`) against the isolated Docker lab. The sanitized export records all three fixed registered test IDs, six controlled receipts across Manual and Autonomous flows, target fingerprints, response SHA-256 values, stable planned test ordering, durable queue/timeline states, a Manual reconnaissance rerun, an Autonomous queued stop, a suspected-only ZAP observation, and separate `authentication_required`/`no_template` gaps; no response bodies are exported. Bounded regression: `42 passed` for Red mode/planner/read/write tests. Frontend `npm test && npm run build` passed; output: `dashboard/frontend/dist/` (45 modules). Ruff and final diff checks are recorded with the T34 checkpoint. Included in the T34–T36 release commit.
 
 ### T35: Run adversarial security and operational regression
 
-- [ ] **T35 fully implemented and verified**
+- [x] **T35 fully implemented and verified**
 
 **Outcome:** Exercise denial paths and cleanup to prove autonomy stays within allowed execution authority.
 **Depends on:** T34. **Size:** M. **Likely touched:** `security tests; compose policy tests; API tests; test runbook`.
 
 **Acceptance criteria:**
-- [ ] Out-of-scope host/redirect/method/test, forged request, stale plan, unapproved ZAP scan and Docker privilege attempts are rejected.
-- [ ] Interrupt/restart, exhaustion and state restore do not delete evidence, double-execute or touch unrelated containers.
-- [ ] All applicable Python/React tests and Compose configuration validation pass with results recorded.
-- [ ] **Verification:** Execute negative-path CI commands, `docker compose config`, targeted permission tests and a bounded cancel/restart lab exercise.
+- [x] Out-of-scope host/redirect/method/test, forged request, stale plan, unapproved ZAP scan and Docker privilege attempts are rejected.
+- [x] Interrupt/restart, exhaustion and state restore do not delete evidence, double-execute or touch unrelated containers.
+- [x] All applicable Python/React tests and Compose configuration validation pass with results recorded.
+- [x] **Verification:** Execute negative-path CI commands, `docker compose config`, targeted permission tests and a bounded cancel/restart lab exercise.
+
+**T35 evidence:** `MARS_RUN_T35_OPERATIONAL=1 MARS_T35_EXPORT=/tmp/mars-red-t35-operational.json .venv/bin/pytest -q tests/integration/test_red_t35_operational.py` passed (`1 passed`) against the isolated Docker lab. The sanitized export records one fixed registered SQLi dispatch, preserved container identities across the controlled-executor restart, healthy hardened services, 21 unrelated containers unchanged, four cancelled jobs restored without redelivery and unchanged evidence bytes. The executor health probe timeout was raised from 4s to 10s because the probe took about 4.2s under its 0.25 CPU limit, causing false restart failures. Negative and permission regression groups passed (`80 + 16 + 49 + 29 = 174 passed`); frontend `npm test` and `npm run build` passed (45 modules); `docker compose -f compose.isolated.yaml config -q`, Ruff and diff checks passed. The host's synchronous Starlette `TestClient`/AnyIO portal hangs before Red assertions, so the HTTP-only API security suite now uses the repository's existing `httpx.ASGITransport` pattern (`21 passed`, included in the 80-test group). Evidence: `/tmp/mars-red-t35-operational.json`. Included in the T34–T36 release commit.
 
 ### T36: Finalize documentation, reproducibility and review
 
-- [ ] **T36 fully implemented and verified**
+- [x] **T36 fully implemented and verified**
 
 **Outcome:** Produce operator runbook, acceptance report and FYP-ready model-free agent explanation; prepare merge only after approval.
 **Depends on:** T34,T35. **Size:** S. **Likely touched:** `docs/RED_TEAM_RUNBOOK.md (new); tasks/plan.md; tasks/todo.md; existing project docs`.
 
 **Acceptance criteria:**
-- [ ] Runbook documents isolated startup/shutdown, Standard budgets, target limitations, approvals, reset, ZAP version, privacy and troubleshooting.
-- [ ] Assessment demo records actual metrics (coverage, confirmed/suspected/gaps, agent tasks, duration and tool invocations) without invented values.
-- [ ] Checkpoint list is complete, old research artifacts unchanged, review diff and test output available; Git push only under separate implementation authorization.
-- [ ] **Verification:** Independent reviewer can follow runbook to reproduce permitted SQLi/XSS/traversal flow and audit evidence; `git diff --check`, status and test logs.
+- [x] Runbook documents isolated startup/shutdown, Standard budgets, target limitations, approvals, reset, ZAP version, privacy and troubleshooting.
+- [x] Assessment demo records actual metrics (coverage, confirmed/suspected/gaps, agent tasks, duration and tool invocations) without invented values.
+- [x] Checkpoint list is complete, old research artifacts unchanged, review diff and test output available; Git push only under separate implementation authorization.
+- [x] **Verification:** Independent reviewer can follow runbook to reproduce permitted SQLi/XSS/traversal flow and audit evidence; `git diff --check`, status and test logs.
+
+**T36 evidence:** `docs/RED_TEAM_RUNBOOK.md` and `docs/RED_TEAM_ACCEPTANCE_REPORT.md` document the current model-free architecture, exact Standard limits, credential/approval flow, safe lifecycle/reset, pinned ZAP boundary, privacy, troubleshooting, rollback and reproducible T34/T35 commands. The T34 artifact was regenerated (`1 passed in 67.76s`) with three measured Docker invocations, six requests, 2,319 ms aggregate executor duration, persisted coverage/task/finding/gap metrics and no response bodies. The desktop launcher runtime check built and started both base Compose services healthy, returned the MARS status endpoint, and the new stop action removed only the managed PID/base containers while preserving `fyp-red-blue-lab_store-runtime`; the isolated acceptance project was not stopped. Launcher safety tests passed (`8 passed`); the final launcher/Compose-policy bounded suite passed (`27 passed, 2 opt-in live tests skipped`, with those live T34/T35 tests already passed separately). Frontend tests/build passed (45 modules), all three Compose configurations validated, affected Ruff checks passed and the final diff review found no actionable issue. `README.md`, `PROGRESS.md`, `docs/OPERATOR_CONSOLE.md` and `tasks/plan.md` now describe the current release while preserving the historical M20 decision in its authoritative document. Included in the T34–T36 release commit; push handoff to the repository owner is complete and Codex did not push.
 
 ### Checkpoint H.36: release gate after T36
 
-- [ ] End-to-end evidence, adversarial safety and runbook complete.
-- [ ] Record passing command, output location and reviewer/commit reference.
+- [x] End-to-end evidence, adversarial safety and runbook complete.
+- [x] Record passing command, output location and reviewer/commit reference.
 
 ## Final release acceptance (do not mark until proven)
 
-- [ ] No Red Team LLM/model provider call is required in Manual or Autonomous execution.
-- [ ] One orchestrated workflow uses four independent deterministic workers and trusted policy enforcement.
-- [ ] OWASP ZAP is Docker-isolated, scoped, on demand and supports only approved actions.
-- [ ] Three supported classes are demonstrated with real lab evidence and independent verification.
-- [ ] Agent planning is all-applicable within bounded Standard profile and records coverage gaps.
-- [ ] Manual mode supports each stage, stale-plan blocking and preserved history.
-- [ ] Autonomous mode respects explicit authorization, fixed mode per run and cancellation.
-- [ ] Red dashboard, live workspace, findings panel and truthful metrics work in both themes and on mobile.
-- [ ] Scope-bypass, SSRF/redirect, CSRF/replay, bad tool input, wrong Docker project and reset negative tests pass.
-- [ ] Blue Team execution, imported application UI, authenticated crawling, extra classes and other deferred work are not accidentally included.
+- [x] No Red Team LLM/model provider call is required in Manual or Autonomous execution.
+- [x] One orchestrated workflow uses four independent deterministic workers and trusted policy enforcement.
+- [x] OWASP ZAP is Docker-isolated, scoped, on demand and supports only approved actions.
+- [x] Three supported classes are demonstrated with real lab evidence and independent verification.
+- [x] Agent planning is all-applicable within bounded Standard profile and records coverage gaps.
+- [x] Manual mode supports each stage, stale-plan blocking and preserved history.
+- [x] Autonomous mode respects explicit authorization, fixed mode per run and cancellation.
+- [x] Red dashboard, live workspace, findings panel and truthful metrics work in both themes and on mobile.
+- [x] Scope-bypass, SSRF/redirect, CSRF/replay, bad tool input, wrong Docker project and reset negative tests pass.
+- [x] Blue Team execution, imported application UI, authenticated crawling, extra classes and other deferred work are not accidentally included.
 - [ ] Final acceptance and reviewer signoff before calling the release implemented.

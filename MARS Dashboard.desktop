@@ -4,8 +4,14 @@ Version=1.0
 Name=MARS Security Dashboard
 GenericName=Red-Blue Framework
 Comment=Launch MARS with local security lab
+Path=/home/zain/Documents/RED FYP/autonomous-red-blue-fyp
 Exec=/usr/bin/env bash "/home/zain/Documents/RED FYP/autonomous-red-blue-fyp/launch-mars.sh"
 Icon=security-high
 Terminal=false
-Categories=Development;Education;
+Categories=Development;
 StartupNotify=true
+Actions=Stop;
+
+[Desktop Action Stop]
+Name=Stop MARS services
+Exec=/usr/bin/env bash "/home/zain/Documents/RED FYP/autonomous-red-blue-fyp/stop-mars.sh"

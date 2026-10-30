@@ -90,7 +90,7 @@ services:
         - -m
         - infrastructure.executor.healthcheck
       interval: 10s
-      timeout: 4s
+      timeout: 10s
       retries: 5
       start_period: 5s
 

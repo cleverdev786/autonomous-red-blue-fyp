@@ -1,10 +1,11 @@
 """T08 protected Red operator action contracts. No dispatch or real scan."""
 
-from datetime import datetime, timezone
+import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from dashboard.api.console import create_console_app
 from orchestrator.policy_engine import StandardRedPolicy
@@ -22,6 +23,30 @@ BODY = {
     "operation_id": "op-1", "request_id": "review-intent-1",
     "action": "request_review",
 }
+
+
+class ASGIClient:
+    """HTTP-only client; these tests do not require application lifespan effects."""
+
+    def __init__(self, app):
+        self.app = app
+
+    def request(self, method, path, **kwargs):
+        async def send():
+            transport = httpx.ASGITransport(app=self.app)
+            async with httpx.AsyncClient(
+                transport=transport,
+                base_url="http://testserver",
+            ) as client:
+                return await client.request(method, path, **kwargs)
+
+        return asyncio.run(send())
+
+    def get(self, path, **kwargs):
+        return self.request("GET", path, **kwargs)
+
+    def post(self, path, **kwargs):
+        return self.request("POST", path, **kwargs)
 
 
 @pytest.fixture
@@ -44,7 +69,7 @@ def site(tmp_path, monkeypatch):
     )
     store.add_candidate("as-1", RedEndpointCandidate(
         candidate_id="candidate-1", method="GET", path="/scenarios/xss/search",
-        source="registered", observed_at=datetime(2026, 10, 27, tzinfo=timezone.utc),
+        source="registered", observed_at=datetime(2026, 10, 27, tzinfo=UTC),
     ))
     store.add_plan(PlanVersionDTO(
         scope=auth.scope, plan_version="plan-1", surface_revision="surface-1",
@@ -56,8 +81,7 @@ def site(tmp_path, monkeypatch):
     ))
     app = create_console_app(database_path=tmp_path / "missing-research.db",
                              mars_workspace_db=tmp_path / "mars.db", red_state_db=path)
-    with TestClient(app) as client:
-        yield client, store, auth.scope, path
+    yield ASGIClient(app), store, auth.scope, path
 
 
 def auth_headers():
@@ -88,8 +112,8 @@ def test_missing_operator_auth_and_unconfigured_secret_fails_closed(site, monkey
     monkeypatch.delenv("MARS_RED_OPERATOR_TOKEN")
     app = create_console_app(database_path=path.with_name("missing.db"),
                              mars_workspace_db=path.with_name("other-mars.db"), red_state_db=path)
-    with TestClient(app) as disabled:
-        assert disabled.get("/api/red/operator/csrf", headers=auth_headers()).status_code == 503
+    disabled = ASGIClient(app)
+    assert disabled.get("/api/red/operator/csrf", headers=auth_headers()).status_code == 503
 
 
 @pytest.mark.parametrize("headers,expected", [
@@ -132,8 +156,8 @@ def test_replay_same_key_denied_even_after_restart(site):
     assert retry.json()["error"]["code"] == "duplicate_request"
     app = create_console_app(database_path=path.with_name("missing.db"),
                              mars_workspace_db=path.with_name("other-mars.db"), red_state_db=path)
-    with TestClient(app) as reopened:
-        assert submit(reopened).status_code == 409
+    reopened = ASGIClient(app)
+    assert submit(reopened).status_code == 409
     assert len(RedEvidenceStore(store, Path(str(path) + ".evidence")).list_events(scope)) == 1
 
 
@@ -157,7 +181,7 @@ def test_malformed_and_unauthorized_action_cannot_modify_queue(site, bad):
 
 
 def test_json_required_and_cross_origin_challenge_blocked(site):
-    client, store, scope, path = site
+    client, _, _, _ = site
     assert client.get("/api/red/operator/csrf", headers={
         "Authorization": f"Bearer {TOKEN}", "Origin": "https://foreign.test"
     }).status_code == 403
@@ -210,7 +234,7 @@ def test_short_operator_secret_is_disabled(site, monkeypatch):
     monkeypatch.setenv("MARS_RED_OPERATOR_TOKEN", "short-unsafe-value")
     app = create_console_app(database_path=path.with_name("none.db"),
                              mars_workspace_db=path.with_name("alt.db"), red_state_db=path)
-    with TestClient(app) as client:
-        response = client.get("/api/red/operator/csrf", headers=auth_headers())
+    client = ASGIClient(app)
+    response = client.get("/api/red/operator/csrf", headers=auth_headers())
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "operator_unconfigured"

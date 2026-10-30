@@ -9,6 +9,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 LAUNCHER = ROOT / "launch-mars.sh"
+STOPPER = ROOT / "stop-mars.sh"
+DESKTOP = ROOT / "MARS Dashboard.desktop"
 PIN = "b29c606e28a01b1bc8c1351026a0fa6e616bf6c4"
 Q8 = ROOT / "models/c08b-nf4-effective-Q8_0.gguf"
 Q8_RUNTIME = (
@@ -38,6 +40,48 @@ def test_sentinel_launcher_is_valid_bash():
         capture_output=True, text=True
     )
     assert result.returncode == 0
+
+
+def test_mars_stopper_is_valid_bash_and_preserves_lab_data():
+    result = subprocess.run(
+        ["bash", "-n", str(STOPPER)], cwd=ROOT, check=False,
+        capture_output=True, text=True
+    )
+    assert result.returncode == 0
+    source = STOPPER.read_text(encoding="utf-8")
+    assert "docker compose" in source
+    assert "down --remove-orphans" in source
+    assert "--volumes" not in source
+    assert "operator.pid" in source
+
+
+def test_desktop_entry_starts_and_exposes_a_stop_action():
+    assert os.access(DESKTOP, os.X_OK)
+    source = DESKTOP.read_text(encoding="utf-8")
+    assert f'Path={ROOT}' in source
+    assert f'Exec=/usr/bin/env bash "{LAUNCHER}"' in source
+    assert "Actions=Stop;" in source
+    assert "[Desktop Action Stop]" in source
+    assert f'Exec=/usr/bin/env bash "{STOPPER}"' in source
+
+
+def test_launcher_waits_for_the_registered_compose_services_and_tracks_pid():
+    source = LAUNCHER.read_text(encoding="utf-8")
+    assert 'docker compose -f "$ROOT/compose.yaml" up -d --build --wait' in source
+    assert "operator.pid" in source
+
+
+def test_stopper_refuses_a_pid_that_is_not_the_mars_dashboard(tmp_path):
+    state = tmp_path / "sentinel-fyp"
+    state.mkdir()
+    (state / "operator.pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    env = {**os.environ, "XDG_STATE_HOME": str(tmp_path)}
+    result = subprocess.run(
+        ["bash", str(STOPPER)], cwd=ROOT, env=env,
+        capture_output=True, text=True, timeout=10, check=False,
+    )
+    assert result.returncode != 0
+    assert "not the MARS dashboard" in result.stderr
 
 
 def test_explicit_runtime_override_is_preserved_without_process_launch():

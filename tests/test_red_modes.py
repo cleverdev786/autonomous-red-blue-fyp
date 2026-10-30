@@ -7,7 +7,12 @@ import pytest
 from orchestrator.red_team_flow import RedQueuedStageRunner
 from schemas.red_queue import QueueResourceDTO
 from schemas.red_team import RedEndpointCandidate
-from schemas.red_team_state import AssessmentDTO, AssessmentState
+from schemas.red_team_state import (
+    AssessmentDTO,
+    AssessmentState,
+    FindingDTO,
+    OperationDTO,
+)
 from services.red_assessment_queue import RedAssessmentQueue
 from services.red_assessment_supervisor import (
     RedAssessmentSupervisor,
@@ -176,6 +181,33 @@ def test_manual_dispatches_selected_stages_and_allows_independent_rerun(tmp_path
         if event.stage == "reconnaissance" and event.status.value == "succeeded"
     ]
     assert len(recon_events) == 2
+
+
+def test_manual_assessment_waits_for_every_planned_operation_before_finalizing(tmp_path):
+    supervisor, journal, tasks = build_supervisor(tmp_path, mode="manual")
+    scope = tasks[0].scope
+    second_candidate = tasks[1].candidates[0].model_copy(update={
+        "candidate_id": "candidate-second",
+    })
+    journal.store.add_candidate(scope.assessment_id, second_candidate)
+    journal.store.add_operation(OperationDTO(
+        scope=scope,
+        operation_id="operation-second",
+        plan_version="plan-t22",
+        candidate_id=second_candidate.candidate_id,
+        test_id="xss-reflection-001",
+        status="approved",
+    ))
+
+    assert supervisor._all_operations_resolved(scope) is False
+
+    journal._record_verified_finding(FindingDTO(
+        scope=scope,
+        finding_id="finding-second",
+        operation_id="operation-second",
+        status="inconclusive",
+    ))
+    assert supervisor._all_operations_resolved(scope) is True
 
 
 def test_stale_plan_and_midrun_mode_change_are_denied_without_queueing(tmp_path):

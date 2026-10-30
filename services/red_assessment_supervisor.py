@@ -280,9 +280,22 @@ class RedAssessmentSupervisor:
             result is not None
             and result.stage == "verification"
             and self.queue.progressive_command(result.scope) is None
+            and self._all_operations_resolved(result.scope)
         ):
             self._finalize(result.scope)
         return result
+
+    def _all_operations_resolved(self, scope: RedScopeReference) -> bool:
+        snapshot, _ = self.queue.store.load(scope.assessment_id)
+        planned = {
+            item.operation_id
+            for item in snapshot.operations
+            if item.status == "approved"
+        }
+        resolved = {
+            item.operation_id for item in self.journal.list_findings(scope)
+        }
+        return planned.issubset(resolved)
 
     def _resume_progressive_autonomous(self) -> None:
         """Reconcile every progressive dispatch independently of global queue traffic."""

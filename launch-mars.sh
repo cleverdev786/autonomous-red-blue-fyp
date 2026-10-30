@@ -51,6 +51,7 @@ if [[ "${SENTINEL_PRINT_MODEL_CONFIG_ONLY:-0}" == "1" ]]; then
 fi
 # Optional, pinned evidence display only. Never evaluate this file as shell code.
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/sentinel-fyp"
+PID_FILE="$STATE/operator.pid"
 APPROVAL_CONFIG="$STATE/archive-display.env"
 load_archive_display() {
     [[ -e "$APPROVAL_CONFIG" ]] || return 0
@@ -101,29 +102,43 @@ mars_ready() {
     "$PYTHON" -c 'import json,urllib.request; x=json.load(urllib.request.urlopen("http://127.0.0.1:8090/api/console/status",timeout=0.5)); assert x.get("project")=="Autonomous Red–Blue Framework" and x.get("execution_mode")=="development preview"' >/dev/null 2>&1
 }
 open_mars() {
+    [[ "${MARS_NO_BROWSER:-0}" == "1" ]] && return 0
     if command -v xdg-open >/dev/null 2>&1; then
         xdg-open http://127.0.0.1:8090/dashboard/ >/dev/null 2>&1 || true
     fi
 }
-# Keep the registered Docker lab available on each normal MARS launch.
+# Keep the complete registered Docker lab available on each normal MARS launch.
+# ZAP remains an explicitly approved, short-lived profile and is never started here.
 # Preflight modes above intentionally have no Docker side effects.
-if command -v docker >/dev/null 2>&1; then
-    if ! docker compose up -d >/dev/null; then
-        echo "MARS Docker lab could not be started; review docker compose ps." >&2
-    fi
-else
-    echo "Docker not installed; MARS UI remains available without the lab." >&2
+if ! command -v docker >/dev/null 2>&1; then
+    echo "Docker is required to start the complete MARS development stack." >&2
+    exit 1
+fi
+if ! docker compose -f "$ROOT/compose.yaml" up -d --build --wait; then
+    echo "MARS Docker lab could not be started; review docker compose ps." >&2
+    exit 1
 fi
 # Reusing an existing verified localhost service must not launch a second process.
 if mars_ready; then
     open_mars
     exit 0
 fi
-mkdir -p "${XDG_STATE_HOME:-$HOME/.local/state}/sentinel-fyp"
-LOG="${XDG_STATE_HOME:-$HOME/.local/state}/sentinel-fyp/operator.log"
+mkdir -p "$STATE"
+chmod 700 "$STATE"
+LOG="$STATE/operator.log"
 "$PYTHON" -m uvicorn backend.app:app --host 127.0.0.1 --port 8090 --no-access-log >>"$LOG" 2>&1 &
 SERVER_PID=$!
-trap 'kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true' EXIT INT TERM
+umask 077
+printf '%s\n' "$SERVER_PID" > "$PID_FILE.tmp"
+mv -f -- "$PID_FILE.tmp" "$PID_FILE"
+cleanup() {
+    if [[ -f "$PID_FILE" && ! -L "$PID_FILE" && "$(<"$PID_FILE")" == "$SERVER_PID" ]]; then
+        rm -f -- "$PID_FILE"
+    fi
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 for _ in {1..30}; do
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
         echo "MARS could not start. Review $LOG" >&2

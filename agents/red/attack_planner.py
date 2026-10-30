@@ -95,6 +95,16 @@ class DeterministicAttackPlanner:
         runtime_seconds = 0
 
         for candidate in candidates:
+            if candidate.path.startswith(("/admin", "/auth")):
+                gaps.append(
+                    self._gap(
+                        work,
+                        candidate.candidate_id,
+                        "authentication_required",
+                        "Provide an approved authenticated route before testing this candidate.",
+                    )
+                )
+                continue
             path_templates = tuple(item for item in templates if item.path == candidate.path)
             method_templates = tuple(
                 item for item in path_templates if item.method == candidate.method
