@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from dashboard.api.console import create_console_app
+from dashboard.api.local_auth import RequireLocalSession
 from orchestrator.policy_engine import StandardRedPolicy
 from schemas.red_team import RedEndpointCandidate
 from schemas.red_team_state import (
@@ -186,7 +187,11 @@ def _get(app, path: str):
             transport=transport,
             base_url="http://testserver",
         ) as client:
-            return await client.get(path, headers=_headers())
+            session = next(item.kwargs["sessions"] for item in app.user_middleware
+                           if item.cls is RequireLocalSession)
+            return await client.get(path, headers={
+                **_headers(), "Cookie": f"mars_session={session.create()}",
+            })
 
     return asyncio.run(request())
 
@@ -268,6 +273,9 @@ def test_workspace_events_findings_and_coverage_are_safe_read_projections(site):
     assert workspace.json()["plans"][0]["plan_version"] == "plan-current"
     assert workspace.json()["candidate_count"] == 1
     assert workspace.json()["planned_operation_count"] == 1
+    operation = workspace.json()["operations"][0]
+    assert operation["operation_id"] and operation["plan_version"] == "plan-current"
+    assert "scope" not in operation
     assert workspace.json()["finding_counts"] == {
         "suspected": 1,
         "confirmed": 0,
@@ -499,6 +507,26 @@ def test_stale_plan_is_visible_but_not_reported_as_current(site):
     assert response.json()["plans"][0]["status"] == "stale"
 
 
+def test_multiple_manual_operations_require_explicit_selection(site):
+    from services.red_assessment_supervisor import RedDispatchDenied
+    from services.red_command_service import RedCommandService
+
+    app, state_db, _, _ = site
+    store = RedAssessmentStore(state_db)
+    snapshot, _ = store.load("as-active")
+    store.add_operation(snapshot.operations[0].model_copy(update={"operation_id": "operation-second"}))
+    snapshot, _ = store.load("as-active")
+    before = state_db.read_bytes()
+    rows = _get(app, "/api/red/assessments/as-active").json()["operations"]
+    assert {item["operation_id"] for item in rows} == {"operation-xss", "operation-second"}
+    with pytest.raises(RedDispatchDenied):
+        RedCommandService._operation(snapshot, None)
+    with pytest.raises(RedDispatchDenied):
+        RedCommandService._operation(snapshot, "unknown-operation")
+    assert RedCommandService._operation(snapshot, "operation-second").operation_id == "operation-second"
+    assert state_db.read_bytes() == before
+
+
 @pytest.mark.parametrize(
     ("path", "code"),
     [
@@ -544,7 +572,7 @@ def test_filters_and_authentication_fail_closed_without_side_effects(site):
     assert missing_target.status_code == 404
     assert missing_target.json()["error"]["code"] == "target_not_found"
     assert denied.status_code == 401
-    assert denied.json()["error"]["code"] == "unauthorized"
+    assert denied.json()["error"]["code"] == "login_required"
     assert state_db.read_bytes() == before
 
 

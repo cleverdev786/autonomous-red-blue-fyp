@@ -1,6 +1,7 @@
 import type { MouseEvent, ReactNode } from "react";
 import { NavIcon } from "../../brand";
 import type { Route } from "../../routes";
+import { Button } from "./button";
 
 /** Vite-native adaptation of the supplied sidebar, keeping MARS routing intact. */
 export function Sidebar({ open, children }: { open: boolean; children: ReactNode }) {
@@ -20,12 +21,12 @@ export function SidebarLink({ item, active, onNavigate }: {
 }) {
   if (!item.section) return null;
   return (
-    <a href={item.path} title={item.title} aria-label={item.title}
+    <Button asChild variant="ghost"><a href={item.path} title={item.title} aria-label={item.title}
       className={active ? "nav active" : "nav"}
       aria-current={active ? "page" : undefined}
       onClick={(event) => onNavigate(event, item.path)}>
       <NavIcon name={item.section} /><span className="nav-label">{item.title}</span>
       {active && <span className="nav-indicator" aria-hidden="true" />}
-    </a>
+    </a></Button>
   );
 }

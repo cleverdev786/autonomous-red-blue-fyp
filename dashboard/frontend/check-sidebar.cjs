@@ -22,11 +22,11 @@ for (const token of [
   'className="brand-type"',
   "menuOpen", 'className="sidebar-workspace-label"',
 ]) assert(app.includes(token), "Missing sidebar accessibility state: " + token);
-for (const token of [
-  ".shell:has(.sidebar:hover)", ".shell:has(.sidebar:focus-within)",
-  ".nav-label", ".sidebar.menu-open", "@keyframes mars-sidebar-enter",
-  "prefers-reduced-motion: reduce", "width:100vw"
-]) assert(css.includes(token), "Missing responsive interaction: " + token);
+const shellCss = fs.readFileSync("src/shell.css", "utf8");
+for (const token of [".rail-collapsed", ".rail-toggle", ".sidebar.menu-open"])
+  assert(shellCss.includes(token), "Missing navigation state: " + token);
+assert(app.includes('main?.setAttribute("inert", "")'));
+assert(app.includes('#mars-navigation summary'));
 for (const token of ['aria-label={item.title}', 'className="nav-label"',
   'aria-current={active ? "page"', 'onNavigate(event, item.path)']) {
   assert(sidebar.includes(token), "Missing sidebar link behavior: " + token);

@@ -237,41 +237,6 @@ tbody tr:hover { background:var(--color-surface-low); }
  .empty-history,.mars-empty { align-items:flex-start; }
 }
 
-/* Futuristic Dark SOC: shared surface polish with light-mode parity. */
-:root[data-theme="dark"] body {
-  background-color:var(--color-canvas);
-  background-image:radial-gradient(circle at 72% -10%,rgba(124,92,220,.16),transparent 32rem),
-    radial-gradient(circle at 22% 38%,rgba(34,211,238,.07),transparent 28rem);
-  background-attachment:fixed;
-}
-:root[data-theme="dark"] main { background:transparent; }
-:root[data-theme="dark"] .sidebar { background:rgba(9,10,17,.94); border-right:1px solid #202332; }
-:root[data-theme="dark"] .utility-bar { background:rgba(13,15,22,.72); backdrop-filter:blur(18px); }
-:root[data-theme="dark"] .panel,
-:root[data-theme="dark"] .surface-card,
-:root[data-theme="dark"] .red-dashboard-toolbar,
-:root[data-theme="dark"] .red-metric {
-  background:linear-gradient(145deg,rgba(20,22,32,.92),rgba(13,15,23,.88));
-  border-color:rgba(154,162,190,.16);
-  box-shadow:inset 0 1px rgba(255,255,255,.035),0 18px 42px rgba(0,0,0,.18);
-  backdrop-filter:blur(16px);
-}
-:root[data-theme="dark"] .tool-card,
-:root[data-theme="dark"] .scenario-card,
-:root[data-theme="dark"] .red-metric { transition:transform .22s ease,border-color .22s ease,box-shadow .22s ease; }
-:root[data-theme="dark"] .tool-card:hover,
-:root[data-theme="dark"] .scenario-card:hover,
-:root[data-theme="dark"] .red-metric:hover { transform:translateY(-3px); border-color:rgba(103,232,249,.34); box-shadow:0 22px 50px rgba(0,0,0,.3),0 0 24px rgba(124,92,220,.08); }
-:root[data-theme="dark"] .welcome-card { background:radial-gradient(circle at 85% 15%,rgba(103,232,249,.22),transparent 35%),linear-gradient(125deg,#171329,#25204b 55%,#122d38); }
-:root[data-theme="dark"] .ui-button--primary { box-shadow:0 0 22px rgba(167,139,250,.18); }
-:root[data-theme="dark"] .ui-button--secondary:hover:not(:disabled) { border-color:#625a86; background:#1d1b2c; }
-:root[data-theme="dark"] .red-status--running,
-:root[data-theme="dark"] .red-status--queued { color:#67e8f9; }
-:root[data-theme="dark"] .red-status--confirmed,
-:root[data-theme="dark"] .red-status--succeeded { color:#6ee7b7; }
-:root[data-theme="dark"] .red-status--suspected,
-:root[data-theme="dark"] .red-status--inconclusive { color:#fcd34d; }
-
 code,.red-assessment-id,.red-agent-card dd,.red-timeline time,.red-evidence-detail dd { font-family:var(--mars-font-mono); font-variant-numeric:tabular-nums; }
 .red-inspect-link,.red-back { padding:0; border:0; background:transparent; color:var(--color-link); font:inherit; font-weight:680; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
 .red-inspect-link:hover,.red-back:hover { color:var(--color-link-hover); }
@@ -289,8 +254,6 @@ code,.red-assessment-id,.red-agent-card dd,.red-timeline time,.red-evidence-deta
 .red-agent-section { padding:4px 0; }
 .red-agent-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--space-md); }
 .red-agent-card { position:relative; min-width:0; overflow:hidden; display:flex; flex-direction:column; min-height:340px; padding:20px; border:1px solid var(--color-border); border-radius:15px; background:var(--color-surface); transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease; }
-.red-agent-card:hover { transform:translateY(-3px); border-color:color-mix(in srgb,var(--color-action) 55%,var(--color-border)); box-shadow:0 18px 40px rgba(0,0,0,.13); }
-.red-agent-card::before { content:""; position:absolute; inset:0 0 auto; height:2px; background:linear-gradient(90deg,var(--color-action),#22d3ee); opacity:.7; }
 .red-agent-index { color:var(--color-muted); font:700 10px/1 var(--mars-font-mono); letter-spacing:.14em; }
 .red-agent-title { display:flex; justify-content:space-between; align-items:center; gap:8px; margin:18px 0; }
 .red-agent-title h4 { margin:0; font-size:15px; }
@@ -596,48 +559,6 @@ code,.red-assessment-id,.red-agent-card dd,.red-timeline time,.red-evidence-deta
 /* Aceternity-inspired sidebar: native CSS motion, no Next.js or Framer dependency.
    Keep full names for navigation accessibility, collapse only visual labels. */
 .sidebar-close { display:none; }
-@media (min-width:851px) {
-  .shell {
-    grid-template-columns:76px minmax(0,1fr);
-    transition:grid-template-columns .26s cubic-bezier(.22,.61,.36,1);
-  }
-  .shell:has(.sidebar:hover),
-  .shell:has(.sidebar:focus-within) { grid-template-columns:270px minmax(0,1fr); }
-  .sidebar { padding:26px 14px 20px; overflow-x:clip; }
-  .sidebar-brand { justify-content:center; gap:0; padding:0; margin-bottom:42px; }
-  .sidebar-brand .brand-type {
-    width:0; opacity:0; visibility:hidden; overflow:hidden; white-space:nowrap;
-    transition:width .2s ease,opacity .2s ease;
-  }
-  .sidebar-workspace-label { opacity:0; white-space:nowrap; }
-  .sidebar nav .nav { justify-content:center; gap:0; padding:10px; overflow:hidden; }
-  .sidebar nav .nav svg, .sidebar-footer .sidebar-system svg { flex:none; }
-  .sidebar .nav-label {
-    width:0; opacity:0; visibility:hidden; overflow:hidden; white-space:nowrap;
-    transition:width .2s ease, opacity .15s ease;
-  }
-  .sidebar-footer { padding:12px 0 0; }
-  .sidebar-footer .sidebar-system { justify-content:center; gap:0; padding:10px; }
-  .run-picker { display:none; }
-  .shell:has(.sidebar:hover) .sidebar-brand,
-  .shell:has(.sidebar:focus-within) .sidebar-brand { justify-content:flex-start; }
-  .shell:has(.sidebar:hover) .sidebar-brand .brand-type,
-  .shell:has(.sidebar:focus-within) .sidebar-brand .brand-type {
-    width:152px; opacity:1; visibility:visible; margin-left:11px;
-  }
-  .shell:has(.sidebar:hover) .sidebar-workspace-label,
-  .shell:has(.sidebar:focus-within) .sidebar-workspace-label { opacity:1; }
-  .shell:has(.sidebar:hover) .sidebar nav .nav,
-  .shell:has(.sidebar:focus-within) .sidebar nav .nav { justify-content:flex-start; gap:13px; }
-  .shell:has(.sidebar:hover) .sidebar .nav-label,
-  .shell:has(.sidebar:focus-within) .sidebar .nav-label {
-    width:150px; opacity:1; visibility:visible;
-  }
-  .shell:has(.sidebar:hover) .sidebar-footer .sidebar-system,
-  .shell:has(.sidebar:focus-within) .sidebar-footer .sidebar-system { justify-content:flex-start; gap:13px; }
-  .shell:has(.sidebar:hover) .run-picker,
-  .shell:has(.sidebar:focus-within) .run-picker { display:block; }
-}
 @media (max-width:850px) {
   .sidebar { width:100vw; max-width:none; padding:30px 24px 24px; }
   .sidebar.menu-open { animation:mars-sidebar-enter .28s cubic-bezier(.22,.61,.36,1) both; }
@@ -718,52 +639,6 @@ a:hover, .table-link:hover { color:var(--color-link-hover); }
 }
 
 
-/* Bento is now the real Overview layout, not a separate promotional UI.
-   Every tile is either an existing route or the actual stored-run summary. */
-.overview-bento {
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  grid-template-areas:"welcome welcome history history"
-                      "welcome welcome assessments remediation"
-                      "red blue findings reports";
-  grid-auto-rows:minmax(138px,auto);
-  gap:14px;
-}
-.overview-bento .welcome-card { grid-area:welcome; min-height:302px; }
-.overview-bento .snapshot-card { grid-area:history; min-height:138px; padding:21px 24px; }
-.overview-bento .snapshot-status { margin-top:18px; font-size:20px; }
-.overview-bento .snapshot-note { margin-top:auto; }
-.overview-bento .tool-card {
-  display:flex; flex-direction:column; align-items:flex-start;
-  min-height:138px; padding:18px; background:var(--color-surface);
-  border-color:var(--color-border);
-}
-.overview-bento .tool-card:hover { border-color:var(--color-action); }
-.overview-bento .tool-title { color:var(--color-text); margin-top:auto; padding-top:12px; }
-.overview-bento .tool-detail { color:var(--color-muted); }
-.overview-bento .tool-card--assessments { grid-area:assessments; }
-.overview-bento .tool-card--remediation { grid-area:remediation; }
-.overview-bento .tool-card--red { grid-area:red; }
-.overview-bento .tool-card--blue { grid-area:blue; }
-.overview-bento .tool-card--findings { grid-area:findings; }
-.overview-bento .tool-card--reports { grid-area:reports; }
-@media (max-width:1100px) {
-  .overview-bento {
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    grid-template-areas:"welcome welcome" "history history"
-                        "assessments remediation" "red blue" "findings reports";
-  }
-  .overview-bento .welcome-card { min-height:220px; }
-  .overview-bento .snapshot-card { min-height:155px; }
-}
-@media (max-width:600px) {
-  .overview-bento {
-    grid-template-columns:1fr;
-    grid-template-areas:"welcome" "history" "assessments" "remediation"
-                        "red" "blue" "findings" "reports";
-  }
-  .overview-bento .tool-card { min-height:106px; }
-}
 
 /* Red Team dashboard: persisted metrics and history, never placeholder counters. */
 .red-workspace { display:grid; gap:var(--space-lg); }
@@ -834,26 +709,3 @@ a:hover, .table-link:hover { color:var(--color-link-hover); }
   .red-dashboard-toolbar .ui-button { width:100%; }
   .red-history-head { align-items:flex-start; }
 }
-
-/* Final SOC theme layer follows legacy component rules intentionally. */
-:root[data-theme="dark"] body {
-  background-color:var(--color-canvas);
-  background-image:radial-gradient(circle at 72% -10%,rgba(124,92,220,.16),transparent 32rem),
-    radial-gradient(circle at 22% 38%,rgba(34,211,238,.07),transparent 28rem);
-  background-attachment:fixed;
-}
-:root[data-theme="dark"] main { background:transparent; }
-:root[data-theme="dark"] .sidebar { background:rgba(9,10,17,.96); border-color:#202332; box-shadow:8px 0 28px rgba(0,0,0,.36); }
-:root[data-theme="dark"] .utility-bar { background:rgba(13,15,22,.78); border-color:var(--color-border-soft); backdrop-filter:blur(18px); }
-:root[data-theme="dark"] .panel,
-:root[data-theme="dark"] .surface-card,
-:root[data-theme="dark"] .red-dashboard-toolbar,
-:root[data-theme="dark"] .red-metric,
-:root[data-theme="dark"] .red-agent-card {
-  background:linear-gradient(145deg,rgba(20,22,32,.94),rgba(13,15,23,.9));
-  border-color:rgba(154,162,190,.16);
-  box-shadow:inset 0 1px rgba(255,255,255,.035),0 18px 42px rgba(0,0,0,.18);
-  backdrop-filter:blur(16px);
-}
-:root[data-theme="dark"] .welcome-card { background:radial-gradient(circle at 85% 15%,rgba(103,232,249,.22),transparent 35%),linear-gradient(125deg,#171329,#25204b 55%,#122d38); }
-:root[data-theme="dark"] .ui-button--secondary:hover:not(:disabled) { border-color:#625a86; background:#1d1b2c; }

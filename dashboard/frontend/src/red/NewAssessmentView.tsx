@@ -1,6 +1,8 @@
-import { ActionButton, Notice } from "../ui";
+import { ActionButton, Notice, notify } from "../ui";
 import type { RedTarget } from "./api";
 import type { RedMode } from "./modePreference";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 
 export type NewAssessmentPhase =
   | "setup" | "review" | "awaiting_authorization" | "authorized" | "active"
@@ -31,7 +33,7 @@ export function NewAssessmentView({ targets, targetId, mode, phase, busy, error,
     <div className="red-new-assessment__head">
       <div><span className="eyebrow">Controlled Red workflow</span>
         <h3 id="new-assessment-title">New assessment</h3>
-        <p>Review the registered Standard scope before creating or authorizing anything.</p></div>
+        <p>Review target, mode and fixed limits.</p></div>
       {phase !== "setup" && phase !== "review" &&
         <span className="red-mode-lock">Mode locked · {mode}</span>}
     </div>
@@ -40,22 +42,25 @@ export function NewAssessmentView({ targets, targetId, mode, phase, busy, error,
     {phase === "setup" ? <form className="red-assessment-setup" onSubmit={event => {
       event.preventDefault(); onReview();
     }}>
-      <label>Registered target
-        <select value={targetId} required disabled={busy}
-          onChange={event => onTargetChange(event.target.value)}>
-          <option value="">Select target</option>
-          {targets.map(item => <option key={item.target_id} value={item.target_id}>
+      <div><label htmlFor="red-target">Registered target</label>
+        <Select value={targetId} required disabled={busy || targets.length === 0} onValueChange={onTargetChange}>
+          <SelectTrigger id="red-target" className="w-full"><SelectValue placeholder="Select target" /></SelectTrigger>
+          <SelectContent position="popper" align="start">{targets.map(item => <SelectItem key={item.target_id} value={item.target_id}>
             {item.target_id}
-          </option>)}
-        </select>
-      </label>
-      <fieldset disabled={busy}><legend>Assessment mode</legend>
-        <label><input type="radio" name="red-assessment-mode" value="manual"
-          checked={mode === "manual"} onChange={() => onModeChange("manual")} /> Manual</label>
-        <label><input type="radio" name="red-assessment-mode" value="autonomous"
-          checked={mode === "autonomous"} onChange={() => onModeChange("autonomous")} /> Autonomous</label>
-      </fieldset>
-      <ActionButton type="submit" disabled={!target || busy}>Review Standard scope</ActionButton>
+          </SelectItem>)}</SelectContent>
+        </Select>
+        {!targets.length && <p role="status">No registered target is available. Refresh the dashboard to retry.</p>}
+      </div>
+      <div><span id="red-mode-label">Assessment mode</span>
+        <RadioGroup aria-labelledby="red-mode-label" value={mode} disabled={busy}
+          onValueChange={value => { if (value === "manual" || value === "autonomous") onModeChange(value); }}>
+          <div className="flex items-center gap-2"><RadioGroupItem id="red-manual" value="manual" /><label htmlFor="red-manual">Manual</label></div>
+          <div className="flex items-center gap-2"><RadioGroupItem id="red-autonomous" value="autonomous" /><label htmlFor="red-autonomous">Autonomous</label></div>
+        </RadioGroup>
+      </div>
+      <ActionButton type="button" disabled={busy} aria-disabled={!target || busy}
+        onClick={() => { if (target) { onReview(); notify("Standard scope ready for review."); }
+          else notify("Choose a registered target first.", true); }}>Review Standard scope</ActionButton>
     </form> : target && <ScopeReview target={target} mode={mode} />}
 
     {phase !== "setup" && <div className="red-assessment-actions" aria-live="polite">
@@ -116,7 +121,7 @@ function ScopeReview({ target, mode }: { target: RedTarget; mode: RedMode }) {
   return <div className="red-scope-review">
     <div><span className="eyebrow">Fixed authorization scope</span>
       <h4>{target.target_id}</h4>
-      <p>Standard profile · {mode} mode · unauthenticated registered routes only</p></div>
+      <p>Standard · {mode} · unauthenticated routes</p></div>
     <div><strong>Registered classes</strong><ul>
       {target.supported_classes.map(item => <li key={item}>{classLabel(item)}</li>)}
     </ul></div>
@@ -130,8 +135,7 @@ function ScopeReview({ target, mode }: { target: RedTarget; mode: RedMode }) {
       <div><dt>Retries</dt><dd>{budget.max_retries}</dd></div>
       <div><dt>Resources</dt><dd>{budget.max_cpu_cores} CPU · {budget.max_memory_mb} MB</dd></div>
     </dl>
-    <p className="red-scope-caution">Creating the draft does not start execution.
-      Autonomous authorization and start are completed together.</p>
+    <p className="red-scope-caution" role="status">{mode === "autonomous" ? "Authorize to start autonomous assessment." : "Draft first. Authorize before execution."}</p>
   </div>;
 }
 

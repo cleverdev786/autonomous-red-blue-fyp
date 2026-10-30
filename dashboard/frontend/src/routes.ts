@@ -5,7 +5,9 @@ export type View =
   | "Overview" | "Red Team" | "Blue Team" | "Runs" | "Run Detail" | "Findings" | "Patch Verification"
   | "Metrics" | "Audit" | "Development Evidence" | "Trusted Preview" | "Operator Status";
 export type Section = "Overview" | "Red Team" | "Blue Team" | "Assessments" | "Findings" | "Remediation" | "Reports" | "System";
-export type Route = { path: string; title: string; section: Section | null; view: View | null; notFound?: boolean };
+export type Route = { path: string; title: string; section: Section | null; view: View | null; notFound?: boolean; assessmentId?: string };
+
+export const assessmentPath = (id: string) => `${BASE_PATH}/red-team/assessments/${encodeURIComponent(id)}`;
 
 export const primaryRoutes: Route[] = [
   { path: `${BASE_PATH}/`, title: "Overview", section: "Overview", view: "Overview" },
@@ -33,6 +35,9 @@ export function resolveRoute(pathname: string): Route {
   // Remove trailing slashes except on the mount root; keep unknown paths unknown.
   const path = pathname.replace(/\/+$/, "") || "/";
   const canonical = path === BASE_PATH ? `${BASE_PATH}/` : path;
+  const workspace = canonical.match(/^\/dashboard\/red-team\/assessments\/([A-Za-z0-9_-]{1,200})$/);
+  if (workspace) return { path: canonical, title: "Assessment workspace",
+    section: "Red Team", view: "Red Team", assessmentId: workspace[1] };
   return allRoutes.find((route) => route.path === canonical) ?? {
     path: canonical, title: "Page not found", section: null, view: null, notFound: true,
   };

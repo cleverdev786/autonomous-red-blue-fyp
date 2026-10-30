@@ -558,6 +558,16 @@ class RedAssessmentPageDTO(BaseModel):
     pagination: RedPaginationDTO
 
 
+class RedOperationReadDTO(BaseModel):
+    """Operation selection metadata without authorization scope or evidence."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    operation_id: Identifier
+    plan_version: Identifier
+    test_id: Identifier | None = None
+    status: Literal["proposed", "approved", "running", "completed", "blocked", "cancelled"]
+
+
 class RedAssessmentWorkspaceDTO(BaseModel):
     """Assessment workspace state without raw receipts or evidence locations."""
 
@@ -565,6 +575,7 @@ class RedAssessmentWorkspaceDTO(BaseModel):
     assessment: RedAssessmentListItemDTO
     stages: tuple[StageDTO, ...] = ()
     plans: tuple[PlanVersionDTO, ...] = ()
+    operations: tuple[RedOperationReadDTO, ...] = ()
     candidate_count: int = Field(ge=0)
     planned_operation_count: int = Field(ge=0)
     finding_counts: dict[FindingState, int]

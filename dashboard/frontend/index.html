@@ -8,6 +8,15 @@
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%mars-mark.svg" />
     <meta name="color-scheme" content="light" />
     <title>MARS · Security Assessment &amp; Remediation</title>
+    <script>
+      try {
+        const saved = localStorage.getItem("mars-theme");
+        const theme = saved === "light" || saved === "dark" ? saved :
+          matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

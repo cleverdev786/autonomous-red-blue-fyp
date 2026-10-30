@@ -89,6 +89,8 @@ export type RedCoverageGap = { gap_id: string; status: "open" | "resolved";
 export type RedCoverage = { assessment_id: string; target_id: string;
   coverage: RedAssessment["coverage"]; gaps: RedCoverageGap[]; warnings: string[] };
 export type RedWorkspace = { assessment: RedAssessment;
+  operations?: Array<{ operation_id: string; plan_version: string; test_id: string | null;
+    status: "proposed" | "approved" | "running" | "completed" | "blocked" | "cancelled" }>;
   stages: Array<{ stage: keyof RedAssessment["stage_statuses"]; status: RedStageStatus;
     plan_version: string | null }>;
   plans: Array<{ plan_version: string; surface_revision: string;
@@ -183,7 +185,11 @@ function isFinding(value: unknown): value is RedFinding {
 
 function isWorkspace(value: unknown): value is RedWorkspace {
   const counts = isRecord(value) && isRecord(value.finding_counts) ? value.finding_counts : null;
-  return isRecord(value) && isAssessment(value.assessment) && Array.isArray(value.stages) &&
+  return isRecord(value) && (value.operations === undefined || (Array.isArray(value.operations) && value.operations.every(item =>
+    isRecord(item) && isText(item.operation_id) && isText(item.plan_version) &&
+    (item.test_id === null || isText(item.test_id)) &&
+    ["proposed", "approved", "running", "completed", "blocked", "cancelled"].includes(String(item.status))))) &&
+    isAssessment(value.assessment) && Array.isArray(value.stages) &&
     value.stages.every(item => isRecord(item) &&
       ["reconnaissance", "planning", "execution", "verification"].includes(String(item.stage)) &&
       allowedStages.has(item.status as RedStageStatus) &&
@@ -313,10 +319,10 @@ export function cancelRedAssessment(
 }
 
 export function runRedStage(token: string, assessmentId: string, stage: string,
-  requestId: string): Promise<RedCommandReceipt> {
+  requestId: string, operationId?: string): Promise<RedCommandReceipt> {
   return redPost(token,
     `/api/red/assessments/${encodeURIComponent(assessmentId)}/stages/${encodeURIComponent(stage)}/run`,
-    { request_id: requestId }, ["queued"]);
+    { request_id: requestId, ...(operationId ? { operation_id: operationId } : {}) }, ["queued"]);
 }
 
 export async function loadRedWorkspace(token: string, assessmentId: string,
@@ -332,6 +338,14 @@ export async function loadRedWorkspace(token: string, assessmentId: string,
   ]);
   return { workspace, events: events.items, findings: findings.items,
     findingTotal: findings.pagination.total, coverage };
+}
+
+export function loadRedFindingPage(token: string, assessmentId: string, offset: number,
+  status: string, signal?: AbortSignal): Promise<Page<RedFinding>> {
+  const query = new URLSearchParams({ offset: String(offset), limit: "100" });
+  if (status !== "all") query.set("status", status);
+  return redGet(`/api/red/assessments/${encodeURIComponent(assessmentId)}/findings?${query}`,
+    token, isFindingPage, signal);
 }
 
 export function loadRedFindingDetail(token: string, findingId: string,

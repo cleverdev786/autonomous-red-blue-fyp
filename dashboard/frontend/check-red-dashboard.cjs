@@ -89,12 +89,13 @@ const assessment = {
     onPageChange() {},
   }));
   for (const label of ["Verified findings", "Endpoint coverage", "Active assessments",
-    "Agent activity", "All Targets", "Assessment status", "Assessment history",
+    "Agent activity", "Target", "Assessment status", "Assessment history",
     "Next"]) {
     assert(html.includes(label), "missing dashboard label: " + label);
   }
   assert(html.includes("2 confirmed") && html.includes("3 / 4") && html.includes("as-dashboard"));
   assert(!html.includes("Page content will be added later"));
   assert.match(html, /<table[^>]*>.*<th scope="col">Assessment<\/th>/s);
+  assert(html.includes('role="combobox"') && html.includes('aria-labelledby="target-filter-label"'));
   console.log("T28 Red dashboard API contracts, filters, metrics and history: PASS");
 })().catch(error => { console.error(error); process.exitCode = 1; });

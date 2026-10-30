@@ -91,6 +91,23 @@ const target = {
     onReset() {} };
   const setup = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
     { ...base, phase: "setup" }));
+  const reviewButton = element => {
+    if (!element || typeof element !== "object") return null;
+    if (element.props?.children === "Review Standard scope") return element;
+    for (const child of React.Children.toArray(element.props?.children)) {
+      const found = reviewButton(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  let reviews = 0;
+  const selectedReview = reviewButton(redUi.NewAssessmentView({...base,phase:"setup",onReview(){reviews++;}}));
+  assert.equal(selectedReview.props.type, "button", "Scope review must not depend on hidden native select validation");
+  selectedReview.props.onClick();
+  assert.equal(reviews, 1);
+  const missingReview = reviewButton(redUi.NewAssessmentView({...base,targetId:"",phase:"setup",onReview(){reviews++;}}));
+  missingReview.props.onClick();
+  assert.equal(reviews, 1, "A missing registered target must not reach scope review");
   assert(setup.includes("New assessment") && setup.includes("Review Standard scope"));
   assert(!setup.includes("Start autonomous assessment"));
   const review = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
@@ -120,6 +137,11 @@ const target = {
   const hookState = [];
   let hookCursor = 0;
   const fakeReact = {
+    useRef(initial) {
+      const index = hookCursor++;
+      if (!(index in hookState)) hookState[index] = { current: initial };
+      return hookState[index];
+    },
     useState(initial) {
       const index = hookCursor++;
       if (!(index in hookState)) hookState[index] = typeof initial === "function" ? initial() : initial;
@@ -132,8 +154,9 @@ const target = {
   const normalRequire = createRequire(path.resolve("package.json"));
   const redController = compile("src/red/NewAssessment.tsx",
     id => id === "react" ? fakeReact : normalRequire(id));
+  const opened = [];
   const controllerProps = { token: "operator-token", targets: [target], assessments: [],
-    onChanged() {} };
+    onChanged() {}, onOpened(id) { opened.push(id); } };
   const renderController = () => {
     hookCursor = 0;
     return redController.NewAssessment(controllerProps).props;
@@ -156,10 +179,14 @@ const target = {
   assert.deepEqual(requests.filter(item => item.options.method === "POST").map(item => item.url),
     ["/api/red/assessments"]);
   controls.onAuthorize();
+  controls.onAuthorize();
   await settle();
   controls = renderController();
   assert.equal(controls.phase, "active");
+  assert.deepEqual(opened, ["assessment-t29"], "Navigate once after acknowledged start");
   assert(requests.some(item => item.url.endsWith("/start")));
+  assert.equal(requests.filter(item => item.url.endsWith("/start")).length, 1,
+    "Double authorization click must enqueue only once");
   cancelStatus = "cancellation_requested";
   controls.onCancel();
   await settle();
@@ -172,7 +199,16 @@ const target = {
     current_surface_revision: null, stage_statuses: {} });
   renderController();
   controls = renderController();
-  assert.equal(controls.phase, "recovered");
-  assert.equal(controls.assessmentId, "persisted-active");
+  assert.equal(controls.phase, "setup", "New assessment must not be hijacked by an existing run");
+  assert.equal(controls.assessmentId, null);
+  hookState.length = 0;
+  controllerProps.assessments[0].status = "queued";
+  requests.length = 0;
+  renderController();
+  renderController();
+  renderController();
+  await settle();
+  assert.equal(requests.filter(item => item.options.method === "POST").length, 0,
+    "Recovering a queued assessment must never dispatch start");
   console.log("T29 deliberate creation, remembered mode, authorization and start lock: PASS");
 })().catch(error => { console.error(error); process.exitCode = 1; });

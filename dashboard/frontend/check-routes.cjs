@@ -14,6 +14,8 @@ assert.deepEqual(primaryRoutes.slice(1, 3).map(route => route.path),
   ["/dashboard/red-team", "/dashboard/blue-team"]);
 assert.equal(resolveRoute("/dashboard/red-team").section, "Red Team");
 assert.equal(resolveRoute("/dashboard/blue-team").section, "Blue Team");
+assert.equal(resolveRoute("/dashboard/red-team/assessments/assessment-demo").assessmentId, "assessment-demo");
+assert.equal(resolveRoute("/dashboard/red-team/assessments/bad%2Fid").notFound, true);
 for (const route of primaryRoutes) {
   assert.deepEqual(resolveRoute(route.path), route);
   assert.deepEqual(resolveRoute(route.path + "/"), route);

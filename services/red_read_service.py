@@ -20,6 +20,7 @@ from schemas.red_team_state import (
     RedFindingDetailDTO,
     RedFindingPageDTO,
     RedFindingReadDTO,
+    RedOperationReadDTO,
     RedPaginationDTO,
     RedTargetPageDTO,
     RedTargetReadDTO,
@@ -113,6 +114,10 @@ class RedReadService:
             assessment=self._assessment_item(snapshot, stages=stages),
             stages=stages,
             plans=snapshot.plans,
+            operations=tuple(RedOperationReadDTO(
+                operation_id=item.operation_id, plan_version=item.plan_version,
+                test_id=item.test_id, status=item.status,
+            ) for item in snapshot.operations),
             candidate_count=len(snapshot.candidates),
             planned_operation_count=len(snapshot.operations),
             finding_counts=counts,

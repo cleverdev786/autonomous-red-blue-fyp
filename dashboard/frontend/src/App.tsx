@@ -20,13 +20,14 @@ import {
 import { BASE_PATH, primaryRoutes, resolveRoute, type View } from "./routes";
 import { OverviewPanel, type OverviewState } from "./overview/OverviewPanel";
 import { RunTable } from "./overview/RunTable";
-import { ActionButton, EmptyState, LoadingState, Notice } from "./ui";
+import { ActionButton, EmptyState, LoadingState, Notice, notify } from "./ui";
 import { MarsMark, NavIcon } from "./brand";
 import { Sidebar, SidebarLink } from "./components/ui/sidebar";
 import { AssessmentsPanel } from "./assessments/AssessmentsPanel";
 import { ModelStatus } from "./system/ModelStatus";
 import type { LocalModelSession } from "./api";
 import { RedDashboard } from "./red/RedDashboard";
+import { LogOut, Moon, Sun } from "lucide-react";
 
 type RunsState =
   | { kind: "loading"; runs: RunItem[] }
@@ -36,6 +37,8 @@ type RunsState =
 export default function App() {
   const [route, setRoute] = useState(() => resolveRoute(window.location.pathname));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const saved = window.localStorage.getItem("mars-theme");
@@ -81,14 +84,18 @@ export default function App() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    navigation.current?.querySelector<HTMLAnchorElement>("a")?.focus();
+    document.querySelector<HTMLButtonElement>(".sidebar-close")?.focus();
+    const main = document.getElementById("main-content");
+    main?.setAttribute("inert", "");
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenuOpen(false);
         menuToggle.current?.focus();
       } else if (event.key === "Tab") {
         const items = Array.from(document.querySelectorAll<HTMLElement>(
-          "#mars-navigation a[href], #mars-navigation select:not(:disabled), #mars-navigation button:not(:disabled)",
+          "#mars-navigation a[href], #mars-navigation summary, #mars-navigation select:not(:disabled), #mars-navigation button:not(:disabled)",
         )).filter(element => element.getClientRects().length > 0);
         if (!items.length) return;
         const first = items[0], last = items[items.length - 1];
@@ -101,7 +108,14 @@ export default function App() {
       }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const onResize = () => { if (window.innerWidth > 850) setMenuOpen(false); };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
+      main?.removeAttribute("inert");
+      document.body.style.overflow = previousOverflow;
+    };
   }, [menuOpen]);
   const [overviewState, setOverviewState] = useState<OverviewState>({ kind: "loading" });
   const [runsState, setRunsState] = useState<RunsState>({ kind: "loading", runs: [] });
@@ -236,8 +250,11 @@ export default function App() {
       </div>
       {menuOpen && <button type="button" className="menu-backdrop" aria-label="Close navigation menu"
         onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }} />}
-      <div className="shell">
+      <div className={railCollapsed ? "shell rail-collapsed" : "shell"}>
         <Sidebar open={menuOpen}>
+          <button type="button" className="rail-toggle" aria-controls="mars-navigation"
+            aria-expanded={!railCollapsed} aria-label={railCollapsed ? "Expand navigation" : "Collapse navigation"}
+            onClick={() => setRailCollapsed(value => !value)}>{railCollapsed ? "→" : "←"}</button>
           <button type="button" className="sidebar-close" aria-label="Close navigation"
             onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }}>
             <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
@@ -247,15 +264,24 @@ export default function App() {
           </button>
           <div className="sidebar-brand">
             <MarsMark className="brand-mark" />
-            <div className="brand-type"><h1>MARS</h1><p>Security workspace</p></div>
+            <div className="brand-type"><strong>MARS</strong><p>Security workspace</p></div>
           </div>
           <div className="sidebar-workspace-label">WORKSPACE</div>
           <nav aria-label="Primary navigation" ref={navigation}>
-            {primaryRoutes.filter(item => item.section !== "System").map(item => (
+            {primaryRoutes.filter(item => ["Overview", "Red Team", "Blue Team"].includes(item.section ?? "")).map(item => (
               <SidebarLink key={item.path} item={item}
                 active={route.section === item.section} onNavigate={followLink} />
             ))}
           </nav>
+          <details className="legacy-navigation">
+            <summary>Research &amp; tools</summary>
+            <nav aria-label="Research and legacy tools">
+              {primaryRoutes.filter(item => ["Assessments", "Findings", "Remediation", "Reports"].includes(item.section ?? "")).map(item => (
+                <SidebarLink key={item.path} item={item}
+                  active={route.section === item.section} onNavigate={followLink} />
+              ))}
+            </nav>
+          </details>
 
           {inRunContext && runsState.kind === "ready" && runs.length > 0 && (
             <div className="run-picker">
@@ -278,16 +304,24 @@ export default function App() {
         <main id="main-content" tabIndex={-1} aria-hidden={menuOpen ? true : undefined}>
           <div className="utility-bar">
             <span className="utility-path">Workspace <span className="utility-separator">/</span> {route.section ?? "Page"}</span>
+            <button type="button" className="account-icon" aria-label={signingOut ? "Signing out" : "Sign out"}
+              title="Sign out" disabled={signingOut} onClick={() => {
+              setSigningOut(true);
+              void fetch("/api/auth/logout", { method: "POST", credentials: "include" })
+                .then(response => {
+                  if (!response.ok) throw new Error("Logout rejected");
+                  window.location.reload();
+                }).catch(() => { setError("Sign out failed. Your session may still be active."); setSigningOut(false); });
+            }}><LogOut size={18} aria-hidden="true" /></button>
             <button type="button" className="theme-toggle"
               aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
               aria-pressed={theme === "dark"} onClick={() => setTheme(current => current === "light" ? "dark" : "light")}>
-              <span aria-hidden="true">{theme === "light" ? "◐" : "☀"}</span>
-              {theme === "light" ? "Dark mode" : "Light mode"}
+              {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
             </button>
           </div>
           <header className="page-header">
             <div>
-              <h2>{route.title === "Overview" ? "Workspace overview" : route.title}</h2>
+              <h1>{route.title === "Overview" ? "Workspace overview" : route.title}</h1>
               <p className="page-description">{({
                 Overview: "Your security workspace at a glance.",
                 "Red Team": "Red Team workspace.",
@@ -307,14 +341,14 @@ export default function App() {
               aria-current={route.path === path ? "page" : undefined}
               onClick={(event) => followLink(event, path)}>{title}</a>)}
           </nav>}
-          {error && view !== "Overview" && <Notice title="This view could not load" tone="danger">{error}</Notice>}
+          {error && <Notice title="Action could not complete" tone="danger">{error}</Notice>}
           {route.notFound && <section className="panel"><h3>Page not found</h3>
             <p className="muted">This MARS page does not exist. No operation was started.</p>
             <a href={`${BASE_PATH}/`} onClick={(event) => followLink(event, `${BASE_PATH}/`)}>Return to overview</a>
           </section>}
           {route.section === "Assessments" && <AssessmentsPanel />}
           {view === "Overview" && <OverviewPanel state={overviewState} />}
-          {view === "Red Team" && <RedDashboard />}
+          {view === "Red Team" && <RedDashboard assessmentId={route.assessmentId} onNavigate={navigate} />}
           {view === "Blue Team" && (
             <section className="panel">
               <p className="muted">Page content will be added later.</p>
@@ -658,6 +692,8 @@ export function OperatorStatusPanel() {
     active: LocalModelSession;
   };
   const [version, refresh] = useState(0);
+  const [statusRefreshing, setStatusRefreshing] = useState(false);
+  const manualStatusRefresh = useRef(false);
   const [result, setResult] = useState<{ runtime: Runtime; inventory: Inventory } | null>(null);
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState("");
@@ -691,6 +727,7 @@ export function OperatorStatusPanel() {
 
   useEffect(() => {
     let active = true;
+    setStatusRefreshing(true);
     setError("");
     Promise.all([
       getConsoleJson<Runtime>("/status"),
@@ -698,6 +735,7 @@ export function OperatorStatusPanel() {
     ]).then(([runtime, inventory]) => {
       if (active) {
         setResult({ runtime, inventory });
+        if (manualStatusRefresh.current) notify("Runtime status refreshed.");
         setSelectedFile(current => inventory.models.some(file => file.filename === current)
           ? current : (inventory.active.state !== "unloaded"
             ? inventory.active.filename : (inventory.models[0]?.filename ?? "")));
@@ -707,8 +745,9 @@ export function OperatorStatusPanel() {
       if (active) {
         setResult(null);
         setError("Local runtime status unavailable. No model or research state has been verified.");
+        if (manualStatusRefresh.current) notify("Runtime status could not refresh.", true);
       }
-    });
+    }).finally(() => { if (active) { setStatusRefreshing(false); manualStatusRefresh.current = false; } });
     return () => { active = false; };
   }, [version]);
 
@@ -719,8 +758,9 @@ export function OperatorStatusPanel() {
           <h3>Runtime status</h3>
           <p className="muted">Current state reported by the local service.</p>
         </div>
-        <ActionButton variant="secondary" className="runtime-refresh" onClick={() => refresh(n => n + 1)}>
-          Refresh status
+        <ActionButton variant="secondary" className="runtime-refresh" disabled={statusRefreshing}
+          onClick={() => { manualStatusRefresh.current = true; refresh(n => n + 1); }}>
+          {statusRefreshing ? "Refreshing status…" : "Refresh status"}
         </ActionButton>
       </div>
       {error && <Notice title="Operation unavailable" tone="danger">{error}</Notice>}

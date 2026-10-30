@@ -23,4 +23,6 @@ for (const text of ["MARS security workspace", "Welcome back", "Username", "Pass
 }
 assert(/autocomplete="username"/i.test(html) && /autocomplete="current-password"/i.test(html));
 assert(!html.includes("19283746"));
+assert(html.includes('aria-label="Show password"'));
+assert(html.includes('aria-label="Switch to dark mode"'));
 console.log("MARS application login form and password privacy: PASS");

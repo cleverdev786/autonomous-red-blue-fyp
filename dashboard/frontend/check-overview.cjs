@@ -1,43 +1,29 @@
-"use strict";
 const assert = require("node:assert/strict");
 const esbuild = require("esbuild");
 const React = require("react");
-const { createRequire } = require("node:module");
 const { renderToStaticMarkup } = require("react-dom/server");
+const { createRequire } = require("node:module");
 const path = require("node:path");
-const built = esbuild.buildSync({entryPoints:["src/overview/OverviewPanel.tsx"],bundle:true,platform:"node",format:"cjs",packages:"external",write:false,jsx:"automatic"});
-const mod={exports:{}};
+const built = esbuild.buildSync({entryPoints:["src/overview/RedOverview.tsx"],bundle:true,
+  platform:"node",format:"cjs",packages:"external",write:false,jsx:"automatic",
+  define:{"import.meta.env.VITE_API_BASE_URL":"undefined"}});
+const mod = {exports:{}};
 new Function("module","exports","require",built.outputFiles[0].text)(mod,mod.exports,createRequire(path.resolve("package.json")));
-const Panel=mod.exports.OverviewPanel;
-const html=state=>renderToStaticMarkup(React.createElement(Panel,{state}));
-const rows=[{run_id:"demo-001",config_id:"cfg",research_question:"rq1",run_type:"development",scenario_id:"sqli-login-bypass-001",dataset_id:null,status:"blocked",started_at:"2026-10-16",completed_at:null,red_score:null,blue_score:null}];
-const empty={total_runs:0,status_counts:{},research_question_counts:{},recent_runs:[]};
-const populated={total_runs:2,status_counts:{blocked:1,completed:1},research_question_counts:{rq1:2},recent_runs:rows};
-assert.match(html({kind:"loading"}),/Loading local run summary/);
-const unavailable=html({kind:"unavailable",detail:"Historical run database is not configured."});
-assert.match(unavailable,/Data source unavailable/);
-assert.match(unavailable,/not configured/);
-assert.doesNotMatch(unavailable,/Total runs|Stored runs.*0/);
-const noRecords=html({kind:"ready",overview:empty});
-assert.match(noRecords,/No stored runs in this database/);
-assert.match(noRecords,/not evidence of final research/);
-assert.doesNotMatch(noRecords,/Data source unavailable/);
-const found=html({kind:"ready",overview:populated});
-assert.match(found,/class="overview-bento"/);
-assert.equal((found.match(/class="tool-card tool-card--/g) || []).length, 6);
-for(const destination of ["red-team","blue-team","assessments","findings","remediation","reports"]) {
-  assert.match(found,new RegExp('href="/dashboard/'+destination+'"'));
+const render = state => renderToStaticMarkup(React.createElement(mod.exports.RedOverviewView,{state,onRetry(){}}));
+assert.match(render({kind:"loading"}),/Checking Red assessment data/);
+assert.match(render({kind:"error",denied:false}),/Red service unavailable.*Retry Red data/s);
+assert.match(render({kind:"error",denied:true}),/Session access required.*Sign in again/s);
+const summary = {confirmed_findings:4,tested:2,eligible:3,active_assessments:1,coverage_gaps:1};
+const ready = {kind:"ready",summary,targets:[],assessments:[]};
+const empty = render(ready);
+assert.match(empty,/No registered targets available/);
+assert.match(empty,/1 active assessment/);
+assert.doesNotMatch(empty,/tools coming later|Browse assessments/);
+for (const status of ["running","completed_with_limitations","cancelled","blocked"]) {
+  const html = render({...ready,targets:[{target_id:"local-target"}],assessments:[
+    {assessment_id:"assessment-example",target_id:"<script>unsafe</script>",mode:"manual",status}]});
+  assert(!html.includes("<script>unsafe</script>"));
+  assert.match(html,/1 registered target/);
+  assert.match(html,/href="\/dashboard\/red-team"/);
 }
-assert.match(found,/Run history/);
-assert.match(found,/Recent activity/);
-assert.match(found,/Workspace tools/);
-assert.doesNotMatch(found,/mars-bento-section|mars-bento-tile|Inside MARS|illustrative|test phases|Fake/);
-assert.match(found,/demo-001/);
-assert.match(found,/2/);
-assert.match(found,/blocked/);
-assert.doesNotMatch(found,/Verified remediation|Final research qualified/);
-const unsafe={...populated,recent_runs:[{...rows[0],run_id:"<script>alert(1)</script>"}]};
-const escaped=html({kind:"ready",overview:unsafe});
-assert.match(escaped,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-assert.doesNotMatch(escaped,/<script>alert\(1\)<\/script>/);
-console.log("M12 Overview render: loading, unavailable, empty, populated, escaping = PASS");
+console.log("Overview compact team cards, unavailable, denied, empty and safe navigation: PASS");

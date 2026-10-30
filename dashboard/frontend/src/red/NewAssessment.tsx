@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiRequestError } from "../api";
 import {
   authorizeRedAssessment,
@@ -10,14 +10,16 @@ import {
 } from "./api";
 import { loadRememberedRedMode, rememberRedMode, type RedMode } from "./modePreference";
 import { NewAssessmentView, type NewAssessmentPhase } from "./NewAssessmentView";
+import { notify } from "../ui";
 
 type CommandIntent = { requestId: string; approvalId?: string };
 
-export function NewAssessment({ token, targets, assessments, onChanged }: {
+export function NewAssessment({ token, targets, assessments, onChanged, onOpened }: {
   token: string;
   targets: RedTarget[];
   assessments: RedAssessment[];
   onChanged: () => void;
+  onOpened?: (id: string) => void;
 }) {
   const [targetId, setTargetId] = useState("");
   const [mode, setMode] = useState<RedMode>(loadRememberedRedMode);
@@ -29,17 +31,7 @@ export function NewAssessment({ token, targets, assessments, onChanged }: {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (phase !== "setup") return;
-    const active = assessments.find(item =>
-      ["awaiting_authorization", "queued", "running"].includes(item.status));
-    if (!active) return;
-    setAssessmentId(active.assessment_id);
-    setTargetId(active.target_id);
-    setMode(active.mode);
-    setPhase("recovered");
-  }, [assessments, phase]);
+  const pending = useRef(false);
 
   useEffect(() => {
     if (phase !== "cancellation_pending" || !assessmentId) return;
@@ -48,25 +40,13 @@ export function NewAssessment({ token, targets, assessments, onChanged }: {
     }
   }, [assessmentId, assessments, phase]);
 
-  useEffect(() => {
-    if (phase !== "recovered" || busy || startId) return;
-    const active = assessments.find(item => item.assessment_id === assessmentId);
-    if (active?.mode !== "autonomous" || active.status !== "queued" ||
-        Object.keys(active.stage_statuses).length > 0) return;
-    const requestId = commandId("start");
-    setStartId(requestId);
-    void run(async () => {
-      await startRedAssessment(token, active.assessment_id, requestId);
-      setPhase("active");
-      onChanged();
-    });
-  }, [assessmentId, assessments, busy, onChanged, phase, startId, token]);
-
   async function run(command: () => Promise<void>) {
+    if (pending.current) return;
+    pending.current = true;
     setBusy(true); setError(null);
-    try { await command(); }
-    catch (caught) { setError(commandError(caught)); }
-    finally { setBusy(false); }
+    try { await command(); notify("Assessment command accepted."); }
+    catch (caught) { setError(commandError(caught)); notify("Assessment command was not accepted.", true); }
+    finally { pending.current = false; setBusy(false); }
   }
 
   const reset = () => {
@@ -107,6 +87,7 @@ export function NewAssessment({ token, targets, assessments, onChanged }: {
         setPhase("authorized");
       }
       onChanged();
+      onOpened?.(assessmentId);
     })}
     onStart={() => void run(async () => {
       if (!assessmentId) throw new Error("missing assessment draft");
@@ -115,6 +96,7 @@ export function NewAssessment({ token, targets, assessments, onChanged }: {
       await startRedAssessment(token, assessmentId, requestId);
       setPhase("active");
       onChanged();
+      onOpened?.(assessmentId);
     })}
     onCancel={() => void run(async () => {
       if (!assessmentId) throw new Error("missing assessment draft");

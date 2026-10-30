@@ -1,3 +1,7 @@
+/* Keep imports ahead of CSS rules so browser and build-tool ordering agree. */
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--color-text);
@@ -153,22 +157,6 @@ body { background: var(--color-canvas); color: var(--color-text); line-height: 1
 button, select, input { min-height: 40px; }
 .nav, .subnav, .menu-button { min-height: 44px; display: inline-flex; align-items: center; }
 .table-link { min-height: 44px; text-align: left; }
-.ui-button {
-  min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
-  gap: var(--space-sm); padding: var(--space-md) var(--space-base);
-  border-radius: var(--radius-control); font: inherit; font-weight: 650; cursor: pointer;
-}
-.ui-button--primary, .preview-controls .ui-button--primary {
-  color: var(--color-action-ink); background: var(--color-action); border: 1px solid var(--color-action);
-}
-.ui-button--primary:hover:not(:disabled), .preview-controls .ui-button--primary:hover:not(:disabled) {
-  background: var(--color-action-hover); border-color: var(--color-action-hover);
-}
-.ui-button--secondary, .runtime-refresh.ui-button--secondary {
-  color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border);
-}
-.ui-button--secondary:hover:not(:disabled) { background: var(--color-nav-active); }
-.ui-button:disabled { opacity: .65; cursor: not-allowed; }
 .ui-notice {
   margin-block: var(--space-base); border: 1px solid var(--color-border);
   background: var(--color-surface-low); border-radius: var(--radius-card);
@@ -231,4 +219,34 @@ button, select, input { min-height: 40px; }
   .overview-summary { flex-direction: column; align-items: stretch; }
   .overview-total { border-left: 0; border-top: 1px solid var(--color-border); text-align: left; padding: var(--space-md) 0 0; }
   .overview-breakdowns { grid-template-columns: minmax(0,1fr); }
+}
+/* Tailwind v4 utilities coexist with legacy selectors during the incremental migration.
+   Preflight is intentionally omitted until untouched screens have been migrated. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius-control) - 2px);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }

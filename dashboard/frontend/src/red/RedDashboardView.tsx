@@ -1,4 +1,7 @@
 import { ActionButton, EmptyState, LoadingState, Notice } from "../ui";
+import { Button } from "../components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { assessmentPath } from "../routes";
 import {
   assessmentStatuses,
   type RedAssessment,
@@ -28,19 +31,24 @@ export function RedDashboardView({ targets, targetId, status, state, onTargetCha
 }) {
   return <div className="mars-content red-dashboard">
     <section className="red-dashboard-toolbar" aria-label="Red dashboard filters">
-      <label>Target
-        <select value={targetId} onChange={event => onTargetChange(event.target.value)}>
-          <option value="">All Targets</option>
-          {targets.map(target => <option key={target.target_id} value={target.target_id}>{target.target_id}</option>)}
-        </select>
-      </label>
-      <label>Assessment status
-        <select value={status} onChange={event => onStatusChange(event.target.value)}>
-          <option value="">All statuses</option>
-          {assessmentStatuses.map(item => <option key={item} value={item}>{label(item)}</option>)}
-        </select>
-      </label>
-      <ActionButton variant="secondary" onClick={onRefresh}>Refresh</ActionButton>
+      <div className="filter-field"><label id="target-filter-label">Target</label>
+        <Select value={targetId || "all"} onValueChange={value => onTargetChange(value === "all" ? "" : value)}>
+          <SelectTrigger aria-labelledby="target-filter-label"><SelectValue>{targetId || "All Targets"}</SelectValue></SelectTrigger>
+          <SelectContent position="popper" align="start"><SelectItem value="all">All Targets</SelectItem>
+            {targets.map(target => <SelectItem key={target.target_id} value={target.target_id}>{target.target_id}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="filter-field"><label id="status-filter-label">Assessment status</label>
+        <Select value={status || "all"} onValueChange={value => onStatusChange(value === "all" ? "" : value)}>
+          <SelectTrigger aria-labelledby="status-filter-label"><SelectValue>{status ? label(status) : "All statuses"}</SelectValue></SelectTrigger>
+          <SelectContent position="popper" align="start"><SelectItem value="all">All statuses</SelectItem>
+            {assessmentStatuses.map(item => <SelectItem key={item} value={item}>{label(item)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <ActionButton variant="secondary" disabled={state.kind === "loading"} onClick={onRefresh}>
+        {state.kind === "loading" ? "Refreshing…" : "Refresh"}</ActionButton>
     </section>
 
     {state.kind === "loading" && <section className="surface-card red-dashboard-state" aria-busy="true">
@@ -75,6 +83,15 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
       detail: `${summary.active_stages} queued or running stages` },
   ];
   return <>
+    <p className="text-sm text-muted-foreground">Totals span stored assessments and can include repeated findings. Workflow completion does not establish target safety.</p>
+    {assessments.find(item => ["queued", "running", "awaiting_authorization"].includes(item.status)) &&
+      <section className="surface-card p-4"><h3>Continue an assessment</h3>
+        {assessments.filter(item => ["queued", "running", "awaiting_authorization"].includes(item.status)).map(item =>
+          <Button key={item.assessment_id} variant="outline" asChild><a href={assessmentPath(item.assessment_id)}
+            onClick={event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+              event.preventDefault(); onInspect(item.assessment_id);
+            } }}>{item.target_id} · {label(item.status)}</a></Button>)}
+      </section>}
     <section className="red-metrics" aria-label="Red Team metrics">
       {metrics.map(metric => <article className="red-metric" key={metric.label}>
         <span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small>
@@ -94,13 +111,19 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
           <thead><tr><th scope="col">Assessment</th><th scope="col">Target</th>
             <th scope="col">Mode</th><th scope="col">Status</th>
             <th scope="col">Coverage</th><th scope="col">Active stage</th><th scope="col"><span className="sr-only">Open</span></th></tr></thead>
-          <tbody>{assessments.map(item => <tr key={item.assessment_id}>
-            <td><span className="red-assessment-id">{item.assessment_id}</span></td>
+          <tbody>{assessments.map((item, index) => <tr key={item.assessment_id}>
+            <td><span className="assessment-number" title={item.assessment_id}>Assessment {String(offset + index + 1).padStart(2, "0")}</span>
+              <small className="record-caption">List position · {item.profile}</small></td>
             <td>{item.target_id}</td><td>{item.mode}</td>
             <td><span className={`red-status red-status--${item.status}`}>{label(item.status)}</span></td>
-            <td>{item.coverage.executed} / {item.coverage.eligible}</td>
-            <td>{activeStage(item) ?? "None"}</td><td><button className="red-inspect-link"
-              onClick={() => onInspect(item.assessment_id)}>Open workspace</button></td>
+            <td><span>{item.coverage.executed} / {item.coverage.eligible}</span>
+              <progress aria-label={"Executed tests for assessment " + (offset + index + 1)}
+                value={item.coverage.executed} max={Math.max(1, item.coverage.eligible)} /></td>
+            <td>{activeStage(item) ?? "None"}</td><td><Button variant="outline" asChild>
+              <a href={assessmentPath(item.assessment_id)} aria-label={"Open workspace for assessment " + item.assessment_id}
+                onClick={event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                  event.preventDefault(); onInspect(item.assessment_id);
+                } }}>Open workspace</a></Button></td>
           </tr>)}</tbody>
         </table></div>}
       {total > limit && <nav className="red-history-pages" aria-label="Assessment history pages">
