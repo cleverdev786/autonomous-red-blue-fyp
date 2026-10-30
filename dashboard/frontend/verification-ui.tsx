@@ -7,7 +7,7 @@ import { NewAssessmentView } from "./src/red/NewAssessmentView";
 import { RedDashboardView } from "./src/red/RedDashboardView";
 import { RedOverviewView } from "./src/overview/RedOverview";
 import { LoginScreen } from "./src/LoginScreen";
-import { NotificationCenter } from "./src/ui";
+import { NotificationCenter, notify } from "./src/ui";
 import type { RedWorkspaceBundle, RedTarget } from "./src/red/api";
 import "./src/tokens.css";
 import "./src/styles.css";
@@ -44,21 +44,24 @@ window.fetch=async(input,options)=>{
   throw new Error("Fixture page blocks network requests");
 };
 function QA(){
-  const [surface,setSurface]=useState("workspace");
-  const [theme,setTheme]=useState("light");
+  const [surface,setSurface]=useState(()=>new URLSearchParams(location.search).get("surface")??"workspace");
+  const [theme,setTheme]=useState(()=>new URLSearchParams(location.search).get("theme")==="dark"?"dark":"light");
   const [phase,setPhase]=useState("setup");
+  const [mode,setMode]=useState<"manual"|"autonomous">("manual");
   const [selected,setSelected]=useState("");
   const [result,setResult]=useState("Not run");
+  useEffect(()=>{ document.documentElement.dataset.theme=theme; },[theme]);
   useEffect(()=>{
     const audited = new WeakSet<Element>();
     const observer = new MutationObserver(async()=>{
-      const dialog=document.querySelector('[role="dialog"]');
-      if (!dialog?.querySelector(".evidence-content") || audited.has(dialog)) return;
-      audited.add(dialog);
-      const audit=await axe.run(dialog,{runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21a","wcag21aa"]}});
-      setResult(JSON.stringify({surface:"evidence-dialog",theme:document.documentElement.dataset.theme??"light",viewport:innerWidth,
+      const overlay=document.querySelector('[role="dialog"],[role="listbox"]');
+      if (!overlay || (overlay.getAttribute("role")==="dialog" && !overlay.querySelector(".evidence-content")) || audited.has(overlay)) return;
+      audited.add(overlay);
+      await Promise.allSettled(overlay.getAnimations({subtree:true}).filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished));
+      const audit=await axe.run(overlay,{runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21a","wcag21aa"]}});
+      setResult(JSON.stringify({surface:overlay.getAttribute("role")==="dialog"?"evidence-dialog":"dropdown",theme:document.documentElement.dataset.theme??"light",viewport:innerWidth,
         violations:audit.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)})),
-        incomplete:audit.incomplete.map(v=>({id:v.id,nodes:v.nodes.length})),passes:audit.passes.length},null,2));
+        incomplete:audit.incomplete.map(v=>({id:v.id,nodes:v.nodes.length,details:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),passes:audit.passes.length},null,2));
     });
     observer.observe(document.body,{childList:true,subtree:true});
     return ()=>observer.disconnect();
@@ -69,7 +72,7 @@ function QA(){
     <p>No live assessments or backend writes. Evidence data is synthetic.</p>
     <div className="qa-controls">
       <label>Surface <select value={surface} onChange={e=>setSurface(e.target.value)}>
-        {["workspace","autonomous","setup","empty","error","dashboard","overview","login"].map(item=><option key={item}>{item}</option>)}
+        {["workspace","autonomous","setup","empty","error","loading","dashboard","overview","login"].map(item=><option key={item}>{item}</option>)}
       </select></label>
       <label>Theme <select value={theme} onChange={e=>{setTheme(e.target.value);document.documentElement.dataset.theme=e.target.value;}}>
         <option>light</option><option>dark</option>
@@ -79,15 +82,16 @@ function QA(){
         await Promise.allSettled(document.getAnimations().filter(animation =>
           animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished));
         const audit=await axe.run(document.getElementById("fixture")!,{runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21a","wcag21aa"]}});
-        setResult(JSON.stringify({surface,theme,viewport:innerWidth,violations:audit.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),incomplete:audit.incomplete.map(v=>({id:v.id,nodes:v.nodes.length})),passes:audit.passes.length},null,2));
+        setResult(JSON.stringify({surface,theme,viewport:innerWidth,violations:audit.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),incomplete:audit.incomplete.map(v=>({id:v.id,nodes:v.nodes.length,details:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),passes:audit.passes.length},null,2));
       }}>Run accessibility audit</button>
+      <button type="button" onClick={()=>notify("Fixture notification. No action performed.")}>Preview notification</button>
     </div>
     <section id="fixture" aria-label="Verification surface">
       {surface==="login"?<LoginScreen checking={false} onSignedIn={noop}/>:
-        surface==="setup"?<NewAssessmentView targets={[target]} targetId={selected} mode="manual" phase={phase as "setup"|"review"} busy={false} error={null} assessmentId={null}
-          onTargetChange={setSelected} onModeChange={noop} onReview={()=>setPhase("review")} onCreate={noop} onAuthorize={noop} onStart={noop} onCancel={noop} onEdit={()=>setPhase("setup")} onReset={noop}/>:
+        surface==="setup"?<NewAssessmentView targets={[target]} targetId={selected} mode={mode} phase={phase as "setup"|"review"} busy={false} error={null} assessmentId={null}
+          onTargetChange={setSelected} onModeChange={setMode} onReview={()=>setPhase("review")} onCreate={noop} onAuthorize={noop} onStart={noop} onCancel={noop} onEdit={()=>setPhase("setup")} onReset={noop}/>:
         surface==="overview"?<RedOverviewView state={{kind:"error",denied:true}} onRetry={noop}/>:
-        ["empty","error","dashboard"].includes(surface)?<RedDashboardView targets={[target]} targetId="" status="" state={surface==="error"?{kind:"error",message:"Fixture service unavailable."}:{kind:"ready",summary,assessments:surface==="empty"?[]:[assessment],total:surface==="empty"?0:1,offset:0,limit:25}}
+        ["empty","error","loading","dashboard"].includes(surface)?<RedDashboardView targets={[target]} targetId="" status="" state={surface==="loading"?{kind:"loading"}:surface==="error"?{kind:"error",message:"Fixture service unavailable."}:{kind:"ready",summary,assessments:surface==="empty"?[]:[assessment],total:surface==="empty"?0:1,offset:0,limit:25}}
           onTargetChange={noop} onStatusChange={noop} onRefresh={noop} onPageChange={noop} onInspect={noop}/>:
         <AssessmentWorkspaceView data={surface==="autonomous"?{...bundle,workspace:{...bundle.workspace,assessment:{...assessment,mode:"autonomous",status:"running"}}}:bundle}
           token="" busy={null} commandError={null} onClose={noop} onRefresh={noop} onRunStage={noop} onCancel={noop}/>}

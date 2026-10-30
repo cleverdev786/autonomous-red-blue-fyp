@@ -1,0 +1,70 @@
+{
+  "baseline_commit": "2c413db",
+  "data": "synthetic write-blocking fixtures; same harness for both versions",
+  "images": [
+    {
+      "file": "before-workspace-light-390.png",
+      "sha256": "98244adf6c86fb3d04286737906bbc921b4313275a95d1c3101c19534b954f9b"
+    },
+    {
+      "file": "before-workspace-dark-390.png",
+      "sha256": "d0864f63a22c76d713e6ac1bfb0c1378f8645d89d076c430a509b71a7d8bfc25"
+    },
+    {
+      "file": "before-workspace-light-1440.png",
+      "sha256": "7850789d9856ba236c842481911ccb0d4bae501bdb45623dd11602d871d0125b"
+    },
+    {
+      "file": "before-workspace-dark-1440.png",
+      "sha256": "784e34920837a2564d91cfc120078b86f7ae09f13d03e6abf7659a85a6d45899"
+    },
+    {
+      "file": "before-loading-light-390.png",
+      "sha256": "462e512ef89286cf0f3bb8cac62b93dc16979cc00e641d2c7cd07abab1793de3"
+    },
+    {
+      "file": "before-loading-dark-390.png",
+      "sha256": "7a97ee7fbd98807943951050a04086d46a0c3e8677cc796f79e26761842e14f5"
+    },
+    {
+      "file": "before-loading-light-1440.png",
+      "sha256": "7dde93cae4abf61e1439cb864e4cd1c5f0284c6b1601dc166fcf62ed81eae3dc"
+    },
+    {
+      "file": "before-loading-dark-1440.png",
+      "sha256": "c3e67ed41292d622ce20a86c3859c73b56064391a749910b0617241f5d1a3b4c"
+    },
+    {
+      "file": "after-workspace-light-390.png",
+      "sha256": "bdd5246019ae1bcdae777ccaae272b4405d3f7a3266e4c3ec513c218f84515a9"
+    },
+    {
+      "file": "after-workspace-dark-390.png",
+      "sha256": "68018eaf98eb57335b3905326033be20ca7468f5196f51844c0058f8c7bebf07"
+    },
+    {
+      "file": "after-workspace-light-1440.png",
+      "sha256": "3953ece414d1eca59a8143fa7cf783057aecab9120d97990e541ab86c6728767"
+    },
+    {
+      "file": "after-workspace-dark-1440.png",
+      "sha256": "eb138d0e731f71d2559357706f37a38f187a92f2ccf25501674814d7e8294a87"
+    },
+    {
+      "file": "after-loading-light-390.png",
+      "sha256": "8f30b6ffbbff071065947c56c2abacf1a0c4eb51e062023241e856f30a1a12dd"
+    },
+    {
+      "file": "after-loading-dark-390.png",
+      "sha256": "a7dc0c34162b67c717c22602b06a48fdd505441150a83fb52662bcd774490610"
+    },
+    {
+      "file": "after-loading-light-1440.png",
+      "sha256": "f14fc0fe3eae4c6e87f67c27e7accf3d07ee73460ec620e710f4dbbbc0e061f4"
+    },
+    {
+      "file": "after-loading-dark-1440.png",
+      "sha256": "cd5ab9e69edb811709edf1682661e9670962f78a47a1cc88b89695213569a993"
+    }
+  ]
+}

@@ -78,8 +78,10 @@ select,select option { background-color:var(--card); color:var(--foreground); fo
 .red-workspace-panel { min-width:0; grid-template-columns:minmax(0,1fr); margin:0; }
 .red-workspace-panel>* { min-width:0; }
 .red-workspace-header>div { min-width:0; }
-.red-workspace-header code,.red-scope-review h4 { overflow-wrap:anywhere; }
+.red-workspace-header code,.red-scope-review h3 { overflow-wrap:anywhere; }
 .red-findings .table-wrap { position:relative; max-width:100%; overflow:auto; }
+.red-findings table { min-width:680px; }
+.table-wrap[tabindex]:focus-visible { outline:3px solid var(--color-focus); outline-offset:2px; }
 [data-slot="button"], .ui-button, .preview-controls .ui-button {
   box-sizing:border-box; border:1px solid var(--border); border-radius:8px;
   font-weight:500; box-shadow:none!important; text-decoration:none;
@@ -118,7 +120,7 @@ input[type="radio"],input[type="checkbox"] { min-height:0; }
 .red-assessment-setup [role="radiogroup"]>div { display:flex; align-items:center; min-height:44px; gap:8px; }
 .red-new-assessment { padding:20px; gap:16px; }
 .red-scope-review { grid-template-columns:minmax(140px,.8fr) minmax(140px,.8fr) minmax(280px,2fr); gap:20px; padding:16px; align-items:start; }
-.red-scope-review h4 { font-size:16px; }
+.red-scope-review h3 { font-size:16px; }
 .red-scope-review .eyebrow { font-size:12px; letter-spacing:.04em; }
 .red-scope-review p,.red-scope-review li { font-size:13px; }
 .red-budget-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }

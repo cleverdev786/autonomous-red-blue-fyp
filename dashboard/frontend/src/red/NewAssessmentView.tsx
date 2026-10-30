@@ -32,7 +32,7 @@ export function NewAssessmentView({ targets, targetId, mode, phase, busy, error,
   return <section className="surface-card red-new-assessment" aria-labelledby="new-assessment-title">
     <div className="red-new-assessment__head">
       <div><span className="eyebrow">Controlled Red workflow</span>
-        <h3 id="new-assessment-title">New assessment</h3>
+        <h2 id="new-assessment-title">New assessment</h2>
         <p>Review target, mode and fixed limits.</p></div>
       {phase !== "setup" && phase !== "review" &&
         <span className="red-mode-lock">Mode locked · {mode}</span>}
@@ -120,7 +120,7 @@ function ScopeReview({ target, mode }: { target: RedTarget; mode: RedMode }) {
   const budget = target.standard_budget;
   return <div className="red-scope-review">
     <div><span className="eyebrow">Fixed authorization scope</span>
-      <h4>{target.target_id}</h4>
+      <h3>{target.target_id}</h3>
       <p>Standard · {mode} · unauthenticated routes</p></div>
     <div><strong>Registered classes</strong><ul>
       {target.supported_classes.map(item => <li key={item}>{classLabel(item)}</li>)}

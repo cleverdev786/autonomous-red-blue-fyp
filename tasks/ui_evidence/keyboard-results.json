@@ -1,0 +1,29 @@
+{
+  "browser": "Firefox",
+  "cases": [],
+  "keyboard": [
+    {
+      "journey": "labelled findings scroll region \u2192 ArrowRight reveals overflow columns",
+      "passed": true
+    },
+    {
+      "journey": "login theme \u2192 username \u2192 password \u2192 show/hide; focus retained",
+      "name": "Show password",
+      "outline": "3px",
+      "style": "solid"
+    },
+    {
+      "journey": "target Select Space/Down/Enter \u2192 mode ArrowRight \u2192 scope review Enter",
+      "passed": true
+    },
+    {
+      "journey": "finding Enter \u2192 evidence focus trap (8 Tabs) \u2192 Escape \u2192 exact trigger",
+      "passed": true
+    },
+    {
+      "journey": "reduced-motion notification has no animation",
+      "passed": true
+    }
+  ],
+  "version": "149.0"
+}

@@ -1,0 +1,2949 @@
+{
+  "browser": "Firefox",
+  "cases": [
+    {
+      "name": "login-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "dashboard-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 3,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(3)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 22
+      }
+    },
+    {
+      "name": "workspace-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 3,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(3)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 3,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(3)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 23
+      }
+    },
+    {
+      "name": "autonomous-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 3,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(3)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 23
+      }
+    },
+    {
+      "name": "empty-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-320",
+      "width": 320,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 320,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 320,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "dashboard-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 2,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 22
+      }
+    },
+    {
+      "name": "workspace-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 2,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 2,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 23
+      }
+    },
+    {
+      "name": "autonomous-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 2,
+            "details": [
+              {
+                "target": [
+                  "td:nth-child(4) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "td:nth-child(5)"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              }
+            ]
+          }
+        ],
+        "passes": 23
+      }
+    },
+    {
+      "name": "empty-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 378,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "dashboard-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "workspace-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "autonomous-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "empty-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 756,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-768",
+      "width": 768,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 768,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 768,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 19
+      }
+    },
+    {
+      "name": "dashboard-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 19
+      }
+    },
+    {
+      "name": "setup-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "workspace-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "autonomous-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "empty-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1012,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-1024",
+      "width": 1024,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1024,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 1024,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "dashboard-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "workspace-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "autonomous-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "empty-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "dashboard-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "workspace-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "autonomous-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "empty-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1908,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-1920",
+      "width": 1920,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1920,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 1920,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "login-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "login",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "overview",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "dashboard-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "setup-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "setup",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "workspace-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "workspace",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "autonomous-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 23
+      }
+    },
+    {
+      "name": "autonomous-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 23
+      }
+    },
+    {
+      "name": "empty-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "empty-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "empty",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "error",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-light-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-dark-zoom200",
+      "width": 720,
+      "height": 407,
+      "dpr": 2,
+      "documentWidth": 714,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "loading",
+        "theme": "dark",
+        "viewport": 720,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "login-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "login",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "overview-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "overview",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 13
+      }
+    },
+    {
+      "name": "dashboard-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "dashboard",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 18
+      }
+    },
+    {
+      "name": "setup-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "setup",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "workspace-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "workspace",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 21
+      }
+    },
+    {
+      "name": "autonomous-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "autonomous",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 22
+      }
+    },
+    {
+      "name": "empty-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1428,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "empty",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "error-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "error",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "loading-forced-colors",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": true,
+      "reduced": true,
+      "axe": {
+        "surface": "loading",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "dropdown-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 390,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dropdown",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "evidence-dialog-light-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 390,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "evidence-dialog",
+        "theme": "light",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 2,
+            "details": [
+              {
+                "target": [
+                  "#radix-\\:r9h\\:"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+              },
+              {
+                "target": [
+                  "p:nth-child(2) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+              }
+            ]
+          }
+        ],
+        "passes": 16
+      },
+      "computedContrast": [
+        {
+          "tag": "H2",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "P",
+          "color": "rgb(81, 100, 125)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 6.053847508531185
+        },
+        {
+          "tag": "P",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "P",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "P",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "SUMMARY",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "A",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        }
+      ]
+    },
+    {
+      "name": "dropdown-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 390,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dropdown",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "evidence-dialog-dark-390",
+      "width": 390,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 390,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "evidence-dialog",
+        "theme": "dark",
+        "viewport": 390,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 2,
+            "details": [
+              {
+                "target": [
+                  "#radix-\\:ram\\:"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+              },
+              {
+                "target": [
+                  "p:nth-child(2) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+              }
+            ]
+          }
+        ],
+        "passes": 16
+      },
+      "computedContrast": [
+        {
+          "tag": "H2",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "P",
+          "color": "rgb(176, 186, 199)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 8.425915862724155
+        },
+        {
+          "tag": "P",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "P",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "P",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "SUMMARY",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "A",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        }
+      ]
+    },
+    {
+      "name": "dropdown-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dropdown",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "evidence-dialog-light-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "evidence-dialog",
+        "theme": "light",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 1,
+            "details": [
+              {
+                "target": [
+                  "p:nth-child(2) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+              }
+            ]
+          }
+        ],
+        "passes": 16
+      },
+      "computedContrast": [
+        {
+          "tag": "H2",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "P",
+          "color": "rgb(81, 100, 125)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 6.053847508531185
+        },
+        {
+          "tag": "P",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "P",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "P",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "SUMMARY",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        },
+        {
+          "tag": "A",
+          "color": "rgb(20, 36, 59)",
+          "background": "rgb(255, 255, 255)",
+          "ratio": 15.610500082868002
+        }
+      ]
+    },
+    {
+      "name": "dropdown-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "dropdown",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [],
+        "passes": 14
+      }
+    },
+    {
+      "name": "evidence-dialog-dark-1440",
+      "width": 1440,
+      "height": 814,
+      "dpr": 1,
+      "documentWidth": 1440,
+      "forced": false,
+      "reduced": false,
+      "axe": {
+        "surface": "evidence-dialog",
+        "theme": "dark",
+        "viewport": 1440,
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "color-contrast",
+            "nodes": 1,
+            "details": [
+              {
+                "target": [
+                  "p:nth-child(2) > code"
+                ],
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+              }
+            ]
+          }
+        ],
+        "passes": 16
+      },
+      "computedContrast": [
+        {
+          "tag": "H2",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "P",
+          "color": "rgb(176, 186, 199)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 8.425915862724155
+        },
+        {
+          "tag": "P",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "P",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "P",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "SUMMARY",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "CODE",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        },
+        {
+          "tag": "A",
+          "color": "rgb(225, 230, 237)",
+          "background": "rgb(26, 31, 39)",
+          "ratio": 13.191727399777678
+        }
+      ]
+    }
+  ],
+  "keyboard": [
+    {
+      "journey": "labelled findings scroll region \u2192 ArrowRight reveals overflow columns",
+      "passed": true
+    },
+    {
+      "journey": "login theme \u2192 username \u2192 password \u2192 show/hide; focus retained",
+      "name": "Show password",
+      "outline": "3px",
+      "style": "solid"
+    },
+    {
+      "journey": "target Select Space/Down/Enter \u2192 mode ArrowRight \u2192 scope review Enter",
+      "passed": true
+    },
+    {
+      "journey": "finding Enter \u2192 evidence focus trap (8 Tabs) \u2192 Escape \u2192 exact trigger",
+      "passed": true
+    },
+    {
+      "journey": "reduced-motion notification has no animation",
+      "passed": true
+    }
+  ],
+  "version": "149.0"
+}

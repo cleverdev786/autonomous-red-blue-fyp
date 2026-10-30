@@ -85,7 +85,7 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
   return <>
     <p className="text-sm text-muted-foreground">Totals span stored assessments and can include repeated findings. Workflow completion does not establish target safety.</p>
     {assessments.find(item => ["queued", "running", "awaiting_authorization"].includes(item.status)) &&
-      <section className="surface-card p-4"><h3>Continue an assessment</h3>
+      <section className="surface-card p-4"><h2>Continue an assessment</h2>
         {assessments.filter(item => ["queued", "running", "awaiting_authorization"].includes(item.status)).map(item =>
           <Button key={item.assessment_id} variant="outline" asChild><a href={assessmentPath(item.assessment_id)}
             onClick={event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
@@ -99,7 +99,7 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
     </section>
     <section className="surface-card red-history" aria-labelledby="red-history-title">
       <div className="red-history-head">
-        <div><h3 id="red-history-title">Assessment history</h3>
+        <div><h2 id="red-history-title">Assessment history</h2>
           <p>Server-authoritative Red assessments matching the selected filters.</p></div>
         <span className="section-count">
           {total === 0 ? "0 records" : `${offset + 1}–${Math.min(offset + assessments.length, total)} of ${total}`}
@@ -107,7 +107,7 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
       </div>
       {assessments.length === 0 ? <EmptyState title="No matching assessments"
         description="No persisted Red assessment matches these target and status filters." /> :
-        <div className="table-wrap"><table>
+        <div className="table-wrap" role="region" aria-label="Assessment history table" tabIndex={0}><table>
           <thead><tr><th scope="col">Assessment</th><th scope="col">Target</th>
             <th scope="col">Mode</th><th scope="col">Status</th>
             <th scope="col">Coverage</th><th scope="col">Active stage</th><th scope="col"><span className="sr-only">Open</span></th></tr></thead>

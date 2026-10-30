@@ -52,6 +52,8 @@ for (const text of ["Four bounded agents","Recon agent","Planning agent","Execut
   "Verification agent","Last action","Task count","Failure state","Findings &amp; coverage",
   "authentication required","Open reports"]) assert(html.includes(text), text);
 assert(html.includes("Run") && html.includes("Inspect"));
+assert(html.includes('<h2 id="red-workspace-title">'), "workspace hierarchy must start below the page h1");
+assert(html.includes('aria-label="Finding outcomes" tabindex="0"'), "findings overflow must be keyboard reachable");
 assert(html.includes("&lt;script&gt;alert(1)&lt;/script&gt;") && !html.includes("<script>alert"));
 assert(html.includes("Verification requires a completed execution receipt."));
 const stale = structuredClone(bundle);

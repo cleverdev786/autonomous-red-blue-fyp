@@ -1,0 +1,258 @@
+[
+  {
+    "width": 320,
+    "surface": "workspace",
+    "theme": "light",
+    "audit": {
+      "surface": "workspace",
+      "theme": "light",
+      "viewport": 320,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3,
+          "details": [
+            {
+              "target": [
+                "td:nth-child(3)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            },
+            {
+              "target": [
+                "td:nth-child(4) > code"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            },
+            {
+              "target": [
+                "td:nth-child(5)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 22
+    }
+  },
+  {
+    "width": 320,
+    "surface": "workspace",
+    "theme": "dark",
+    "audit": {
+      "surface": "workspace",
+      "theme": "dark",
+      "viewport": 320,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3,
+          "details": [
+            {
+              "target": [
+                "td:nth-child(3)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            },
+            {
+              "target": [
+                "td:nth-child(4) > code"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            },
+            {
+              "target": [
+                "td:nth-child(5)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 22
+    }
+  },
+  {
+    "width": 390,
+    "surface": "workspace",
+    "theme": "light",
+    "audit": {
+      "surface": "workspace",
+      "theme": "light",
+      "viewport": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1,
+          "details": [
+            {
+              "target": [
+                "td:nth-child(5)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 22
+    }
+  },
+  {
+    "width": 390,
+    "surface": "workspace",
+    "theme": "dark",
+    "audit": {
+      "surface": "workspace",
+      "theme": "dark",
+      "viewport": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1,
+          "details": [
+            {
+              "target": [
+                "td:nth-child(5)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 22
+    }
+  },
+  {
+    "width": 390,
+    "surface": "evidence-dialog",
+    "theme": "light",
+    "audit": {
+      "surface": "workspace",
+      "theme": "dark",
+      "viewport": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1,
+          "details": [
+            {
+              "target": [
+                "td:nth-child(5)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 22
+    }
+  },
+  {
+    "width": 390,
+    "surface": "evidence-dialog",
+    "theme": "dark",
+    "audit": {
+      "surface": "evidence-dialog",
+      "theme": "light",
+      "viewport": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3,
+          "details": [
+            {
+              "target": [
+                "#radix-\\:r2\\:"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            },
+            {
+              "target": [
+                "p:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            },
+            {
+              "target": [
+                "p:nth-child(2) > code"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            }
+          ]
+        }
+      ],
+      "passes": 16
+    }
+  },
+  {
+    "width": 1440,
+    "surface": "evidence-dialog",
+    "theme": "light",
+    "audit": {
+      "surface": "evidence-dialog",
+      "theme": "dark",
+      "viewport": 390,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 3,
+          "details": [
+            {
+              "target": [
+                "#radix-\\:r2\\:"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            },
+            {
+              "target": [
+                "p:nth-child(1)"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            },
+            {
+              "target": [
+                "p:nth-child(2) > code"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            }
+          ]
+        }
+      ],
+      "passes": 16
+    }
+  },
+  {
+    "width": 1440,
+    "surface": "evidence-dialog",
+    "theme": "dark",
+    "audit": {
+      "surface": "evidence-dialog",
+      "theme": "light",
+      "viewport": 1440,
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": 1,
+          "details": [
+            {
+              "target": [
+                "p:nth-child(2) > code"
+              ],
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it partially overlaps other elements"
+            }
+          ]
+        }
+      ],
+      "passes": 16
+    }
+  }
+]

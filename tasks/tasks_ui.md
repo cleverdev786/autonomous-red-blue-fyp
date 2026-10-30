@@ -1,6 +1,6 @@
 # MARS UI/UX implementation checklist (Tailwind + shadcn)
 
-**Status:** Phase 5 engineering and automated checks implemented; **22/27** tasks accepted. Real zoom/forced-colors, screen-reader review, owner signoff and the corresponding UI-02/UI-14 evidence remain open.
+**Status:** Phase 5 engineering, UI-24 browser verification and UI-25 accessibility review implemented; **24/27** tasks accepted. UI-02's real-record visual gaps, UI-14's audible screen-reader review and UI-27's owner signoff remain open. UI-25 records the screen-reader limitation explicitly.
 **Parent:** `plan_ui.md` (2026-10-30 revision).
 **Baseline:** `development` HEAD `56ff2af` at review, `D agents.md` preserved. Current local app may be offline.
 **Scope:** Overview, Red Team, and safe shared shell/theme; Blue functionality, legacy deletion and backend cleanup deferred.
@@ -51,12 +51,12 @@
 
 ## Phase 5 — Production verification and acceptance
 
-- [ ] **UI-24 · Browser automation.** Capture snapshots/light/dark at 320, 390, 768, 1024, 1440, 1920, 200% zoom; include overlays, native selects, tables, login, empty/error states. **Acceptance:** computed style tests and axe/WCAG AA audit logged, no blocking defects.
-- [ ] **UI-25 · Accessibility review.** All actions keyboard reachable; 2–3px visible focus; semantic headings, labels, alt/sr text; no color-only status; focus retention, Escape; reduced motion/forced colors. **Acceptance:** documented keyboard-only journey and any residual gaps.
+- [x] **UI-24 · Browser automation.** Capture snapshots/light/dark at 320, 390, 768, 1024, 1440, 1920, 200% zoom; include overlays, native selects, tables, login, empty/error states. **Acceptance:** computed style tests and axe/WCAG AA audit logged, no blocking defects. **Evidence:** `ui_acceptance_report.md`, reproducible Firefox runner and `ui_evidence/browser-results.json`: 143 captures/audits, actual fullZoom=2, active forced-colors media, zero axe violations; incomplete contrast checks and their disposition recorded.
+- [x] **UI-25 · Accessibility review.** All actions keyboard reachable; 2–3px visible focus; semantic headings, labels, alt/sr text; no color-only status; focus retention, Escape; reduced motion/forced colors. **Acceptance:** documented keyboard-only journey and any residual gaps. **Evidence:** five keyboard journeys, 3px focus, repaired heading levels, labelled keyboard-scrollable tables, dialog trap/return, reduced-motion and forced-colors checks in `ui_acceptance_report.md`. Audible Orca walkthrough remains unverified and is explicitly retained under UI-14/UI-27.
 - [x] **UI-26 · Regression and UX quality gates.** Frontend `npm test`, `npm run build`, theme/routes/red/workspace scripts; relevant backend/auth smoke if contracts touched; compare screenshot diffs. **Acceptance:** exact commands/results/warnings, tested vs skipped, no Blue/legacy regression.
 - [ ] **UI-27 · Human walkthrough and signoff.** Login → Overview → New Red assessment → Standard review → explicit start → workspace → stages → findings → evidence → coverage in Manual and Autonomous (read-only fixtures unless live authorized). **Acceptance:** reviewer verifies clarity, dark/light quality, no false claims, provenance and stable routes.
 
-**Phase 5 evidence:** `ui_phase5_report.md` records fixes, 16 desktop axe audits, mobile/dialog audits, 60 responsive checks and 20 fixture captures. UI-24/25 remain unchecked for real 200% zoom, OS forced-colors and screen-reader checks; UI-27 awaits owner walkthrough/signoff. Engineering completion is not claimed as human acceptance.
+**Phase 5 evidence:** `ui_phase5_report.md` preserves the earlier checks and limitations. `ui_acceptance_report.md` supersedes its UI-24/25 zoom, browser forced-colors and keyboard verification gaps. UI-27 still awaits owner walkthrough/signoff. Engineering completion is not claimed as human acceptance or OS-wide accessibility certification.
 
 **Owner follow-up (2026-10-30):** Login theme/password controls, centered branding, stronger table headers, bounded Dashboard link, dropdown visibility, toast entry motion, manual operation selection and sequential polling are implemented. `ui_completion_report.md` records 18 passing backend tests, the full frontend suite/build, six updated axe audits and 60 updated light/dark layout checks. Commit authorized by the owner; push remains unauthorized. Human acceptance items above remain open.
 
@@ -68,8 +68,10 @@
 
 ## Definition of done for each UI slice
 
-- [ ] Scope agreed; no unrequested changes to tracked/untracked files.
-- [ ] Code/API behavior and command security preserved.
-- [ ] Visual before/after in both themes, desktop and mobile.
-- [ ] Test command and result, accessibility checks, limitations and any omissions recorded.
-- [ ] Human readable changelog, exact diff and rollback path; no commit/push without separate authorization.
+The following records this UI-24/UI-25 verification slice. Missing historical real-record captures and human acceptance remain tracked separately above.
+
+- [x] Scope agreed; no unrequested changes to tracked/untracked files. Owner authorized UI-24/UI-25 and commit; preexisting `agents.md` deletion excluded.
+- [x] Code/API behavior and command security preserved. No backend/command changes; frontend command tests and 18 backend/auth tests pass; fixtures reject writes.
+- [x] Visual before/after in both themes, desktop and mobile. Sixteen comparable images against `2c413db` retained in `ui_evidence/`; complete browser matrix retained as artifacts.
+- [x] Test command and result, accessibility checks, limitations and any omissions recorded. See `ui_acceptance_report.md` and committed JSON evidence.
+- [x] Human readable changelog, exact diff and rollback path; no commit/push without separate authorization. Report includes diff/rollback instructions; owner authorized this local commit, no push.

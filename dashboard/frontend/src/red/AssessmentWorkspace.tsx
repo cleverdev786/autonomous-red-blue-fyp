@@ -106,7 +106,7 @@ export function AssessmentWorkspaceView({ data, busy, commandError, onClose, onR
     <header className="red-workspace-header surface-card">
       <div>
         <span className="eyebrow">Assessment workspace</span>
-        <h3 id="red-workspace-title">{assessment.target_id}</h3>
+        <h2 id="red-workspace-title">{assessment.target_id}</h2>
         <p>{assessment.mode} · Standard assessment</p>
         <details className="technical-reference"><summary>Technical reference</summary><code>{assessment.assessment_id}</code></details></div>
       <div className="red-workspace-actions">
@@ -264,7 +264,7 @@ function FindingsPanel({ token, findings, coverage, total }: { token: string;
         <Button variant="outline" onClick={() => setPageRevision(value => value + 1)}>Retry findings</Button></> :
       visible.length === 0 ? <EmptyState title="No matching findings"
         description="No persisted verification outcome matches this filter." /> :
-      <div className="table-wrap"><table><thead><tr><th scope="col">Outcome</th><th scope="col">Severity</th><th scope="col">Category</th>
+      <div className="table-wrap" role="region" aria-label="Finding outcomes" tabIndex={0}><table><thead><tr><th scope="col">Outcome</th><th scope="col">Severity</th><th scope="col">Category</th>
         <th scope="col">Route</th><th scope="col">Evidence</th><th scope="col"><span className="sr-only">Inspect</span></th></tr></thead>
         <tbody>{visible.map(item => <tr key={item.finding_id}><td><span className={`red-status red-status--${item.status}`}>{label(item.status)}</span></td>
           <td>{item.severity ? label(item.severity) : "Unrated"}</td><td>{categoryLabel(item.category)}</td>
