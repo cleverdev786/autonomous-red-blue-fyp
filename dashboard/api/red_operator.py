@@ -1,11 +1,11 @@
-"""Authenticated Red preview and replay-protected operator review APIs.
+"""Local Red preview and replay-protected operator review APIs.
 
 Reads stored reconnaissance or records a review request. Does not dispatch Red work.
 No secret is generated, printed or persisted by the application.
 """
+
 from __future__ import annotations
 
-import os
 import secrets
 import sqlite3
 from pathlib import Path
@@ -95,7 +95,6 @@ def register_red_operator(
     registry: TargetRegistry,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/red", tags=["Red"])
-    secret = os.getenv("MARS_RED_OPERATOR_TOKEN")
     csrf_token = secrets.token_urlsafe(32)
     command_service = RedCommandService(
         state_db=state_db,
@@ -104,11 +103,6 @@ def register_red_operator(
     )
 
     def authorize(request: Request, *, mutation: bool) -> JSONResponse | None:
-        if not secret or len(secret) < 32:
-            return _error(503, "operator_unconfigured", "Red operator access is disabled.")
-        bearer = request.headers.get("authorization", "")
-        if not secrets.compare_digest(bearer, "Bearer " + secret):
-            return _error(401, "unauthorized", "Valid operator authorization is required.")
         origin = request.headers.get("origin")
         if origin is not None and origin not in allowed_origins:
             return _error(403, "invalid_origin", "Origin is not approved.")
@@ -189,12 +183,15 @@ def register_red_operator(
         if blocked is not None:
             return blocked
         try:
-            return command_ok(command_service.create(
-                request_id=data.request_id,
-                target_id=data.target_id,
-                mode=data.mode,
-                approval_id=data.approval_id,
-            ), 201)
+            return command_ok(
+                command_service.create(
+                    request_id=data.request_id,
+                    target_id=data.target_id,
+                    mode=data.mode,
+                    approval_id=data.approval_id,
+                ),
+                201,
+            )
         except StoreConflict:
             return _error(409, "idempotency_conflict", "Request ID is already in use.")
         except TargetRegistryError:
@@ -214,11 +211,13 @@ def register_red_operator(
         if not valid_identifier(assessment_id):
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         try:
-            return command_ok(command_service.authorize(
-                assessment_id,
-                request_id=data.request_id,
-                approval_id=data.approval_id,
-            ))
+            return command_ok(
+                command_service.authorize(
+                    assessment_id,
+                    request_id=data.request_id,
+                    approval_id=data.approval_id,
+                )
+            )
         except StoreConflict:
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         except RedDispatchDenied as exc:
@@ -238,10 +237,12 @@ def register_red_operator(
         if not valid_identifier(assessment_id):
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         try:
-            return command_ok(command_service.start(
-                assessment_id,
-                request_id=data.request_id,
-            ))
+            return command_ok(
+                command_service.start(
+                    assessment_id,
+                    request_id=data.request_id,
+                )
+            )
         except StoreConflict:
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         except RedDispatchDenied as exc:
@@ -259,16 +260,21 @@ def register_red_operator(
         if blocked is not None:
             return blocked
         if not valid_identifier(assessment_id) or stage not in {
-            "reconnaissance", "planning", "execution", "verification",
+            "reconnaissance",
+            "planning",
+            "execution",
+            "verification",
         }:
             return _error(404, "assessment_or_stage_not_found", "Assessment stage is unavailable.")
         try:
-            return command_ok(command_service.run_stage(
-                assessment_id,
-                stage,
-                request_id=data.request_id,
-                operation_id=data.operation_id,
-            ))
+            return command_ok(
+                command_service.run_stage(
+                    assessment_id,
+                    stage,
+                    request_id=data.request_id,
+                    operation_id=data.operation_id,
+                )
+            )
         except StoreConflict:
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         except RedDispatchDenied as exc:
@@ -288,10 +294,12 @@ def register_red_operator(
         if not valid_identifier(assessment_id):
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         try:
-            return command_ok(command_service.cancel(
-                assessment_id,
-                request_id=data.request_id,
-            ))
+            return command_ok(
+                command_service.cancel(
+                    assessment_id,
+                    request_id=data.request_id,
+                )
+            )
         except StoreConflict:
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         except RedDispatchDenied as exc:
@@ -335,12 +343,14 @@ def register_red_operator(
             except ValidationError:
                 return _error(404, "target_not_found", "Target is unavailable.")
         try:
-            return ok(read_service().assessments(
-                target_id=target_id,
-                status=status,
-                offset=offset,
-                limit=limit,
-            ))
+            return ok(
+                read_service().assessments(
+                    target_id=target_id,
+                    status=status,
+                    offset=offset,
+                    limit=limit,
+                )
+            )
         except TargetRegistryError:
             return _error(404, "target_not_found", "Target is unavailable.")
         except (OSError, ValidationError, ValueError, sqlite3.DatabaseError):
@@ -367,20 +377,26 @@ def register_red_operator(
             if status is not None:
                 FindingState(status)
             if severity is not None and severity not in {
-                "informational", "low", "medium", "high", "critical",
+                "informational",
+                "low",
+                "medium",
+                "high",
+                "critical",
             }:
                 raise ValueError("invalid severity")
         except (ValidationError, ValueError):
             return _error(422, "invalid_filter", "Finding filters are invalid.")
         try:
-            return ok(read_service().all_findings(
-                target_id=target_id,
-                status=status,
-                category=category,
-                severity=severity,
-                offset=offset,
-                limit=limit,
-            ))
+            return ok(
+                read_service().all_findings(
+                    target_id=target_id,
+                    status=status,
+                    category=category,
+                    severity=severity,
+                    offset=offset,
+                    limit=limit,
+                )
+            )
         except TargetRegistryError:
             return _error(404, "target_not_found", "Target is unavailable.")
         except (OSError, ValidationError, ValueError, sqlite3.DatabaseError):
@@ -474,11 +490,13 @@ def register_red_operator(
         if not valid_identifier(assessment_id):
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         try:
-            return ok(read_service().events(
-                assessment_id,
-                offset=offset,
-                limit=limit,
-            ))
+            return ok(
+                read_service().events(
+                    assessment_id,
+                    offset=offset,
+                    limit=limit,
+                )
+            )
         except (StoreConflict, OSError, ValidationError, ValueError, sqlite3.DatabaseError) as exc:
             return read_failure(exc, "Assessment events could not be loaded.")
 
@@ -506,20 +524,26 @@ def register_red_operator(
             if status is not None:
                 FindingState(status)
             if severity is not None and severity not in {
-                "informational", "low", "medium", "high", "critical",
+                "informational",
+                "low",
+                "medium",
+                "high",
+                "critical",
             }:
                 raise ValueError("invalid severity")
         except (ValidationError, ValueError):
             return _error(422, "invalid_filter", "Finding filters are invalid.")
         try:
-            return ok(read_service().findings(
-                assessment_id,
-                status=status,
-                category=category,
-                severity=severity,
-                offset=offset,
-                limit=limit,
-            ))
+            return ok(
+                read_service().findings(
+                    assessment_id,
+                    status=status,
+                    category=category,
+                    severity=severity,
+                    offset=offset,
+                    limit=limit,
+                )
+            )
         except (StoreConflict, OSError, ValidationError, ValueError, sqlite3.DatabaseError) as exc:
             return read_failure(exc, "Assessment findings could not be loaded.")
 
@@ -561,9 +585,9 @@ def register_red_operator(
         except ValidationError:
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
         try:
-            snapshot, authorization = RedAssessmentStore(
-                state_db, read_only=True
-            ).load(assessment_id)
+            snapshot, authorization = RedAssessmentStore(state_db, read_only=True).load(
+                assessment_id
+            )
             preview = ReconnaissanceService(registry=registry).build_preview(
                 authorization=authorization,
                 candidates=snapshot.candidates,
@@ -588,7 +612,10 @@ def register_red_operator(
         blocked = authorize(request, mutation=True)
         if blocked is not None:
             return blocked
-        if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
+        if (
+            request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+            != "application/json"
+        ):
             return _error(415, "invalid_content_type", "JSON content type required.")
 
         chunks: list[bytes] = []
@@ -608,20 +635,33 @@ def register_red_operator(
             snapshot, authorization = store.load(data.assessment_id)
             if snapshot.assessment.status.value != "running":
                 return _error(409, "invalid_state", "Assessment is not running.")
-            if (not snapshot.plans or snapshot.plans[-1].plan_version != data.plan_version
-                    or snapshot.plans[-1].status != "approved"):
+            if (
+                not snapshot.plans
+                or snapshot.plans[-1].plan_version != data.plan_version
+                or snapshot.plans[-1].status != "approved"
+            ):
                 return _error(409, "stale_plan", "Plan is stale or not current.")
             operation = next(
-                (item for item in snapshot.operations if item.operation_id == data.operation_id), None
+                (item for item in snapshot.operations if item.operation_id == data.operation_id),
+                None,
             )
-            if (operation is None or operation.plan_version != data.plan_version
-                    or operation.status != "proposed" or operation.scope != authorization.scope):
-                return _error(409, "invalid_operation", "Review requires a proposed registered operation.")
+            if (
+                operation is None
+                or operation.plan_version != data.plan_version
+                or operation.status != "proposed"
+                or operation.scope != authorization.scope
+            ):
+                return _error(
+                    409, "invalid_operation", "Review requires a proposed registered operation."
+                )
             journal = RedEvidenceStore(store, Path(str(state_db) + ".evidence"))
             journal.append_event(
-                authorization.scope, data.request_id,
-                actor="operator", action="operator_review_requested",
-                outcome="recorded", details={"operation_id": data.operation_id},
+                authorization.scope,
+                data.request_id,
+                actor="operator",
+                action="operator_review_requested",
+                outcome="recorded",
+                details={"operation_id": data.operation_id},
             )
         except StoreConflict:
             return _error(404, "assessment_not_found", "Assessment is unavailable.")
@@ -633,8 +673,7 @@ def register_red_operator(
             return _error(503, "storage_unavailable", "Review request could not be recorded.")
         return JSONResponse(
             status_code=202,
-            content={"status": "recorded", "request_id": data.request_id,
-                     "effect": "review_only"},
+            content={"status": "recorded", "request_id": data.request_id, "effect": "review_only"},
             headers={"Cache-Control": "no-store"},
         )
 

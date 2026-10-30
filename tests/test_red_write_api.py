@@ -37,6 +37,7 @@ def empty_site(tmp_path, monkeypatch):
         database_path=tmp_path / "missing-research.db",
         mars_workspace_db=tmp_path / "mars.db",
         red_state_db=state_db,
+        require_login=False,
     )
     return app, state_db
 
@@ -49,6 +50,7 @@ def manual_site(tmp_path, monkeypatch):
         database_path=tmp_path / "missing-research.db",
         mars_workspace_db=tmp_path / "mars.db",
         red_state_db=journal.store.path,
+        require_login=False,
     )
     return app, supervisor, journal, tasks
 
@@ -65,6 +67,7 @@ def autonomous_site(tmp_path, monkeypatch):
         database_path=tmp_path / "missing-research.db",
         mars_workspace_db=tmp_path / "mars.db",
         red_state_db=journal.store.path,
+        require_login=False,
     )
     return app, supervisor, journal, tasks
 
@@ -129,12 +132,15 @@ def test_draft_authorize_start_is_idempotent_and_never_runs_on_create(empty_site
         {"request_id": "start-before-authorization"},
     )
     assert before_authorization.status_code == 409
-    assert _request(
-        app,
-        "POST",
-        f"/api/red/assessments/{assessment_id}/authorize",
-        {"request_id": "authorize-autonomous-1", "approval_id": "wrong"},
-    ).status_code == 409
+    assert (
+        _request(
+            app,
+            "POST",
+            f"/api/red/assessments/{assessment_id}/authorize",
+            {"request_id": "authorize-autonomous-1", "approval_id": "wrong"},
+        ).status_code
+        == 409
+    )
 
     authorized = _request(
         app,
@@ -178,12 +184,17 @@ def test_draft_authorize_start_is_idempotent_and_never_runs_on_create(empty_site
 
 def test_unauthorized_draft_can_be_cancelled_idempotently(empty_site):
     app, state_db = empty_site
-    created = _request(app, "POST", "/api/red/assessments", {
-        "request_id": "create-cancellable-draft",
-        "target_id": "vulnerable-store",
-        "mode": "manual",
-        "approval_id": "approval-cancellable-draft",
-    })
+    created = _request(
+        app,
+        "POST",
+        "/api/red/assessments",
+        {
+            "request_id": "create-cancellable-draft",
+            "target_id": "vulnerable-store",
+            "mode": "manual",
+            "approval_id": "approval-cancellable-draft",
+        },
+    )
     assessment_id = created.json()["assessment_id"]
     path = f"/api/red/assessments/{assessment_id}/cancel"
     command = {"request_id": "cancel-unauthorized-draft"}
@@ -192,12 +203,16 @@ def test_unauthorized_draft_can_be_cancelled_idempotently(empty_site):
     replay = _request(app, "POST", path, command)
 
     assert cancelled.status_code == replay.status_code == 202
-    assert cancelled.json() == replay.json() == {
-        "assessment_id": assessment_id,
-        "request_id": "cancel-unauthorized-draft",
-        "status": "cancelled",
-        "job_ids": [],
-    }
+    assert (
+        cancelled.json()
+        == replay.json()
+        == {
+            "assessment_id": assessment_id,
+            "request_id": "cancel-unauthorized-draft",
+            "status": "cancelled",
+            "job_ids": [],
+        }
+    )
     snapshot, _ = RedAssessmentStore(state_db).load(assessment_id)
     assert snapshot.assessment.status == AssessmentState.CANCELLED
 
@@ -205,47 +220,60 @@ def test_unauthorized_draft_can_be_cancelled_idempotently(empty_site):
 def test_autonomous_start_durably_continues_all_stages(autonomous_site):
     app, supervisor, journal, tasks = autonomous_site
     scope = tasks[0].scope
-    assert _request(
-        app,
-        "POST",
-        f"/api/red/assessments/{scope.assessment_id}/authorize",
-        {
-            "request_id": "authorize-progressive-api",
-            "approval_id": "approval-t22-autonomous",
-        },
-    ).status_code == 202
-    assert _request(
-        app,
-        "POST",
-        f"/api/red/assessments/{scope.assessment_id}/start",
-        {"request_id": "start-progressive-api"},
-    ).status_code == 202
+    assert (
+        _request(
+            app,
+            "POST",
+            f"/api/red/assessments/{scope.assessment_id}/authorize",
+            {
+                "request_id": "authorize-progressive-api",
+                "approval_id": "approval-t22-autonomous",
+            },
+        ).status_code
+        == 202
+    )
+    assert (
+        _request(
+            app,
+            "POST",
+            f"/api/red/assessments/{scope.assessment_id}/start",
+            {"request_id": "start-progressive-api"},
+        ).status_code
+        == 202
+    )
 
     first_claim = supervisor.queue.list_jobs(scope)[0].enqueued_at + timedelta(minutes=1)
     supervisor.runner.clock = lambda: first_claim + timedelta(minutes=1)
-    results = [supervisor.runner.run_next(
-        worker_id="worker-progressive-0",
-        claimed_at=first_claim,
-    )]
+    results = [
+        supervisor.runner.run_next(
+            worker_id="worker-progressive-0",
+            claimed_at=first_claim,
+        )
+    ]
     assert len(supervisor.queue.list_jobs(scope)) == 1
     supervisor.runner.clock = lambda: first_claim + timedelta(minutes=2)
-    results.append(supervisor.run_next(
-        worker_id="worker-progressive-recovery",
-        claimed_at=first_claim + timedelta(minutes=2),
-    ))
+    results.append(
+        supervisor.run_next(
+            worker_id="worker-progressive-recovery",
+            claimed_at=first_claim + timedelta(minutes=2),
+        )
+    )
 
     for index in range(2, 4):
         claimed_at = first_claim + timedelta(minutes=index * 2)
-        supervisor.runner.clock = (
-            lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
+        supervisor.runner.clock = lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
+        results.append(
+            supervisor.run_next(
+                worker_id=f"worker-progressive-{index}",
+                claimed_at=claimed_at,
+            )
         )
-        results.append(supervisor.run_next(
-            worker_id=f"worker-progressive-{index}",
-            claimed_at=claimed_at,
-        ))
 
     assert tuple(result.stage for result in results) == (
-        "reconnaissance", "planning", "execution", "verification",
+        "reconnaissance",
+        "planning",
+        "execution",
+        "verification",
     )
     assert len(supervisor.queue.list_jobs(scope)) == 4
     snapshot, _ = journal.store.load(scope.assessment_id)
@@ -260,12 +288,14 @@ def test_autonomous_start_sequences_every_approved_operation(autonomous_site):
     second = original.model_copy(update={"operation_id": "operation-t27-second"})
     journal.store.add_operation(second)
     original_receipt = journal.list_receipts(scope)[0]
-    second_receipt = original_receipt.model_copy(update={
-        "receipt_id": "receipt-t27-second",
-        "operation_id": second.operation_id,
-        "run_id": "run-t27-second",
-        "evidence_id": "evidence-t27-second",
-    })
+    second_receipt = original_receipt.model_copy(
+        update={
+            "receipt_id": "receipt-t27-second",
+            "operation_id": second.operation_id,
+            "run_id": "run-t27-second",
+            "evidence_id": "evidence-t27-second",
+        }
+    )
     journal.add_receipt_with_evidence(
         second_receipt,
         data={
@@ -274,38 +304,42 @@ def test_autonomous_start_sequences_every_approved_operation(autonomous_site):
             "status": "completed",
         },
     )
-    journal._record_verified_finding(FindingDTO(
-        scope=scope,
-        finding_id="finding-t27-second",
-        operation_id=second.operation_id,
-        status="inconclusive",
-        oracle_id="unescaped-reflection-evidence-001",
-        evidence_receipt_ids=(second_receipt.receipt_id,),
-    ))
+    journal._record_verified_finding(
+        FindingDTO(
+            scope=scope,
+            finding_id="finding-t27-second",
+            operation_id=second.operation_id,
+            status="inconclusive",
+            oracle_id="unescaped-reflection-evidence-001",
+            evidence_receipt_ids=(second_receipt.receipt_id,),
+        )
+    )
     receipts = {
         original.operation_id: original_receipt.receipt_id,
         second.operation_id: second_receipt.receipt_id,
     }
-    supervisor.runner.coordinator.workers.update({
-        "planning": lambda task: PlanningWorkResult(
-            scope=task.scope,
-            plan_version=original.plan_version,
-            operation_ids=(original.operation_id, second.operation_id),
-        ),
-        "execution": lambda task: ExecutionWorkResult(
-            scope=task.scope,
-            plan_version=task.plan_version,
-            operation_id=task.operation_id,
-            receipt_ids=(receipts[task.operation_id],),
-        ),
-        "verification": lambda task: VerificationWorkResult(
-            scope=task.scope,
-            plan_version=task.plan_version,
-            operation_id=task.operation_id,
-            outcome="inconclusive",
-            evidence_receipt_ids=(receipts[task.operation_id],),
-        ),
-    })
+    supervisor.runner.coordinator.workers.update(
+        {
+            "planning": lambda task: PlanningWorkResult(
+                scope=task.scope,
+                plan_version=original.plan_version,
+                operation_ids=(original.operation_id, second.operation_id),
+            ),
+            "execution": lambda task: ExecutionWorkResult(
+                scope=task.scope,
+                plan_version=task.plan_version,
+                operation_id=task.operation_id,
+                receipt_ids=(receipts[task.operation_id],),
+            ),
+            "verification": lambda task: VerificationWorkResult(
+                scope=task.scope,
+                plan_version=task.plan_version,
+                operation_id=task.operation_id,
+                outcome="inconclusive",
+                evidence_receipt_ids=(receipts[task.operation_id],),
+            ),
+        }
+    )
     _request(
         app,
         "POST",
@@ -325,16 +359,21 @@ def test_autonomous_start_sequences_every_approved_operation(autonomous_site):
     results = []
     for index in range(6):
         claimed_at = NOW + timedelta(days=2, minutes=index * 2)
-        supervisor.runner.clock = (
-            lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
+        supervisor.runner.clock = lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
+        results.append(
+            supervisor.run_next(
+                worker_id=f"worker-multi-{index}",
+                claimed_at=claimed_at,
+            )
         )
-        results.append(supervisor.run_next(
-            worker_id=f"worker-multi-{index}", claimed_at=claimed_at,
-        ))
 
     assert tuple(result.stage for result in results) == (
-        "reconnaissance", "planning", "execution", "verification",
-        "execution", "verification",
+        "reconnaissance",
+        "planning",
+        "execution",
+        "verification",
+        "execution",
+        "verification",
     )
     assert tuple(
         job.work.operation_id
@@ -348,8 +387,8 @@ def test_autonomous_start_sequences_every_approved_operation(autonomous_site):
 def test_progressive_failure_terminalizes_without_retry(autonomous_site):
     app, supervisor, journal, tasks = autonomous_site
     scope = tasks[0].scope
-    supervisor.runner.coordinator.workers["reconnaissance"] = (
-        lambda _task: (_ for _ in ()).throw(RuntimeError("worker unavailable"))
+    supervisor.runner.coordinator.workers["reconnaissance"] = lambda _task: (_ for _ in ()).throw(
+        RuntimeError("worker unavailable")
     )
     _request(
         app,
@@ -377,10 +416,13 @@ def test_progressive_failure_terminalizes_without_retry(autonomous_site):
     failed, _ = journal.store.load(scope.assessment_id)
     assert failed.assessment.status == AssessmentState.FAILED
     assert [job.status for job in supervisor.queue.list_jobs(scope)] == ["failed"]
-    assert supervisor.run_next(
-        worker_id="worker-no-retry",
-        claimed_at=NOW + timedelta(days=3, minutes=1),
-    ) is None
+    assert (
+        supervisor.run_next(
+            worker_id="worker-no-retry",
+            claimed_at=NOW + timedelta(days=3, minutes=1),
+        )
+        is None
+    )
     assert len(supervisor.queue.list_jobs(scope)) == 1
 
 
@@ -415,18 +457,18 @@ def test_progressive_plan_without_approved_operations_finishes_truthfully(
 
     for index in range(2):
         claimed_at = NOW + timedelta(days=3, hours=1, minutes=index * 2)
-        supervisor.runner.clock = (
-            lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
-        )
+        supervisor.runner.clock = lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
         supervisor.run_next(
-            worker_id=f"worker-no-approved-{index}", claimed_at=claimed_at,
+            worker_id=f"worker-no-approved-{index}",
+            claimed_at=claimed_at,
         )
 
     completed, _ = journal.store.load(scope.assessment_id)
     assert completed.assessment.status == AssessmentState.COMPLETED_WITH_LIMITATIONS
-    assert tuple(
-        job.work.stage for job in supervisor.queue.list_jobs(scope)
-    ) == ("reconnaissance", "planning")
+    assert tuple(job.work.stage for job in supervisor.queue.list_jobs(scope)) == (
+        "reconnaissance",
+        "planning",
+    )
 
 
 def test_progressive_recovery_tolerates_an_active_successor(autonomous_site):
@@ -458,10 +500,13 @@ def test_progressive_recovery_tolerates_an_active_successor(autonomous_site):
     )
     assert active is not None and active.work.stage == "planning"
 
-    assert supervisor.run_next(
-        worker_id="worker-idle-successor",
-        claimed_at=NOW + timedelta(days=4, minutes=2),
-    ) is None
+    assert (
+        supervisor.run_next(
+            worker_id="worker-idle-successor",
+            claimed_at=NOW + timedelta(days=4, minutes=2),
+        )
+        is None
+    )
     assert len(supervisor.queue.list_jobs(scope)) == 2
 
 
@@ -501,10 +546,7 @@ def test_progressive_recovery_runs_before_other_queued_work(autonomous_site):
         claimed_at=NOW + timedelta(days=5, minutes=2),
     )
 
-    assert any(
-        job.work.stage == "planning"
-        for job in supervisor.queue.list_jobs(scope)
-    )
+    assert any(job.work.stage == "planning" for job in supervisor.queue.list_jobs(scope))
 
 
 def test_progressive_finalization_is_idempotent_across_recovery_workers(
@@ -531,11 +573,10 @@ def test_progressive_finalization_is_idempotent_across_recovery_workers(
         if index:
             supervisor._resume_progressive_autonomous()
         claimed_at = NOW + timedelta(days=6, minutes=index * 2)
-        supervisor.runner.clock = (
-            lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
-        )
+        supervisor.runner.clock = lambda claimed_at=claimed_at: claimed_at + timedelta(minutes=1)
         supervisor.runner.run_next(
-            worker_id=f"worker-pre-finalize-{index}", claimed_at=claimed_at,
+            worker_id=f"worker-pre-finalize-{index}",
+            claimed_at=claimed_at,
         )
     running, _ = journal.store.load(scope.assessment_id)
     assert running.assessment.status == AssessmentState.RUNNING
@@ -625,11 +666,13 @@ def test_stale_plan_and_active_stage_are_explained_without_side_effect(manual_si
         {"request_id": "authorize-stale-api", "approval_id": "approval-t22-manual"},
     )
     candidate = tasks[1].candidates[0]
-    extra = candidate.model_copy(update={
-        "candidate_id": "candidate-stale-api",
-        "path": "/health",
-        "observed_at": candidate.observed_at + timedelta(seconds=1),
-    })
+    extra = candidate.model_copy(
+        update={
+            "candidate_id": "candidate-stale-api",
+            "path": "/health",
+            "observed_at": candidate.observed_at + timedelta(seconds=1),
+        }
+    )
     journal.store.add_candidate(scope.assessment_id, extra)
     journal.store.record_surface(
         scope,
@@ -675,12 +718,14 @@ def test_manual_prerequisite_error_is_reported_as_blocked_operation(manual_site)
 @pytest.mark.parametrize(
     "headers, expected",
     [
-        ({"Origin": ORIGIN}, 401),
-        ({"Authorization": f"Bearer {TOKEN}", "Origin": ORIGIN}, 403),
-        ({"Authorization": f"Bearer {TOKEN}", "Origin": "https://evil.test", "X-Red-CSRF": "x"}, 403),
+        ({"Origin": ORIGIN}, 403),
+        (
+            {"Authorization": f"Bearer {TOKEN}", "Origin": "https://evil.test", "X-Red-CSRF": "x"},
+            403,
+        ),
     ],
 )
-def test_every_write_requires_operator_auth_origin_and_csrf(empty_site, headers, expected):
+def test_every_write_requires_local_origin_and_csrf(empty_site, headers, expected):
     app, state_db = empty_site
     response = _request(
         app,

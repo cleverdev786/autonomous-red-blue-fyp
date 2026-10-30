@@ -73,7 +73,7 @@ const assessment = {
   assert(requests.some(item => item.url.includes("target_id=vulnerable-store") &&
     item.url.includes("status=running")));
   assert(requests.some(item => item.url.includes("offset=25") && item.url.includes("limit=25")));
-  assert(requests.every(item => item.options.headers.Authorization === "Bearer operator-token"));
+  assert(requests.every(item => !("Authorization" in item.options.headers)));
 
   global.fetch = async () => response({ ...summary, confirmed_findings: "2" });
   await assert.rejects(
@@ -86,11 +86,11 @@ const assessment = {
     state: { kind: "ready", summary, assessments: [assessment], total: 30,
       offset: 0, limit: 25 },
     onTargetChange() {}, onStatusChange() {}, onRefresh() {},
-    onPageChange() {}, onDisconnect() {},
+    onPageChange() {},
   }));
   for (const label of ["Verified findings", "Endpoint coverage", "Active assessments",
     "Agent activity", "All Targets", "Assessment status", "Assessment history",
-    "Change credential", "Next"]) {
+    "Next"]) {
     assert(html.includes(label), "missing dashboard label: " + label);
   }
   assert(html.includes("2 confirmed") && html.includes("3 / 4") && html.includes("as-dashboard"));

@@ -15,7 +15,7 @@ export type RedDashboardState =
 const label = (value: string) => value.replaceAll("_", " ");
 
 export function RedDashboardView({ targets, targetId, status, state, onTargetChange,
-  onStatusChange, onRefresh, onPageChange, onDisconnect, onInspect }: {
+  onStatusChange, onRefresh, onPageChange, onInspect }: {
   targets: RedTarget[];
   targetId: string;
   status: string;
@@ -24,7 +24,6 @@ export function RedDashboardView({ targets, targetId, status, state, onTargetCha
   onStatusChange: (value: string) => void;
   onRefresh: () => void;
   onPageChange: (offset: number) => void;
-  onDisconnect: () => void;
   onInspect: (assessmentId: string) => void;
 }) {
   return <div className="mars-content red-dashboard">
@@ -42,14 +41,13 @@ export function RedDashboardView({ targets, targetId, status, state, onTargetCha
         </select>
       </label>
       <ActionButton variant="secondary" onClick={onRefresh}>Refresh</ActionButton>
-      <ActionButton variant="secondary" onClick={onDisconnect}>Change credential</ActionButton>
     </section>
 
     {state.kind === "loading" && <section className="surface-card red-dashboard-state" aria-busy="true">
       <LoadingState label="Loading Red assessment data…" />
     </section>}
     {state.kind === "error" && <Notice title="Red dashboard unavailable" tone="danger">
-      {state.message} Check the operator credential and local Red service, then refresh.
+      {state.message} Check the local Red service, then refresh.
     </Notice>}
     {state.kind === "ready" && <ReadyDashboard summary={state.summary}
       assessments={state.assessments} total={state.total} offset={state.offset}

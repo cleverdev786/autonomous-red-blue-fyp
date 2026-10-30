@@ -67,7 +67,7 @@ export function NewAssessmentView({ targets, targetId, mode, phase, busy, error,
       </>}
       {phase === "awaiting_authorization" && <>
         <ActionButton disabled={busy} onClick={onAuthorize}>
-          {busy ? "Recording authorization…" : "Authorize fixed scope"}
+          {busy ? "Starting assessment…" : mode === "autonomous" ? "Authorize and start assessment" : "Authorize fixed scope"}
         </ActionButton>
         <ActionButton variant="secondary" disabled={busy} onClick={onCancel}>Cancel assessment</ActionButton>
       </>}
@@ -130,8 +130,8 @@ function ScopeReview({ target, mode }: { target: RedTarget; mode: RedMode }) {
       <div><dt>Retries</dt><dd>{budget.max_retries}</dd></div>
       <div><dt>Resources</dt><dd>{budget.max_cpu_cores} CPU · {budget.max_memory_mb} MB</dd></div>
     </dl>
-    <p className="red-scope-caution">Creating the draft does not authorize or start execution.
-      Authorization and Autonomous start remain separate operator actions.</p>
+    <p className="red-scope-caution">Creating the draft does not start execution.
+      Autonomous authorization and start are completed together.</p>
   </div>;
 }
 

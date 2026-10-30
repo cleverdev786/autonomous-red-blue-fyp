@@ -65,7 +65,7 @@ The stop path verifies the recorded backend PID, stops only the registered base 
 ## Documentation
 
 - [README](README.md): current setup, architecture, safety, and verification
-- [Red Team runbook](docs/RED_TEAM_RUNBOOK.md): startup/shutdown, credentials, budgets, operation, reset, ZAP, privacy, troubleshooting, and rollback
+- [Red Team runbook](docs/RED_TEAM_RUNBOOK.md): startup/shutdown, local access, budgets, operation, reset, ZAP, privacy, troubleshooting, and rollback
 - [Red Team acceptance report](docs/RED_TEAM_ACCEPTANCE_REPORT.md): measured T34/T35 results and limitations
 - [Task tracker](tasks/todo.md): acceptance criteria and command-level checkpoints
 

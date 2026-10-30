@@ -200,7 +200,7 @@ export async function requestJson<T>(url: string, options?: RequestInit, timeout
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
   try {
     const response = await fetch(url, {
-      method: "GET", headers: { Accept: "application/json" }, ...options,
+      method: "GET", credentials: "include", headers: { Accept: "application/json" }, ...options,
       signal: controller.signal,
     });
     if (!response.ok) {

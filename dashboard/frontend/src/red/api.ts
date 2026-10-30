@@ -224,7 +224,7 @@ async function redGet<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   const value = await requestJson<unknown>(path, {
-    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+    headers: { Accept: "application/json" },
     signal,
   });
   if (!guard(value)) throw new ApiRequestError("schema", "Red API response did not match its data contract");
@@ -268,7 +268,6 @@ async function redPost(
     method: "POST",
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       "X-Red-CSRF": challenge.csrf_token,
     },

@@ -192,6 +192,17 @@ button, select, input { min-height: 40px; }
   .ui-loading__marker { animation: none; border-color: var(--color-action); }
 }
 
+.login-page { min-height:100vh; display:grid; place-items:center; padding:24px; background:radial-gradient(circle at 50% 0,rgba(124,92,220,.18),transparent 34rem),var(--color-canvas); }
+.login-card { width:min(100%,430px); padding:36px; border:1px solid var(--color-border); border-radius:var(--radius-panel); background:var(--color-surface); box-shadow:0 28px 80px rgba(0,0,0,.28); }
+.login-mark { width:52px; height:52px; margin-bottom:22px; }
+.login-card h1 { margin:8px 0; font-size:clamp(28px,6vw,40px); }
+.login-card > p { margin:0 0 24px; color:var(--color-muted); }
+.login-card form { display:grid; gap:10px; }
+.login-card label { margin-top:6px; color:var(--color-muted); font-size:13px; font-weight:650; }
+.login-card input { width:100%; padding:10px 12px; border:1px solid var(--color-border); border-radius:var(--radius-control); background:var(--color-surface-sunken); color:var(--color-text); }
+.login-card .ui-button { margin-top:12px; width:100%; }
+.login-error { margin-bottom:14px; padding:10px 12px; border:1px solid var(--color-danger); border-radius:var(--radius-control); color:var(--color-danger); }
+
 /* M12: Stored, read-only Overview. Unknown data must never appear as a zero. */
 .overview-summary {
   display: flex; align-items: center; justify-content: space-between;

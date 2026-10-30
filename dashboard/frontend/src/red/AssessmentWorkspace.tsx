@@ -247,7 +247,7 @@ function workspaceError(error: unknown): string {
     if (error.kind === "timeout") return "The local service timed out. Retry keeps the same command ID.";
     if (error.kind === "network") return "The local Red service is offline or unreachable.";
     if (error.status === 409) return "The command is blocked by the current persisted prerequisites.";
-    if (error.status === 401 || error.status === 403) return "The operator credential or local authorization was rejected.";
+    if (error.status === 403) return "The local origin or CSRF authorization was rejected.";
     if (error.kind === "schema") return "The server returned data outside the Red workspace contract.";
   }
   return "The Red workspace could not complete this request.";

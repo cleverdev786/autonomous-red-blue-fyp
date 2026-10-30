@@ -52,16 +52,13 @@ Stop the stack using the desktop entry's **Stop MARS services** action, or:
 
 Shutdown sends `TERM` only to the PID recorded by the MARS launcher after verifying its working directory and command line. It then runs Compose `down --remove-orphans` for `compose.yaml`. The named application volume is preserved.
 
-## Operator credential
+## Local access
 
-Red write operations are disabled unless the backend starts with `MARS_RED_OPERATOR_TOKEN` set to an operator-controlled value of at least 32 characters. There is no default credential in the repository. Generate a temporary local token without committing it:
-
-```bash
-export MARS_RED_OPERATOR_TOKEN="$(.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-./launch-mars.sh
-```
-
-Enter that same value in the dashboard when prompted. It remains in React memory only. The API additionally requires an allowed local Origin, a server-issued CSRF token, JSON content, and unique request IDs. Never put the token in Git, a URL, screenshots, logs, or evidence exports.
+Sign in once through the application-wide login page. The default username is
+`malaika`; use the separately supplied local password. The backend stores no
+plaintext password and issues an HttpOnly same-site session cookie. Red
+mutations still require an allowed local Origin, a server-issued CSRF token,
+JSON content, and unique request IDs.
 
 ## Standard profile
 
@@ -87,7 +84,8 @@ The browser cannot increase these values. A timeout or ambiguous execution is re
 2. Supply the operator token.
 3. Select the registered `vulnerable-store` target and Manual or Autonomous mode.
 4. Review the fixed target, three classes, methods, and Standard budget.
-5. Create the draft, authorize it explicitly, then start it.
+5. Create the draft, then authorize it. Autonomous mode starts immediately;
+   Manual mode exposes its individual stage controls.
 
 Manual mode runs Reconnaissance, Planning, Execution, and Verification through separate controls. Rerunning reconnaissance makes the earlier plan stale; plan again before execution.
 
@@ -173,8 +171,7 @@ Common failures:
 
 - **Docker unavailable:** start Docker, then rerun the launcher. The complete stack now fails closed instead of opening a partial UI.
 - **Container unhealthy:** inspect `docker compose logs`; do not remove volumes as a first response.
-- **Operator unconfigured (503):** stop MARS, set a new token of at least 32 characters, and relaunch.
-- **Unauthorized/CSRF failure:** use the same in-memory token, local dashboard origin, and a fresh CSRF challenge/request ID.
+- **Origin/CSRF failure:** use the local dashboard and a fresh CSRF challenge/request ID.
 - **Stale plan:** rerun Planning after Reconnaissance.
 - **Port 8090 occupied:** stop the known process safely; do not kill an unrelated PID. The stop script refuses processes it cannot identify as MARS.
 - **ZAP unavailable:** leave it unavailable unless the specific workflow has approval. Registered controlled tests remain the confirmation authority.

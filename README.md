@@ -73,16 +73,13 @@ Use the desktop entry's **Stop MARS services** action, or run:
 
 The stop script verifies the launcher-managed backend PID before sending `TERM`, stops only the registered Compose project, and preserves the named Docker volume.
 
-## Red operator token
+## Local login
 
-There is no default operator credential. Red write operations fail closed unless `MARS_RED_OPERATOR_TOKEN` is set to a local value of at least 32 characters before startup:
-
-```bash
-export MARS_RED_OPERATOR_TOKEN="$(.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-./launch-mars.sh
-```
-
-Enter the same token in the dashboard. Do not commit or place it in URLs, logs, screenshots, or evidence.
+MARS presents one login screen for the complete local application. The default
+username for this installation is `malaika`; use the separately supplied local
+password. The HttpOnly same-site session lasts up to 12 hours or until the
+backend restarts. Red mutations retain their Origin, CSRF, registry and budget
+protections after login.
 
 ## How the Red Team works
 

@@ -81,7 +81,7 @@ const target = {
     "/api/red/assessments/assessment-t29/start",
     "/api/red/assessments/assessment-t29/cancel",
   ]);
-  assert(writes.every(item => item.options.headers.Authorization === "Bearer operator-token" &&
+  assert(writes.every(item => !("Authorization" in item.options.headers) &&
     item.options.headers["X-Red-CSRF"] === "csrf-t29" &&
     item.options.headers["Content-Type"] === "application/json"));
 
@@ -102,7 +102,7 @@ const target = {
   const awaiting = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
     { ...base, phase: "awaiting_authorization", assessmentId: "assessment-t29",
       error: "Authorization was rejected by the server." }));
-  assert(awaiting.includes("Authorize fixed scope") && awaiting.includes("Cancel assessment") &&
+  assert(awaiting.includes("Authorize and start assessment") && awaiting.includes("Cancel assessment") &&
     awaiting.includes("Authorization was rejected by the server."));
   const authorized = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
     { ...base, phase: "authorized", assessmentId: "assessment-t29" }));
@@ -158,12 +158,8 @@ const target = {
   controls.onAuthorize();
   await settle();
   controls = renderController();
-  assert.equal(controls.phase, "authorized");
-  assert(!requests.some(item => item.url.endsWith("/start")));
-  controls.onStart();
-  await settle();
-  controls = renderController();
   assert.equal(controls.phase, "active");
+  assert(requests.some(item => item.url.endsWith("/start")));
   cancelStatus = "cancellation_requested";
   controls.onCancel();
   await settle();

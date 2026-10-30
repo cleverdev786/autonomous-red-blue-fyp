@@ -21,6 +21,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from dashboard.api.config import DashboardDatabaseError, resolve_database_path
+from dashboard.api.local_auth import install_local_auth
 from dashboard.api.main import create_app
 from dashboard.api.mars_plans import register_mars_plans
 from dashboard.api.operator_service import (
@@ -45,6 +46,7 @@ from services.evidence_review import (
     review_pinned_phase5_replays,
     review_pinned_registered_red,
 )
+from services.red_runtime import RedRuntime
 from services.registered_assessment_plan import (
     AssessmentPlanBlocked,
     registered_catalog,
@@ -58,7 +60,6 @@ ALLOWED_ORIGINS = {
     "http://localhost:5173",
 }
 REACT_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
-
 
 
 class ReactRouteFiles(StaticFiles):
@@ -75,15 +76,22 @@ class ReactRouteFiles(StaticFiles):
             return response
         # Missing assets must remain 404; never return HTML as JavaScript or CSS.
         segments = path.strip("/").split("/")
-        if (scope.get("method") not in {"GET", "HEAD"}
-                or not all(segment and segment.replace("-", "").replace("_", "").isalnum() for segment in segments)
-                or segments[0] == "assets"
-                or any("." in segment for segment in segments)):
+        if (
+            scope.get("method") not in {"GET", "HEAD"}
+            or not all(
+                segment and segment.replace("-", "").replace("_", "").isalnum()
+                for segment in segments
+            )
+            or segments[0] == "assets"
+            or any("." in segment for segment in segments)
+        ):
             raise HTTPException(status_code=404)
         return FileResponse(
-            Path(self.directory) / "index.html", media_type="text/html",
+            Path(self.directory) / "index.html",
+            media_type="text/html",
             headers={"Cache-Control": "no-store"},
         )
+
 
 def require_local_origin(request: Request) -> None:
     origin = request.headers.get("origin")
@@ -95,9 +103,13 @@ def to_http_error(exc: OperatorError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
-def create_console_app(database_path: str | Path | None = None, *,
-                       mars_workspace_db: str | Path | None = None,
-                       red_state_db: str | Path | None = None) -> FastAPI:
+def create_console_app(
+    database_path: str | Path | None = None,
+    *,
+    mars_workspace_db: str | Path | None = None,
+    red_state_db: str | Path | None = None,
+    require_login: bool = True,
+) -> FastAPI:
     """Construct the console even when no historical experiment DB exists."""
     try:
         resolved = resolve_database_path(database_path)
@@ -135,8 +147,10 @@ def create_console_app(database_path: str | Path | None = None, *,
         allow_origins=sorted(ALLOWED_ORIGINS),
         allow_methods=["GET", "POST"],
         allow_headers=["Authorization", "Content-Type", "X-Red-CSRF"],
-        allow_credentials=False,
+        allow_credentials=True,
     )
+    if require_login:
+        install_local_auth(app, allowed_origins=frozenset(ALLOWED_ORIGINS))
     router = APIRouter(prefix="/api/console")
 
     @router.get("/status")
@@ -185,11 +199,15 @@ def create_console_app(database_path: str | Path | None = None, *,
         try:
             receipt = json.loads(output.stdout)
         except ValueError as exc:
-            raise HTTPException(status_code=503, detail="Offline worker returned no valid receipt") from exc
-        if (receipt.get("scenario") != data.scenario
-                or receipt.get("result") != "sandbox_verified"
-                or receipt.get("model_used") is not False
-                or receipt.get("live_source_modified") is not False):
+            raise HTTPException(
+                status_code=503, detail="Offline worker returned no valid receipt"
+            ) from exc
+        if (
+            receipt.get("scenario") != data.scenario
+            or receipt.get("result") != "sandbox_verified"
+            or receipt.get("model_used") is not False
+            or receipt.get("live_source_modified") is not False
+        ):
             raise HTTPException(status_code=503, detail="Offline worker receipt rejected")
         return receipt
 
@@ -278,7 +296,8 @@ def create_console_app(database_path: str | Path | None = None, *,
                     "red_run_id": blue["red_run_id"],
                     "classification": (
                         blue["model_decision"]["classification"]
-                        if blue.get("model_decision") else None
+                        if blue.get("model_decision")
+                        else None
                     ),
                 },
                 "patched_sqli": {
@@ -329,33 +348,44 @@ def create_console_app(database_path: str | Path | None = None, *,
 
     app.include_router(router)
     # MARS user-authored draft plans live outside Git and outside the frozen research DB.
-    workspace_path = Path(mars_workspace_db) if mars_workspace_db is not None else (
-        Path.home() / ".local" / "state" / "mars" / "workspace.sqlite3"
+    workspace_path = (
+        Path(mars_workspace_db)
+        if mars_workspace_db is not None
+        else (Path.home() / ".local" / "state" / "mars" / "workspace.sqlite3")
     )
-    app.include_router(register_mars_plans(
-        root=Path(__file__).resolve().parents[2],
-        database=workspace_path,
-        require_origin=require_local_origin,
-    ))
+    app.include_router(
+        register_mars_plans(
+            root=Path(__file__).resolve().parents[2],
+            database=workspace_path,
+            require_origin=require_local_origin,
+        )
+    )
 
     # Red operator reads and journal-only intents fail closed without credentials.
     project_root = Path(__file__).resolve().parents[2]
-    app.include_router(register_red_operator(
-        state_db=Path(red_state_db) if red_state_db is not None else (
-            Path.home() / ".local" / "state" / "mars" / "red_assessments.sqlite3"
-        ),
-        allowed_origins=frozenset(ALLOWED_ORIGINS),
-        registry=TargetRegistry.from_directories(
-            targets_dir=project_root / "config/targets",
-            security_tests_dir=project_root / "config/security_tests",
-        ),
-    ))
+    red_db = (
+        Path(red_state_db)
+        if red_state_db is not None
+        else (Path.home() / ".local" / "state" / "mars" / "red_assessments.sqlite3")
+    )
+    red_registry = TargetRegistry.from_directories(
+        targets_dir=project_root / "config/targets",
+        security_tests_dir=project_root / "config/security_tests",
+    )
+    app.include_router(
+        register_red_operator(
+            state_db=red_db,
+            allowed_origins=frozenset(ALLOWED_ORIGINS),
+            registry=red_registry,
+        )
+    )
 
     # ponytail: built files only; rebuild with npm when React changes.
     # No second server, API proxy or package install is needed for deployment.
     if (REACT_DIST / "index.html").is_file():
         app.mount("/dashboard", ReactRouteFiles(directory=REACT_DIST, html=True))
     else:
+
         @app.get("/dashboard/")
         def react_build_missing(response: Response) -> dict:
             response.status_code = 503
@@ -377,9 +407,12 @@ def create_console_app(database_path: str | Path | None = None, *,
 
     @asynccontextmanager
     async def console_lifespan(_app: FastAPI):
+        red_runtime = RedRuntime(root=project_root, state_db=red_db, registry=red_registry)
+        red_runtime.start()
         try:
             yield
         finally:
+            red_runtime.stop()
             manager.stop()
 
     app.router.lifespan_context = console_lifespan

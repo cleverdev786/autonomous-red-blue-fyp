@@ -48,6 +48,20 @@ export function NewAssessment({ token, targets, assessments, onChanged }: {
     }
   }, [assessmentId, assessments, phase]);
 
+  useEffect(() => {
+    if (phase !== "recovered" || busy || startId) return;
+    const active = assessments.find(item => item.assessment_id === assessmentId);
+    if (active?.mode !== "autonomous" || active.status !== "queued" ||
+        Object.keys(active.stage_statuses).length > 0) return;
+    const requestId = commandId("start");
+    setStartId(requestId);
+    void run(async () => {
+      await startRedAssessment(token, active.assessment_id, requestId);
+      setPhase("active");
+      onChanged();
+    });
+  }, [assessmentId, assessments, busy, onChanged, phase, startId, token]);
+
   async function run(command: () => Promise<void>) {
     setBusy(true); setError(null);
     try { await command(); }
@@ -84,7 +98,14 @@ export function NewAssessment({ token, targets, assessments, onChanged }: {
       await authorizeRedAssessment(token, assessmentId, {
         requestId, approvalId: draft.approvalId,
       });
-      setPhase("authorized");
+      if (mode === "autonomous") {
+        const nextStartId = startId ?? commandId("start");
+        if (!startId) setStartId(nextStartId);
+        await startRedAssessment(token, assessmentId, nextStartId);
+        setPhase("active");
+      } else {
+        setPhase("authorized");
+      }
       onChanged();
     })}
     onStart={() => void run(async () => {
@@ -113,8 +134,7 @@ function commandId(prefix: string): string {
 
 function commandError(error: unknown): string {
   if (error instanceof ApiRequestError) {
-    if (error.status === 401) return "The operator credential was rejected.";
-    if (error.status === 403) return "The local authorization challenge was rejected.";
+    if (error.status === 403) return "The local origin or CSRF authorization was rejected.";
     if (error.status === 409) return "Authorization was rejected because the persisted scope or state changed.";
     if (error.kind === "timeout") return "The local command timed out; retry uses the same request ID.";
     if (error.kind === "network") return "The local Red service is unreachable; retry uses the same request ID.";
