@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 import hashlib
@@ -15,7 +16,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from schemas.blue_team import BlueTeamAnalysisResult, MonitoringResult, SourceReadResult
-from schemas.common import ClassificationLabel, RunStatus, WorkflowState
+from schemas.common import ClassificationLabel, RunStatus, RunType, WorkflowState
+from schemas.experiment_freeze import FinalEvaluationPreflightReceipt
 from schemas.experiment_results import AgentCallRecord, ArtifactType, RunProvenance, StageTimingRecord
 from schemas.experience import SelectionDecision
 from schemas.experiments import ClassificationMode, ExperimentConfiguration
@@ -23,6 +25,8 @@ from schemas.git import PatchBranchResult
 from schemas.logging import AuditEvent, AuditExecutionStatus, AuditPolicyDecision, LogReadResult
 from schemas.patches import PatchGenerationResult, PatchRetryFeedback
 from schemas.red_team import RedTeamRunResult
+from schemas.remediation import RemediationAttemptResult, RemediationDisposition
+from schemas.trusted_compilation import TrustedCompilerStoredOutcome
 from schemas.scoring import ScoreResult
 from schemas.scenarios import ScenarioGroundTruth
 from schemas.verification import PatchVerificationResult, VerificationCheckStatus
@@ -63,6 +67,8 @@ _ARTIFACT_MODELS: dict[ArtifactType, type[BaseModel]] = {
     ArtifactType.RED_TEAM_RUN_RESULT: RedTeamRunResult,
     ArtifactType.BLUE_TEAM_ANALYSIS_RESULT: BlueTeamAnalysisResult,
     ArtifactType.PATCH_GENERATION_RESULT: PatchGenerationResult,
+    ArtifactType.REMEDIATION_ATTEMPT_RESULT: RemediationAttemptResult,
+    ArtifactType.TRUSTED_COMPILER_OUTCOME: TrustedCompilerStoredOutcome,
     ArtifactType.PATCH_BRANCH_RESULT: PatchBranchResult,
     ArtifactType.PATCH_VERIFICATION_RESULT: PatchVerificationResult,
     ArtifactType.PATCH_RETRY_FEEDBACK: PatchRetryFeedback,
@@ -116,6 +122,7 @@ class ExperimentWriteRepository:
         scenario_id: str | None = None,
         dataset_id: str | None = None,
         started_at: datetime | None = None,
+        final_preflight: FinalEvaluationPreflightReceipt | None = None,
     ) -> None:
         if repetition_index < 1:
             raise ResearchStorageError("repetition_index must be >= 1")
@@ -125,6 +132,27 @@ class ExperimentWriteRepository:
             config = session.get(ExperimentConfigurationRow, config_id)
             if config is None:
                 raise ResearchStorageError("experiment configuration does not exist")
+            if config.run_type == RunType.FINAL_EVALUATION.value:
+                if final_preflight is None:
+                    raise ResearchStorageError(
+                        "FINAL_EVALUATION run storage requires a freeze preflight receipt"
+                    )
+                if final_preflight.config_id != config_id:
+                    raise ResearchStorageError("preflight config_id does not match stored config")
+                if final_preflight.configuration_sha256 != config.configuration_sha256:
+                    raise ResearchStorageError("preflight configuration hash does not match stored config")
+                if final_preflight.baseline_git_commit != baseline_commit:
+                    raise ResearchStorageError("preflight baseline does not match requested run")
+                if final_preflight.repetition_index != repetition_index:
+                    raise ResearchStorageError("preflight repetition does not match requested run")
+                if final_preflight.scenario_id != scenario_id:
+                    raise ResearchStorageError("preflight scenario does not match requested run")
+                if final_preflight.dataset_id != dataset_id:
+                    raise ResearchStorageError("preflight dataset does not match requested run")
+            elif final_preflight is not None:
+                raise ResearchStorageError(
+                    "DEVELOPMENT run storage must not receive final preflight evidence"
+                )
             if config.research_question == "rq2":
                 if dataset_id != config.dataset_id or scenario_id is not None:
                     raise ResearchStorageError("RQ2 run must use its configured dataset_id")
@@ -352,6 +380,118 @@ class ExperimentWriteRepository:
             self._commit(session, "duplicate patch generation attempt")
             return artifact.artifact_id
 
+    def record_remediation_attempt_result(self, result: RemediationAttemptResult) -> int:
+        """Append new provenance, never altering legacy prepared patch evidence.
+
+        PREPARED is recorded only after a corresponding legacy patch artifact
+        has been persisted. Terminal non-patch outcomes use the guarded method
+        finalize_remediation_without_patch instead.
+        """
+        if result.disposition != RemediationDisposition.PREPARED:
+            raise ResearchStorageError("terminal non-patch outcomes require guarded finalization")
+        with self._factory() as session:
+            run = session.get(ExperimentRunRow, result.run_id)
+            if run is None or run.status != RunStatus.RUNNING.value:
+                raise ResearchStorageError("remediation requires an active run")
+            attempt = session.scalar(select(PatchAttemptRow).where(
+                PatchAttemptRow.run_id == result.run_id,
+                PatchAttemptRow.attempt_number == result.attempt_number,
+            ))
+            if attempt is None or attempt.prepared_patch_artifact_id is None:
+                raise ResearchStorageError("PREPARED requires an already recorded legacy patch")
+            legacy = session.get(ResultArtifactRow, attempt.prepared_patch_artifact_id)
+            if (
+                legacy is None
+                or legacy.payload_sha256 != result.legacy_generation_artifact_sha256
+                or attempt.prepared_diff_sha256 != result.prepared_diff_sha256
+            ):
+                raise ResearchStorageError("prepared remediation provenance disagrees with legacy patch")
+            old = PatchGenerationResult.model_validate_json(legacy.payload_json)
+            if (old.run_id, old.target_id, old.attempt_number) != (
+                result.run_id, result.target_id, result.attempt_number,
+            ):
+                raise ResearchStorageError("prepared remediation identity disagrees with legacy patch")
+            self._require_new_remediation_identity(session, result)
+            artifact = self._artifact_row(
+                result.run_id, ArtifactType.REMEDIATION_ATTEMPT_RESULT,
+                result, result.attempt_number,
+            )
+            session.add(artifact)
+            self._commit(session, "duplicate remediation evidence")
+            return artifact.artifact_id
+
+    def finalize_remediation_without_patch(
+        self,
+        *,
+        result: RemediationAttemptResult,
+        analysis: BlueTeamAnalysisResult,
+        policy_engine: "PolicyEngine",
+    ) -> int:
+        """Atomically persist an independently policy-validated terminal result.
+
+        Re-evaluates the trusted no-patch policy rather than accepting a caller-
+        supplied authorization boolean. No patch or Git artifact is generated.
+        """
+        if result.disposition == RemediationDisposition.PREPARED:
+            raise ResearchStorageError("prepared result cannot use non-patch finalization")
+        if not policy_engine.validate_no_patch_termination(
+            analysis=analysis, result=result,
+        ).allowed:
+            raise ResearchStorageError("non-patch finalization denied by deterministic policy")
+        if result.run_id != analysis.run_id or result.target_id != analysis.target_id:
+            raise ResearchStorageError("remediation identity does not match Blue analysis")
+        with self._factory() as session:
+            run = session.get(ExperimentRunRow, result.run_id)
+            if run is None or run.status != RunStatus.RUNNING.value:
+                raise ResearchStorageError("remediation termination requires an active run")
+            config = session.get(ExperimentConfigurationRow, run.config_id)
+            if config is None or config.run_type == RunType.FINAL_EVALUATION.value:
+                raise ResearchStorageError("final remediation termination requires a separately frozen integration gate")
+            blue_artifacts = session.scalars(select(ResultArtifactRow).where(
+                ResultArtifactRow.run_id == result.run_id,
+                ResultArtifactRow.artifact_type == ArtifactType.BLUE_TEAM_ANALYSIS_RESULT.value,
+            )).all()
+            if len(blue_artifacts) != 1 or blue_artifacts[0].payload_sha256 != canonical_sha256(
+                canonical_model_json(analysis)
+            ):
+                raise ResearchStorageError("persisted Blue evidence does not match termination request")
+            if session.scalar(select(PatchAttemptRow).where(
+                PatchAttemptRow.run_id == result.run_id,
+            )) is not None:
+                raise ResearchStorageError("cannot finalize no-patch after patch attempt began")
+            self._require_new_remediation_identity(session, result)
+            artifact = self._artifact_row(
+                result.run_id, ArtifactType.REMEDIATION_ATTEMPT_RESULT,
+                result, result.attempt_number,
+            )
+            session.add(artifact)
+            if result.disposition == RemediationDisposition.POLICY_BLOCKED:
+                run.status = RunStatus.POLICY_BLOCKED.value
+            elif result.disposition in {
+                RemediationDisposition.INVALID_OUTPUT,
+                RemediationDisposition.PROVIDER_FAILED,
+            }:
+                run.status = RunStatus.FAILED.value
+            else:
+                run.status = RunStatus.COMPLETED.value
+            run.completed_at = datetime.now(UTC)
+            if run.status in {RunStatus.FAILED.value, RunStatus.POLICY_BLOCKED.value}:
+                run.system_error_code = result.disposition.value
+                run.system_error_summary = result.reason_code
+            session.flush()
+            self._commit(session, "remediation termination could not be persisted")
+            return artifact.artifact_id
+
+    @staticmethod
+    def _require_new_remediation_identity(session: Session, result: RemediationAttemptResult) -> None:
+        existing = session.scalar(select(ResultArtifactRow).where(
+            ResultArtifactRow.run_id == result.run_id,
+            ResultArtifactRow.attempt_number == result.attempt_number,
+            ResultArtifactRow.artifact_type == ArtifactType.REMEDIATION_ATTEMPT_RESULT.value,
+        ))
+        if existing is not None:
+            raise ResearchStorageError("duplicate remediation result for run and attempt")
+
     def record_patch_branch_result(self, result: PatchBranchResult) -> int:
         with self._factory() as session:
             attempt = self._patch_attempt(session, result.run_id, result.attempt_number)
@@ -572,7 +712,11 @@ class ExperimentWriteRepository:
             attempt_number=attempt_number,
             artifact_type=artifact_type.value,
             schema_name=model.__class__.__name__,
-            schema_version="1.0",
+            schema_version=(
+                model.schema_version
+                if artifact_type == ArtifactType.TRUSTED_COMPILER_OUTCOME
+                else "1.0"
+            ),
             payload_json=payload,
             payload_sha256=canonical_sha256(payload),
             created_at=datetime.now(UTC),
@@ -655,6 +799,83 @@ class EvaluationTruthRepository:
                 source_notes=source_notes,
             ))
             ExperimentWriteRepository._commit(session, "classification truth already exists")
+
+
+@dataclass(frozen=True, slots=True)
+class ClassifierDatasetRecord:
+    database_id: int
+    event_id: str
+    normalized_input_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ExperimentExecutionContext:
+    run_id: str
+    config_id: str
+    scenario_id: str | None
+    dataset_id: str | None
+    status: str
+    baseline_commit: str
+    configuration: ExperimentConfiguration
+
+
+class ExperimentExecutionReadRepository:
+    """Narrow execution reads with no evaluator ground-truth access."""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        self._factory = session_factory
+
+    def run_context(self, run_id: str) -> ExperimentExecutionContext:
+        with self._factory() as session:
+            run = session.get(ExperimentRunRow, run_id)
+            if run is None:
+                raise ResearchStorageError("experiment run does not exist")
+            config_row = session.get(ExperimentConfigurationRow, run.config_id)
+            if config_row is None:
+                raise ResearchStorageError("experiment configuration does not exist")
+            config = ExperimentConfiguration.model_validate_json(config_row.configuration_json)
+            return ExperimentExecutionContext(
+                run_id=run.run_id,
+                config_id=run.config_id,
+                scenario_id=run.scenario_id,
+                dataset_id=run.dataset_id,
+                status=run.status,
+                baseline_commit=run.baseline_commit,
+                configuration=config,
+            )
+
+    def classifier_dataset_items(
+        self,
+        *,
+        dataset_id: str,
+        dataset_version: str,
+    ) -> tuple[ClassifierDatasetRecord, ...]:
+        with self._factory() as session:
+            rows = tuple(
+                session.scalars(
+                    select(DatasetItemRow)
+                    .where(
+                        DatasetItemRow.dataset_id == dataset_id,
+                        DatasetItemRow.dataset_version == dataset_version,
+                    )
+                    .order_by(DatasetItemRow.event_id.asc())
+                )
+            )
+        return tuple(
+            ClassifierDatasetRecord(
+                database_id=row.id,
+                event_id=row.event_id,
+                normalized_input_sha256=row.normalized_input_sha256,
+            )
+            for row in rows
+        )
+
+    def next_agent_sequence(self, run_id: str) -> int:
+        with self._factory() as session:
+            maximum = session.scalar(
+                select(func.max(AgentCallRow.sequence_number)).where(AgentCallRow.run_id == run_id)
+            )
+        return int(maximum or 0) + 1
 
 
 class ResearchReadRepository:

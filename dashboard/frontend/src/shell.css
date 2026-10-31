@@ -1,0 +1,42 @@
+/* Shell compatibility for legacy domain screens; new views use Tailwind utilities. */
+.shell { grid-template-columns:224px minmax(0,1fr); transition:grid-template-columns .18s; }
+.sidebar { width:224px; animation:none; background:var(--sidebar); }
+.sidebar .sidebar-brand { justify-content:flex-start; gap:11px; margin-bottom:24px; }
+.brand-type strong { font-size:21px; color:var(--sidebar-foreground); letter-spacing:.07em; }
+.sidebar nav .nav,.sidebar-footer .sidebar-system { justify-content:flex-start; gap:13px; }
+.sidebar .nav-label,.sidebar .brand-type { opacity:1; visibility:visible; }
+.rail-toggle { align-self:flex-end; width:40px; min-height:40px; margin-bottom:16px; border:1px solid var(--sidebar-border); border-radius:8px; background:transparent; color:var(--sidebar-foreground); cursor:pointer; }
+.legacy-navigation { margin:24px 8px; color:var(--sidebar-foreground); font-size:13px; }
+.legacy-navigation summary { cursor:pointer; padding:10px 4px; }
+.legacy-navigation nav { margin-top:8px; }
+.page-header h1 { margin:0; font-size:clamp(24px,3vw,32px); line-height:1.2; letter-spacing:-.025em; }
+.utility-bar { gap:12px; flex-wrap:wrap; padding-block:8px; }
+.utility-bar>button { border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); padding:8px 12px; cursor:pointer; }
+.utility-path { margin-right:auto; }
+.workspace-overview { max-width:1440px; margin-inline:auto; }
+.workspace-hero { padding:clamp(24px,4vw,48px); background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:24px; }
+.workspace-hero h2 { max-width:22ch; font-size:clamp(28px,4vw,44px); line-height:1.15; margin:12px 0 16px; letter-spacing:-.035em; }
+.workspace-hero p,.team-card p { color:var(--muted-foreground); max-width:60ch; line-height:1.6; }
+.team-card { padding:clamp(20px,3vw,32px); min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:12px; background:var(--card); border:1px solid var(--border); border-radius:12px; }
+.team-card h2 { font-size:24px; }
+.team-card p { margin:0 0 8px; }
+.team-card>a { margin-top:auto; }
+.team-card a[data-variant="default"],.workspace-hero a { color:var(--primary-foreground); text-decoration:none; }
+.team-card a[data-variant="outline"] { color:var(--foreground); text-decoration:none; }
+.red-assessment-setup>div { min-width:0; display:grid; gap:8px; }
+.red-assessment-setup [role="radiogroup"] { display:flex; flex-wrap:wrap; gap:16px; }
+.red-dashboard a[data-slot="button"] { color:var(--foreground); text-decoration:none; }
+@media(min-width:851px) {
+  .shell.rail-collapsed { grid-template-columns:76px minmax(0,1fr); }
+  .rail-collapsed .sidebar { width:76px; padding-inline:12px; }
+  .rail-collapsed .brand-type,.rail-collapsed .nav-label,.rail-collapsed .sidebar-workspace-label,
+  .rail-collapsed .legacy-navigation,.rail-collapsed .run-picker { display:none; }
+  .rail-collapsed .sidebar nav .nav,.rail-collapsed .sidebar-footer .sidebar-system { justify-content:center; padding-inline:8px; }
+}
+@media(max-width:850px) {
+  .shell { display:block; }
+  .sidebar,.sidebar.menu-open { width:min(310px,88vw); }
+  .rail-toggle { display:none; }
+  .sidebar-close { display:flex; align-items:center; justify-content:center; }
+}
+@media(prefers-reduced-motion:reduce) { .shell { transition:none; } }

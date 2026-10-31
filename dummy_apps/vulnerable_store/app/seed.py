@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .database import Base
 from .models import Document, Product, User
 from .security import hash_demo_password
-
 
 SEED_USERS = (
     {
@@ -52,25 +52,42 @@ SEED_DOCUMENTS = (
     },
 )
 
+SEED_FILE_CONTENT = {
+    "welcome.txt": (
+        "Welcome to the local FYP Vulnerable Store baseline application.\n"
+        "This file contains synthetic demonstration content only.\n"
+    ),
+    "security-lab-rules.txt": (
+        "Security Lab Rules\n"
+        "1. Use only the local dummy application.\n"
+        "2. Do not test external or unauthorized systems.\n"
+        "3. Keep all data synthetic.\n"
+    ),
+}
+
+SCENARIO_FILE_CONTENT = {
+    "public/guide.txt": (
+        "Public scenario guide. This file is intended to be downloadable.\n"
+    ),
+    "private/demo-secret.txt": (
+        "FYP_SCENARIO_SECRET=synthetic-traversal-evidence-only\n"
+    ),
+}
+
+
+def _recreate_owned_directory(directory: Path) -> None:
+    """Clear one configured target-owned directory without following symlinks."""
+    if directory.is_symlink():
+        raise RuntimeError("refusing to reset a symlinked target directory")
+    if directory.exists():
+        shutil.rmtree(directory)
+    directory.mkdir(parents=True)
+
 
 def ensure_seed_files(seed_files_dir: Path) -> None:
     """Create deterministic synthetic baseline document files."""
-    seed_files_dir.mkdir(parents=True, exist_ok=True)
-
-    files = {
-        "welcome.txt": (
-            "Welcome to the local FYP Vulnerable Store baseline application.\n"
-            "This file contains synthetic demonstration content only.\n"
-        ),
-        "security-lab-rules.txt": (
-            "Security Lab Rules\n"
-            "1. Use only the local dummy application.\n"
-            "2. Do not test external or unauthorized systems.\n"
-            "3. Keep all data synthetic.\n"
-        ),
-    }
-
-    for filename, content in files.items():
+    _recreate_owned_directory(seed_files_dir)
+    for filename, content in SEED_FILE_CONTENT.items():
         (seed_files_dir / filename).write_text(content, encoding="utf-8")
 
 
@@ -81,19 +98,14 @@ def ensure_scenario_files(scenario_files_dir: Path) -> None:
     this sandbox. A separate safety check still prevents escape from the
     scenario sandbox into the repository or host filesystem.
     """
+    _recreate_owned_directory(scenario_files_dir)
     public_dir = scenario_files_dir / "public"
     private_dir = scenario_files_dir / "private"
     public_dir.mkdir(parents=True, exist_ok=True)
     private_dir.mkdir(parents=True, exist_ok=True)
 
-    (public_dir / "guide.txt").write_text(
-        "Public scenario guide. This file is intended to be downloadable.\n",
-        encoding="utf-8",
-    )
-    (private_dir / "demo-secret.txt").write_text(
-        "FYP_SCENARIO_SECRET=synthetic-traversal-evidence-only\n",
-        encoding="utf-8",
-    )
+    for relative, content in SCENARIO_FILE_CONTENT.items():
+        (scenario_files_dir / relative).write_text(content, encoding="utf-8")
 
 
 def reset_database(
@@ -105,6 +117,18 @@ def reset_database(
     """Restore the dummy application to a known deterministic state."""
     ensure_seed_files(seed_files_dir)
     ensure_scenario_files(scenario_files_dir)
+    with engine.begin() as connection:
+        rows = connection.execute(text(
+            "SELECT type, name FROM sqlite_master "
+            "WHERE type IN ('table', 'view', 'trigger') AND name NOT LIKE 'sqlite_%'"
+        )).all()
+        for object_type, name in sorted(
+            rows, key=lambda item: {"trigger": 0, "view": 1, "table": 2}[item[0]],
+        ):
+            if not isinstance(name, str) or '"' in name:
+                raise RuntimeError("unsafe SQLite object name during reset")
+            keyword = {"table": "TABLE", "view": "VIEW", "trigger": "TRIGGER"}[object_type]
+            connection.exec_driver_sql(f'DROP {keyword} "{name}"')
     Base.metadata.create_all(engine)
 
     with session_factory() as session:

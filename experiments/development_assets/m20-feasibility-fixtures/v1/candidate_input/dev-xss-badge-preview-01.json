@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-badge-preview",
+  "fixture_id": "dev-xss-badge-preview-01",
+  "fixture_version": "v1",
+  "input_fields": [
+    "nickname"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "event_id": "dev-event-xss-01",
+    "parameter": "nickname",
+    "response_hint": "nickname appeared inside a badge span",
+    "route": "/dev/badges/preview",
+    "sample_value": "<svg onload=demo()>",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-badge-preview",
+      "safe_description": "Checks whether a synthetic markup marker is reflected unescaped.",
+      "test_id": "dev-xss-badge-reflection-001",
+      "vulnerability_class": "xss"
+    },
+    {
+      "endpoint_id": "dev-badge-preview",
+      "safe_description": "Checks whether badge lookup input alters a SQL predicate.",
+      "test_id": "dev-sqli-badge-query-001",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-badge-preview",
+      "safe_description": "Checks whether a badge theme name escapes a synthetic root.",
+      "test_id": "dev-path-badge-theme-001",
+      "vulnerability_class": "path_traversal"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "import html\n\n\ndef preview_badge(nickname):\n    return \"<span class='badge'>\" + nickname + \"</span>\"\n",
+      "file_path": "synthetic_lab/app/badge_preview.py"
+    },
+    {
+      "content": "def badge_css_class(level):\n    return \"badge-\" + level.lower()\n",
+      "file_path": "synthetic_lab/app/badge_theme.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

@@ -1,0 +1,11 @@
+{
+  "candidate_ids": [
+    "l1-qwen3-8b-q4-k-m",
+    "l2-qwen3-4b-q4-k-m",
+    "c1-gemini-3.5-flash-lite"
+  ],
+  "descriptor_bundle_sha256": "26c4387067c9ecb01c921b0efc4055ec123b5023321b891a1252e8dde58c5de3",
+  "final_selection_made": false,
+  "manifest_id": "m20-feasibility-candidates",
+  "manifest_version": "v1"
+}

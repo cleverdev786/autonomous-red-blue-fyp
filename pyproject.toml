@@ -25,6 +25,7 @@ dependencies = [
 dev = [
   "pytest>=8.0,<10.0",
   "ruff>=0.8,<1.0",
+  "httpx2>=2.0,<3.0",
 ]
 verification = [
   "pytest>=8.0,<10.0",
@@ -32,7 +33,7 @@ verification = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*", "orchestrator*", "schemas*", "services*", "llm*", "verification*", "storage*", "experiments*", "dashboard*"]
+include = ["backend*", "agents*", "orchestrator*", "schemas*", "services*", "llm*", "verification*", "storage*", "experiments*", "dashboard*", "security_tests*", "infrastructure*", "dummy_apps*", "config*"]
 exclude = ["tests*", "docs*"]
 
 [tool.pytest.ini_options]
@@ -43,3 +44,7 @@ pythonpath = ["."]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+
+[tool.setuptools.package-data]
+"dashboard" = ["frontend/dist/index.html", "frontend/dist/assets/*.js", "frontend/dist/assets/*.css"]
+"config" = ["*.json", "targets/*.json", "security_tests/*.json"]

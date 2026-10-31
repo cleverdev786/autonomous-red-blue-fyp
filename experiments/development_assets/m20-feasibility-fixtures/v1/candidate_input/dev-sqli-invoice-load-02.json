@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-invoice-load",
+  "fixture_id": "dev-sqli-invoice-load-02",
+  "fixture_version": "v1",
+  "input_fields": [
+    "invoice_id"
+  ],
+  "method": "POST",
+  "normalized_event": {
+    "db_activity": "invoice lookup returned unrelated owners",
+    "event_id": "dev-event-sqli-02",
+    "parameter": "invoice_id",
+    "route": "/dev/invoices/load",
+    "sample_value": "1 OR 1=1",
+    "status_code": 200
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-invoice-load",
+      "safe_description": "Checks whether numeric SQL expressions alter invoice selection.",
+      "test_id": "dev-sqli-invoice-expression-002",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-invoice-load",
+      "safe_description": "Checks whether an invoice label is emitted as markup.",
+      "test_id": "dev-xss-invoice-label-002",
+      "vulnerability_class": "xss"
+    },
+    {
+      "endpoint_id": "dev-invoice-load",
+      "safe_description": "Checks whether an invoice export path escapes its root.",
+      "test_id": "dev-path-invoice-export-002",
+      "vulnerability_class": "path_traversal"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "def load_invoice(cursor, invoice_id):\n    sql = f\"SELECT owner, total FROM invoices WHERE invoice_id = {invoice_id}\"\n    cursor.execute(sql)\n    return cursor.fetchone()\n",
+      "file_path": "synthetic_lab/app/invoice_store.py"
+    },
+    {
+      "content": "def display_total(total):\n    return f\"{total:.2f}\"\n",
+      "file_path": "synthetic_lab/app/invoice_format.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

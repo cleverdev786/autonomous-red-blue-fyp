@@ -21,6 +21,7 @@ from schemas.common import (
     VulnerabilityClass,
     WorkflowState,
 )
+from schemas.experiment_freeze import FinalEvaluationPreflightReceipt
 from schemas.experiment_results import ArtifactType, RunProvenance
 from schemas.experiments import ClassificationMode, ExperimentConfiguration, ModelConfiguration
 from schemas.red_team import (
@@ -46,6 +47,8 @@ from storage.repositories import (
     ExperimentWriteRepository,
     ResearchStorageError,
     ScoreRepository,
+    canonical_model_json,
+    canonical_sha256,
 )
 
 
@@ -80,6 +83,34 @@ def _config(run_id: str, *, rq: ResearchQuestion = ResearchQuestion.RQ1) -> Expe
         repetitions=1,
         classification_mode=ClassificationMode.HYBRID,
         model=ModelConfiguration(provider="mock", model_name="fixture", temperature=0),
+    )
+
+
+def _synthetic_preflight(config: ExperimentConfiguration) -> FinalEvaluationPreflightReceipt:
+    rq2 = config.research_question == ResearchQuestion.RQ2
+    return FinalEvaluationPreflightReceipt(
+        freeze_id="synthetic-final-fixture",
+        freeze_manifest_sha256="1" * 64,
+        run_plan_entry_id=f"entry-{config.config_id}",
+        config_id=config.config_id,
+        configuration_sha256=canonical_sha256(canonical_model_json(config)),
+        research_question=config.research_question,
+        repetition_index=1,
+        framework_git_commit=BASE,
+        baseline_git_commit=BASE,
+        scenario_id="scenario-xss" if not rq2 else None,
+        dataset_id="dataset-rq2" if rq2 else None,
+        scenario_version="scenario-v1" if not rq2 else None,
+        dataset_version="dataset-v1" if rq2 else None,
+        prompt_set_version="prompts-v1",
+        schema_set_version="schemas-v1",
+        agent_configuration_version="agents-v1",
+        context_policy_version="context-v1",
+        rule_version="rules-v1",
+        test_suite_version="tests-v1",
+        verification_policy_version="verify-v1",
+        environment_manifest_sha256="2" * 64,
+        python_version="3.13",
     )
 
 
@@ -138,6 +169,7 @@ def _run(
         scenario_id="scenario-xss" if rq != ResearchQuestion.RQ2 else None,
         dataset_id="dataset-rq2" if rq == ResearchQuestion.RQ2 else None,
         started_at=START,
+        final_preflight=_synthetic_preflight(config),
     )
     write.record_provenance(run_id, _provenance(rq2=rq == ResearchQuestion.RQ2))
     write.mark_running(run_id)
@@ -448,6 +480,7 @@ def test_rq2_and_incomplete_runs_write_no_score_rows(seeded) -> None:
         baseline_commit=BASE,
         scenario_id="scenario-xss",
         started_at=START,
+        final_preflight=_synthetic_preflight(created_config),
     )
     created = DeterministicScorer(factory).score_run("created-run")
     assert created.applicability.value == "ineligible_incomplete"

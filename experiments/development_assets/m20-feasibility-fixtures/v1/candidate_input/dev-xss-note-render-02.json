@@ -1,0 +1,48 @@
+{
+  "endpoint_id": "dev-note-render",
+  "fixture_id": "dev-xss-note-render-02",
+  "fixture_version": "v1",
+  "input_fields": [
+    "note_id"
+  ],
+  "method": "GET",
+  "normalized_event": {
+    "data_origin": "stored_note_body",
+    "event_id": "dev-event-xss-02",
+    "response_hint": "stored body was rendered into an article element",
+    "route": "/dev/notes/17",
+    "status_code": 200,
+    "stored_sample": "<img src=x onerror=demo()>"
+  },
+  "registered_tests": [
+    {
+      "endpoint_id": "dev-note-render",
+      "safe_description": "Checks whether stored note markup is rendered without encoding.",
+      "test_id": "dev-xss-note-stored-002",
+      "vulnerability_class": "xss"
+    },
+    {
+      "endpoint_id": "dev-note-render",
+      "safe_description": "Checks whether note identifiers alter a SQL lookup.",
+      "test_id": "dev-sqli-note-id-002",
+      "vulnerability_class": "sql_injection"
+    },
+    {
+      "endpoint_id": "dev-note-render",
+      "safe_description": "Checks whether note attachment paths escape a synthetic root.",
+      "test_id": "dev-path-note-attachment-002",
+      "vulnerability_class": "path_traversal"
+    }
+  ],
+  "source_files": [
+    {
+      "content": "import html\n\n\ndef render_note(note_body):\n    return \"<article>\" + note_body + \"</article>\"\n",
+      "file_path": "synthetic_lab/app/note_view.py"
+    },
+    {
+      "content": "def note_title(title):\n    return title.strip()\n",
+      "file_path": "synthetic_lab/app/note_format.py"
+    }
+  ],
+  "target_id": "m20-synthetic-lab"
+}

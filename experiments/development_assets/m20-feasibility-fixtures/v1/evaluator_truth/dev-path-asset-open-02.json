@@ -1,0 +1,35 @@
+{
+  "truth": {
+    "expected_classification": "path_traversal",
+    "expected_function_or_route": "open_asset",
+    "expected_patch_decision": "accepted",
+    "expected_pre_patch_attack_confirmed": true,
+    "expected_registered_test_id": "dev-path-asset-encoded-002",
+    "expected_source_file": "synthetic_lab/app/asset_store.py",
+    "expected_vulnerability_class": "path_traversal",
+    "fixture_id": "dev-path-asset-open-02",
+    "fixture_version": "v1"
+  },
+  "verification": {
+    "allowed_import_roots": [
+      "pathlib",
+      "urllib"
+    ],
+    "expected_parameters": [
+      "asset"
+    ],
+    "path_root_name": "ASSET_ROOT",
+    "profile": "path_contained",
+    "required_check_ids": [
+      "patch-policy",
+      "syntax-startup",
+      "normal-functional",
+      "registered-security-test",
+      "original-replay",
+      "regression"
+    ],
+    "sql_placeholder": null,
+    "tainted_parameter": "asset",
+    "target_function": "open_asset"
+  }
+}

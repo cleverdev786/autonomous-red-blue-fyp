@@ -1,0 +1,11 @@
+{
+  "candidate_ids": [
+    "l3-qwen2.5-coder-7b-instruct-q4-k-m",
+    "l4-gemma3-12b-it-q4-k-m",
+    "c4-gemini-3.1-flash-lite-free"
+  ],
+  "descriptor_bundle_sha256": "6c7c83445d002a7b6b38c69933f826d472a51ff42a36aa2892f75db947d0455d",
+  "final_selection_made": false,
+  "manifest_id": "m20-feasibility-candidates",
+  "manifest_version": "v4"
+}

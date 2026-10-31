@@ -1,0 +1,10 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const app = fs.readFileSync("src/App.tsx","utf8");
+const overview = fs.readFileSync("src/overview/OverviewPanel.tsx","utf8");
+assert(app.includes('["Overview", "Red Team", "Blue Team"]'));
+assert(app.includes('aria-label="Research and legacy tools"'));
+assert(overview.includes("workspace-hero"));
+assert(overview.includes("<RedOverview />"));
+assert(!overview.includes("mars-motion-visual"));
+console.log("Operator navigation and independent historical research grouping: PASS");

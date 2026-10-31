@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from hashlib import sha256
 import time
-from typing import Any, Mapping, Protocol
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from hashlib import sha256
+from typing import Any, Protocol
 from urllib.parse import urljoin
 
 import httpx
@@ -14,12 +16,18 @@ from pydantic import TypeAdapter
 from orchestrator.limits import RunLimitTracker
 from orchestrator.policy_engine import PolicyEngine
 from schemas.common import Identifier, PolicyReasonCode
-from schemas.red_team import HttpExchangeEvidence, TestExecutionResult
+from schemas.red_team import (
+    ControlledHttpReceipt,
+    HttpExchangeEvidence,
+    RedPolicyUsage,
+    TestExecutionResult,
+)
 from schemas.verification import PolicyDecision
 from security_tests.base import RequestStep
 from security_tests.registry import SecurityTestRegistry
+from services.red_admission import AdmissionRequest, TrustedRedAdmission
+from services.red_evidence_receipts import RedEvidenceRecorder
 from services.target_registry import TargetRegistry, TargetRegistryError
-
 
 _IDENTIFIER_ADAPTER = TypeAdapter(Identifier)
 
@@ -137,6 +145,7 @@ class ControlledExecutor:
         test_id: str,
         attempt_number: int,
         run_id: str,
+        cancellation_requested: Callable[[], bool] = lambda: False,
     ) -> TestExecutionResult:
         """Execute one fixed local test sequence with trusted correlation metadata.
 
@@ -196,13 +205,23 @@ class ControlledExecutor:
             )
             raise ControlledExecutionBlocked(decision)
 
+        started = self.clock()
+        if cancellation_requested():
+            return self._cancelled_result(
+                run_id, metadata.target_id, test_id, attempt_number,
+                started, [], None,
+            )
         self.limits.consume_attack_attempts()
 
-        started = self.clock()
         exchanges: list[HttpExchangeEvidence] = []
         last_status: int | None = None
 
         for index, step in enumerate(steps, start=1):
+            if cancellation_requested():
+                return self._cancelled_result(
+                    run_id, metadata.target_id, test_id, attempt_number,
+                    started, exchanges, last_status,
+                )
             self._validate_step(metadata=metadata, step=step)
             self._require(
                 self.policy_engine.validate_http_request_budget(self.limits)
@@ -278,6 +297,12 @@ class ControlledExecutor:
             )
             exchanges.append(exchange)
 
+            if cancellation_requested():
+                return self._cancelled_result(
+                    run_id, metadata.target_id, test_id, attempt_number,
+                    started, exchanges, last_status,
+                )
+
             # Current MVP redirect policy: do not follow redirects at all.
             # This is stricter than revalidation and prevents redirect escape.
             if 300 <= response.status_code <= 399:
@@ -313,10 +338,35 @@ class ControlledExecutor:
             error_code=None if evidence else "evidence-not-observed",
         )
 
+    def _cancelled_result(
+        self,
+        run_id: str,
+        target_id: str,
+        test_id: str,
+        attempt_number: int,
+        started: float,
+        exchanges: list[HttpExchangeEvidence],
+        last_status: int | None,
+    ) -> TestExecutionResult:
+        return TestExecutionResult(
+            run_id=run_id,
+            target_id=target_id,
+            test_id=test_id,
+            attempt_number=attempt_number,
+            request_count=len(exchanges),
+            completed=False,
+            timed_out=False,
+            status_code=last_status,
+            evidence=(),
+            exchanges=tuple(exchanges),
+            duration_ms=self._elapsed_ms(started),
+            error_code="cancellation-requested",
+        )
+
     @staticmethod
     def _request_id(*, run_id: str, attempt_number: int, request_index: int) -> str:
         """Create a deterministic opaque request ID from trusted run correlation."""
-        material = f"{run_id}:{attempt_number}:{request_index}".encode("utf-8")
+        material = f"{run_id}:{attempt_number}:{request_index}".encode()
         return f"req-{sha256(material).hexdigest()[:24]}"
 
     def _validate_step(self, *, metadata, step: RequestStep) -> None:
@@ -368,3 +418,114 @@ class ControlledExecutor:
 
     def _elapsed_ms(self, started: float) -> int:
         return max(0, int((self.clock() - started) * 1000))
+
+
+class PolicyAdmittedExecutor:
+    """Bind the T07 persisted-operation gate to the registered HTTP executor."""
+
+    def __init__(
+        self,
+        *,
+        admission: TrustedRedAdmission,
+        executor: ControlledExecutor,
+        recorder: RedEvidenceRecorder | None = None,
+        wall_clock=lambda: datetime.now(UTC),
+    ) -> None:
+        self.admission = admission
+        self.executor = executor
+        self.recorder = recorder or RedEvidenceRecorder(admission.journal)
+        self.wall_clock = wall_clock
+
+    def execute(
+        self,
+        *,
+        request: AdmissionRequest,
+        usage: RedPolicyUsage,
+        attempt_number: int,
+        run_id: str,
+        cancellation_requested: Callable[[], bool] = lambda: False,
+    ) -> ControlledHttpReceipt:
+        """Revalidate one operation immediately before its fixed HTTP replay."""
+        decision = self.admission.check(request, usage)
+        if not decision.allowed:
+            raise ControlledExecutionBlocked(decision)
+
+        snapshot, authorization = self.admission.store.load(
+            request.scope.assessment_id
+        )
+        operation = next(
+            (
+                item
+                for item in snapshot.operations
+                if item.operation_id == request.operation_id
+            ),
+            None,
+        )
+        if (
+            operation is None
+            or operation.status != "approved"
+            or operation.plan_version != request.plan_version
+            or operation.test_id is None
+            or authorization.scope != request.scope
+        ):
+            raise ControlledExecutionBlocked(
+                PolicyDecision(
+                    allowed=False,
+                    reason_code=PolicyReasonCode.INVALID_STATE,
+                    message="Admitted operation changed before dispatch.",
+                )
+            )
+
+        metadata = self.executor.target_registry.get_security_test(operation.test_id)
+        result = self.executor.execute_registered_test(
+            test_id=operation.test_id,
+            attempt_number=attempt_number,
+            run_id=run_id,
+            cancellation_requested=cancellation_requested,
+        )
+        if (
+            result.target_id != authorization.scope.target_id
+            or result.test_id != operation.test_id
+        ):
+            raise ControlledExecutionBlocked(
+                PolicyDecision(
+                    allowed=False,
+                    reason_code=PolicyReasonCode.PROHIBITED_OPERATION,
+                    message="Executor result identity mismatch.",
+                )
+            )
+
+        status = (
+            "cancelled"
+            if result.error_code == "cancellation-requested"
+            else "timeout" if result.timed_out
+            else "completed"
+            if result.completed
+            else "failed"
+        )
+        normalized = self.recorder.record_controlled(
+            scope=authorization.scope,
+            operation_id=operation.operation_id,
+            plan_version=operation.plan_version,
+            target_revision=authorization.scope.target_fingerprint,
+            result=result,
+            recorded_at=self.wall_clock(),
+        )
+        return ControlledHttpReceipt(
+            receipt_id=normalized.receipt_id,
+            operation_id=operation.operation_id,
+            plan_version=operation.plan_version,
+            run_id=result.run_id,
+            attempt_number=result.attempt_number,
+            target_id=result.target_id,
+            target_fingerprint=authorization.scope.target_fingerprint,
+            test_id=result.test_id,
+            vulnerability_class=metadata.vulnerability_class,
+            method=metadata.method,
+            request_count=result.request_count,
+            duration_ms=result.duration_ms,
+            status_code=result.status_code,
+            status=status,
+            error_class=result.error_code,
+            evidence_ids=tuple(item.evidence_id for item in result.evidence),
+        )

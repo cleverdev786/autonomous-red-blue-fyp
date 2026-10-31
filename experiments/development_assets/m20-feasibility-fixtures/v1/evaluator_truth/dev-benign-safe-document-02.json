@@ -1,0 +1,30 @@
+{
+  "truth": {
+    "expected_classification": "benign",
+    "expected_function_or_route": null,
+    "expected_patch_decision": null,
+    "expected_pre_patch_attack_confirmed": false,
+    "expected_registered_test_id": null,
+    "expected_source_file": null,
+    "expected_vulnerability_class": null,
+    "fixture_id": "dev-benign-safe-document-02",
+    "fixture_version": "v1"
+  },
+  "verification": {
+    "allowed_import_roots": [],
+    "expected_parameters": [],
+    "path_root_name": null,
+    "profile": "benign_no_action",
+    "required_check_ids": [
+      "patch-policy",
+      "syntax-startup",
+      "normal-functional",
+      "registered-security-test",
+      "original-replay",
+      "regression"
+    ],
+    "sql_placeholder": null,
+    "tainted_parameter": null,
+    "target_function": null
+  }
+}

@@ -3,8 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
-    <title>FYP Red-Blue Dashboard</title>
+    <meta name="theme-color" content="#0C1B30" />
+    <meta name="description" content="MARS local security assessment and evidence-bound remediation workspace." />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%mars-mark.svg" />
+    <meta name="color-scheme" content="light" />
+    <title>MARS · Security Assessment &amp; Remediation</title>
+    <script>
+      try {
+        const saved = localStorage.getItem("mars-theme");
+        const theme = saved === "light" || saved === "dark" ? saved :
+          matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

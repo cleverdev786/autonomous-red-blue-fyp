@@ -1,0 +1,70 @@
+# T09: opt-in ZAP container, separate from the default MARS Compose stack.
+# Image: official ZAP 2.17.0 linux/amd64 manifest, verified 2026-10-27.
+services:
+  vulnerable-store:
+    networks:
+      security-lab:
+        aliases: [vulnerable-store-origin]
+
+  zap-request-gate:
+    image: fyp-red-blue-lab:local
+    profiles: [zap]
+    user: "10001:10001"
+    read_only: true
+    privileged: false
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    command: ["python", "-m", "infrastructure.zap_request_gate"]
+    environment:
+      MARS_ZAP_GATE_MODE: xss-reflection-001
+    networks:
+      security-lab: {}
+      zap-target:
+        aliases: [vulnerable-store]
+    tmpfs: [/tmp:rw,noexec,nosuid,size=16m]
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32
+    restart: "no"
+
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:0075662e5c287cf0a68caebabbfea872e5dc461912ad6d7345fa02a290d0ccb6
+    platform: linux/amd64
+    profiles: [zap]
+    user: "1000:1000"
+    read_only: true
+    privileged: false
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    init: true
+    working_dir: /zap
+    # API is container-loopback only; the target path is the hard-limited gate.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        command -v zap.sh >/dev/null && exec zap.sh -daemon
+        -host 127.0.0.1 -port 8090 -config api.disablekey=true
+        -config api.addrs.addr.name=127.0.0.1
+        -config api.addrs.addr.regex=false
+    networks: [zap-target]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /home/zap/.ZAP:rw,nosuid,size=160m,uid=1000,gid=1000,mode=0700
+    mem_limit: 512m
+    cpus: 0.50
+    pids_limit: 64
+    stop_grace_period: 5s
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "command -v zap.sh >/dev/null && kill -0 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+networks:
+  zap-target:
+    driver: bridge
+    internal: true
+    attachable: false

@@ -1,0 +1,23 @@
+"use strict";
+const assert=require("node:assert/strict");
+const esbuild=require("esbuild");
+const React=require("react");
+const path=require("node:path");
+const {createRequire}=require("node:module");
+const {renderToStaticMarkup}=require("react-dom/server");
+const compiled=esbuild.buildSync({entryPoints:["src/overview/RunTable.tsx"],bundle:true,platform:"node",
+  format:"cjs",packages:"external",write:false,jsx:"automatic"});
+const m={exports:{}};
+new Function("module","exports","require",compiled.outputFiles[0].text)(m,m.exports,createRequire(path.resolve("package.json")));
+const run={run_id:"fixture-a",config_id:"cfg",research_question:"rq1",run_type:"development",scenario_id:"sqli-login-bypass-001",dataset_id:null,status:"blocked",started_at:"2026-10-16",completed_at:null,red_score:null,blue_score:null};
+const render=(props)=>renderToStaticMarkup(React.createElement(m.exports.RunTable,props));
+const withAction=render({runs:[run],onSelect:()=>{},selectedRunId:"fixture-a"});
+assert.match(withAction,/<button[^>]*type="button"[^>]*class="table-link"/);
+assert.match(withAction,/aria-current="true"/);
+assert.match(withAction,/View stored run fixture-a/);
+assert.doesNotMatch(withAction,/<tr[^>]*onClick=/);
+const other=render({runs:[run],onSelect:()=>{},selectedRunId:"fixture-b"});
+assert.doesNotMatch(other,/aria-current="true"/);
+const readOnly=render({runs:[run]});
+assert.doesNotMatch(readOnly,/<button[^>]*class="table-link"/);
+console.log("M13 keyboard row contract: semantic button, selected state, non-clickable read-only table = PASS");

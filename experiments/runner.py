@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from schemas.common import RunStatus
+from schemas.common import RunStatus, RunType
+from schemas.experiment_freeze import FinalEvaluationPreflightReceipt
 from schemas.experiment_results import AgentCallRecord, RunProvenance, StageTimingRecord
 from schemas.experiments import ExperimentConfiguration
-from storage.repositories import ExperimentWriteRepository
+from storage.repositories import ExperimentWriteRepository, canonical_model_json, canonical_sha256
 
 
 class ExperimentRecorder:
@@ -34,8 +35,23 @@ class ExperimentRecorder:
         dataset_id: str | None = None,
         provenance: RunProvenance,
         started_at: datetime | None = None,
+        final_preflight: FinalEvaluationPreflightReceipt | None = None,
     ) -> None:
         """Create lifecycle/provenance records only; no experimental behavior is dispatched."""
+        if config.run_type == RunType.FINAL_EVALUATION:
+            if final_preflight is None:
+                raise ValueError("FINAL_EVALUATION run creation requires a freeze preflight receipt")
+            configuration_sha256 = canonical_sha256(canonical_model_json(config))
+            if final_preflight.config_id != config.config_id:
+                raise ValueError("preflight receipt config_id does not match configuration")
+            if final_preflight.configuration_sha256 != configuration_sha256:
+                raise ValueError("preflight receipt configuration hash does not match configuration")
+            if final_preflight.baseline_git_commit != baseline_commit:
+                raise ValueError("preflight receipt baseline does not match run baseline")
+            from experiments.freeze import validate_final_provenance
+            validate_final_provenance(provenance=provenance, receipt=final_preflight)
+        elif final_preflight is not None:
+            raise ValueError("DEVELOPMENT run must not supply a final-evaluation preflight receipt")
         self.repository.create_run(
             run_id=run_id,
             config_id=config.config_id,
@@ -44,6 +60,7 @@ class ExperimentRecorder:
             scenario_id=scenario_id,
             dataset_id=dataset_id,
             started_at=started_at or datetime.now(UTC),
+            final_preflight=final_preflight,
         )
         self.repository.record_provenance(run_id, provenance)
         self.repository.mark_running(run_id)

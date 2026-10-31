@@ -1,40 +1,55 @@
-# Version-control / development metadata
-.git
-.gitignore
-.github
-.vscode
-.idea
+# Allow only the source roots explicitly COPYed by the isolated Dockerfile.
+**
+!README.md
+!pyproject.toml
+!agents/
+!agents/**
+!orchestrator/
+!orchestrator/**
+!schemas/
+!schemas/**
+!services/
+!services/**
+!llm/
+!llm/**
+!dummy_apps/
+!dummy_apps/**
+!infrastructure/
+!infrastructure/**
+!security_tests/
+!security_tests/**
+!verification/
+!verification/**
+!config/
+!config/**
+!requirements/
+!requirements/**
+# Never send local secrets, generated runtime files or build caches.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/__pycache__
+**/__pycache__/**
+**/*.pyc
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/.pytest_cache
+**/.pytest_cache/**
+**/.ruff_cache
+**/.ruff_cache/**
+**/*.egg-info
+**/*.egg-info/**
+**/scenario_files
+**/scenario_files/**
+**/generated_patches
+**/generated_patches/**
+**/experiment-results
+**/experiment-results/**
+**/.DS_Store
 
-# Python local artifacts
-.venv
-venv
-__pycache__
-*.pyc
-.pytest_cache
-.ruff_cache
-*.egg-info
-build
-dist
-
-# Local runtime data and databases
-data
-*.db
-*.sqlite
-*.sqlite3
-dummy_apps/vulnerable_store/scenario_files
-
-# Secrets / local environment
-.env
-.env.*
-*.pem
-*.key
-*.p12
-*.pfx
-
-# User / OS files
-.DS_Store
-Thumbs.db
-
-# Generated artifacts
-generated_patches
-experiment-results
+# Prevent local model artifacts entering Docker build contexts.
+/models/

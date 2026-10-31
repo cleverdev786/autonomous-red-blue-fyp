@@ -1,0 +1,12 @@
+{
+  "profile": "standard",
+  "max_http_requests": 24,
+  "max_crawl_requests": 12,
+  "max_tests": 3,
+  "max_runtime_seconds": 180,
+  "max_parallel_operations": 1,
+  "max_depth": 2,
+  "max_retries": 0,
+  "max_cpu_cores": 0.5,
+  "max_memory_mb": 512
+}

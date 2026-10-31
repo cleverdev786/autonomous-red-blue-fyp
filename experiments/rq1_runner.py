@@ -8,18 +8,21 @@ from pathlib import Path
 from agents.blue import CodeAnalysisAgent, MonitoringAgent, PatchGenerationAgent, TriageAgent
 from agents.blue.single_agent import SingleGeneralBlueAgent
 from llm.interface import StructuredGenerationProvider
+from llm.research_provider import ResearchRecordingProvider
 from orchestrator.blue_team_flow import BlueTeamFlow
 from orchestrator.limits import RunLimitTracker
 from orchestrator.patch_branch_flow import PatchBranchFlow
 from orchestrator.patch_generation_flow import PatchGenerationFlow
 from orchestrator.policy_engine import PolicyEngine
+from orchestrator.remediation_outcome_flow import RemediationOutcomeFlow
 from schemas.blue_team import BlueTeamAnalysisResult, MonitoringResult
-from schemas.common import ResearchQuestion
+from schemas.common import AgentRole, ResearchQuestion, RunStatus, RunType
 from schemas.experiments import BlueTeamMode, ClassificationMode, ExperimentConfiguration
 from schemas.git import PatchBranchResult
 from schemas.logging import LogReadResult
 from schemas.patches import PatchGenerationResult, PatchProposal
 from schemas.red_team import RedTeamRunResult
+from schemas.remediation import RemediationAttemptResult, RemediationDisposition
 from schemas.verification import PatchVerificationResult
 from services.audit_service import AuditService
 from services.target_registry import TargetRegistry
@@ -43,6 +46,46 @@ class RQ1ExecutionResult:
     patch_generation: PatchGenerationResult
     patch_branch: PatchBranchResult
     verification: PatchVerificationResult
+
+
+@dataclass(frozen=True, slots=True)
+class RQ1RemediationExecutionResult:
+    """Versioned RQ1 result supporting a genuine, audited no-patch outcome.
+
+    The existing RQ1ExecutionResult remains unchanged for legacy runs.
+    """
+
+    run_id: str
+    blue_team_mode: BlueTeamMode
+    monitoring: MonitoringResult
+    analysis: BlueTeamAnalysisResult
+    remediation: RemediationAttemptResult | None = None
+    patch_generation: PatchGenerationResult | None = None
+    patch_branch: PatchBranchResult | None = None
+    verification: PatchVerificationResult | None = None
+
+    def __post_init__(self) -> None:
+        if self.monitoring.run_id != self.run_id or self.analysis.run_id != self.run_id:
+            raise RQ1RunnerError("RQ1 remediation run identity mismatch")
+        if self.remediation is None:
+            if not all((self.patch_generation, self.patch_branch, self.verification)):
+                raise RQ1RunnerError("legacy RQ1 result requires the complete patch pipeline")
+        elif self.remediation.run_id != self.run_id:
+            raise RQ1RunnerError("RQ1 remediation artifact run identity mismatch")
+        elif self.remediation.disposition == RemediationDisposition.PREPARED:
+            if not all((self.patch_generation, self.patch_branch, self.verification)):
+                raise RQ1RunnerError("prepared remediation requires full patch verification")
+        elif any((self.patch_generation, self.patch_branch, self.verification)):
+            raise RQ1RunnerError("no-patch RQ1 result cannot contain fabricated patch evidence")
+
+    @classmethod
+    def from_legacy(cls, result: RQ1ExecutionResult) -> "RQ1RemediationExecutionResult":
+        return cls(
+            run_id=result.run_id, blue_team_mode=result.blue_team_mode,
+            monitoring=result.monitoring, analysis=result.analysis,
+            patch_generation=result.patch_generation,
+            patch_branch=result.patch_branch, verification=result.verification,
+        )
 
 
 def validate_rq1_configuration_pair(
@@ -138,16 +181,34 @@ class RQ1ExperimentRunner:
         red_run: RedTeamRunResult,
         attempt_number: int = 1,
         expected_base_commit: str | None = None,
+        limits: RunLimitTracker | None = None,
     ) -> RQ1ExecutionResult:
         config = self._stored_configuration(run_id)
         self._validate_inputs(run_id=run_id, config=config, logs=logs, red_run=red_run)
+        if limits is None:
+            if config.run_type == RunType.FINAL_EVALUATION:
+                raise RQ1RunnerError(
+                    "final RQ1 requires the shared RunLimitTracker already used by Red execution"
+                )
+            limits = RunLimitTracker(config.limits)
+        elif limits.limits != config.limits:
+            raise RQ1RunnerError("shared RQ1 limit tracker differs from stored configuration")
+        if config.run_type == RunType.FINAL_EVALUATION:
+            self._require_recorded_red_calls(run_id=run_id, attempt_number=red_run.attempt_number)
 
-        limits = RunLimitTracker(config.limits)
+        recording_provider = ResearchRecordingProvider(
+            delegate=self.provider,
+            run_id=run_id,
+            model_configuration=config.model,
+            first_sequence_number=self._next_agent_sequence(run_id),
+            write_repository=self.write_repository,
+            require_verified_binding=(config.run_type == RunType.FINAL_EVALUATION),
+        )
         common_kwargs = {
             "target_registry": self.target_registry,
             "policy_engine": self.policy_engine,
             "limits": limits,
-            "provider": self.provider,
+            "provider": recording_provider,
             "audit_service": self.audit_service,
             "project_root": self.project_root,
         }
@@ -217,6 +278,75 @@ class RQ1ExperimentRunner:
         )
 
 
+
+    def complete_without_patch(
+        self,
+        *,
+        run_id: str,
+        monitoring: MonitoringResult,
+        analysis: BlueTeamAnalysisResult,
+        remediation: RemediationAttemptResult,
+    ) -> RQ1RemediationExecutionResult:
+        """New explicit RQ1 compatibility entry point; does not call a model.
+
+        The caller must have recorded monitoring and Blue analysis via the
+        normal path. This does not replace the legacy RQ1ExperimentRunner.run.
+        """
+        from sqlalchemy import select
+        from schemas.experiment_results import ArtifactType
+        from storage.models import ResultArtifactRow
+        from storage.repositories import canonical_model_json, canonical_sha256
+
+        config = self._stored_configuration(run_id)
+        if config.research_question != ResearchQuestion.RQ1:
+            raise RQ1RunnerError("no-patch RQ1 termination requires RQ1 configuration")
+        if config.run_type == RunType.FINAL_EVALUATION:
+            raise RQ1RunnerError("final RQ1 no-patch path requires separately frozen Red-evidence integration")
+        if monitoring.run_id != run_id or analysis.run_id != run_id:
+            raise RQ1RunnerError("RQ1 monitoring/analysis identity mismatch")
+        with self.read_repository.session() as session:
+            monitoring_hash = canonical_sha256(canonical_model_json(monitoring))
+            recorded = session.scalars(select(ResultArtifactRow).where(
+                ResultArtifactRow.run_id == run_id,
+                ResultArtifactRow.artifact_type == ArtifactType.MONITORING_RESULT.value,
+            )).all()
+            if len(recorded) != 1 or recorded[0].payload_sha256 != monitoring_hash:
+                raise RQ1RunnerError("RQ1 monitoring evidence must be recorded first")
+        flow = RemediationOutcomeFlow(
+            policy_engine=self.policy_engine,
+            audit_service=self.audit_service,
+            write_repository=self.write_repository,
+        )
+        flow.finish_without_patch(analysis=analysis, result=remediation)
+        return RQ1RemediationExecutionResult(
+            run_id=run_id, blue_team_mode=config.blue_team_mode,
+            monitoring=monitoring, analysis=analysis, remediation=remediation,
+        )
+
+    def _require_recorded_red_calls(self, *, run_id: str, attempt_number: int) -> None:
+        from sqlalchemy import select
+        from storage.models import AgentCallRow
+
+        expected = {
+            AgentRole.RED_RECONNAISSANCE.value,
+            AgentRole.RED_ATTACK_PLANNER.value,
+            AgentRole.RED_ATTACK_VERIFIER.value,
+        }
+        with self.read_repository.session() as session:
+            rows = tuple(
+                session.scalars(
+                    select(AgentCallRow).where(
+                        AgentCallRow.run_id == run_id,
+                        AgentCallRow.red_attempt_number == attempt_number,
+                    )
+                )
+            )
+        roles = [row.agent_role for row in rows]
+        if len(rows) != 3 or set(roles) != expected:
+            raise RQ1RunnerError("final RQ1 requires exactly recorded Red model-call evidence")
+        if any(row.result_status != RunStatus.COMPLETED.value for row in rows):
+            raise RQ1RunnerError("final RQ1 Red model-call evidence must be completed")
+
     @staticmethod
     def _apply_monitoring_selection(
         logs: LogReadResult,
@@ -243,6 +373,16 @@ class RQ1ExperimentRunner:
             if config_row is None:
                 raise RQ1RunnerError("stored experiment configuration does not exist")
             return ExperimentConfiguration.model_validate_json(config_row.configuration_json)
+
+    def _next_agent_sequence(self, run_id: str) -> int:
+        from sqlalchemy import func, select
+        from storage.models import AgentCallRow
+
+        with self.read_repository.session() as session:
+            maximum = session.scalar(
+                select(func.max(AgentCallRow.sequence_number)).where(AgentCallRow.run_id == run_id)
+            )
+        return int(maximum or 0) + 1
 
     @staticmethod
     def _validate_inputs(

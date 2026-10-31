@@ -97,6 +97,19 @@ def test_app_uses_only_named_runtime_volume() -> None:
     assert volume["target"] == "/runtime"
 
 
+def test_isolated_compose_has_no_host_publishing() -> None:
+    isolated = yaml.safe_load((ROOT / "compose.isolated.yaml").read_text(encoding="utf-8"))
+    services = isolated["services"]
+    assert set(services) == {"vulnerable-store", "controlled-executor"}
+    assert all("ports" not in service for service in services.values())
+    assert services["vulnerable-store"]["expose"] == ["8000"]
+    assert all(set(service["networks"]) == {"security-lab"} for service in services.values())
+    network = isolated["networks"]["security-lab"]
+    assert network["driver"] == "bridge"
+    assert network["internal"] is True
+    assert network["attachable"] is False
+
+
 def test_dockerfile_runs_as_non_root_user() -> None:
     dockerfile = DOCKERFILE_PATH.read_text(encoding="utf-8")
 

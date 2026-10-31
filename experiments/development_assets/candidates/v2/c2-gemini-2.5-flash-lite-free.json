@@ -1,0 +1,38 @@
+{
+  "api_model_id": "gemini-2.5-flash-lite",
+  "api_route": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+  "artifact_file": null,
+  "artifact_size_label": null,
+  "automatic_retries": 0,
+  "backend": "https-json",
+  "bind_host": null,
+  "descriptor_version": "v2",
+  "feasibility_only": true,
+  "free_tier_reverify_before_run": true,
+  "gpu_offload_layers": null,
+  "grounding_enabled": false,
+  "parallel_slots": 1,
+  "revision": null,
+  "runtime_commit": null,
+  "runtime_kind": "cloud_http",
+  "runtime_source_uri": null,
+  "runtime_version": "Gemini Developer API v1beta generateContent",
+  "source_uri": "https://ai.google.dev/gemini-api/docs/models",
+  "spec": {
+    "artifact_sha256": null,
+    "candidate_id": "c2-gemini-2.5-flash-lite-free",
+    "category": "zero_cost_cloud",
+    "model_identity": "gemini-2.5-flash-lite",
+    "provider_identity": "google-gemini-developer-api",
+    "runtime_identity": "gemini-developer-api-v1beta-stateless-http"
+  },
+  "tools_enabled": false,
+  "unresolved_settings": [
+    "context_window",
+    "max_output_tokens",
+    "temperature",
+    "seed",
+    "final_runtime_seconds"
+  ],
+  "zero_cost_required": true
+}

@@ -1,0 +1,34 @@
+{
+  "truth": {
+    "expected_classification": "path_traversal",
+    "expected_function_or_route": "download_export",
+    "expected_patch_decision": "accepted",
+    "expected_pre_patch_attack_confirmed": true,
+    "expected_registered_test_id": "dev-path-export-parent-001",
+    "expected_source_file": "synthetic_lab/app/export_files.py",
+    "expected_vulnerability_class": "path_traversal",
+    "fixture_id": "dev-path-export-download-01",
+    "fixture_version": "v1"
+  },
+  "verification": {
+    "allowed_import_roots": [
+      "pathlib"
+    ],
+    "expected_parameters": [
+      "filename"
+    ],
+    "path_root_name": "EXPORT_ROOT",
+    "profile": "path_contained",
+    "required_check_ids": [
+      "patch-policy",
+      "syntax-startup",
+      "normal-functional",
+      "registered-security-test",
+      "original-replay",
+      "regression"
+    ],
+    "sql_placeholder": null,
+    "tainted_parameter": "filename",
+    "target_function": "download_export"
+  }
+}

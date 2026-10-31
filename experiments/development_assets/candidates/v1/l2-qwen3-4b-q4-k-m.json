@@ -1,0 +1,38 @@
+{
+  "api_model_id": null,
+  "api_route": null,
+  "artifact_file": "Qwen3-4B-Q4_K_M.gguf",
+  "artifact_size_label": "2.50 GB publisher-reported",
+  "automatic_retries": 0,
+  "backend": "cpu-x86_64",
+  "bind_host": "127.0.0.1",
+  "descriptor_version": "v1",
+  "feasibility_only": true,
+  "free_tier_reverify_before_run": false,
+  "gpu_offload_layers": 0,
+  "grounding_enabled": false,
+  "parallel_slots": 1,
+  "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+  "runtime_commit": "b29c606",
+  "runtime_kind": "local_llama_cpp",
+  "runtime_source_uri": "https://github.com/ggml-org/llama.cpp",
+  "runtime_version": "v0.4.1",
+  "source_uri": "https://huggingface.co/Qwen/Qwen3-4B-GGUF",
+  "spec": {
+    "artifact_sha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "candidate_id": "l2-qwen3-4b-q4-k-m",
+    "category": "smaller_local",
+    "model_identity": "Qwen/Qwen3-4B-GGUF@bc640142c66e1fdd12af0bd68f40445458f3869b:Qwen3-4B-Q4_K_M.gguf",
+    "provider_identity": "local-llama-cpp",
+    "runtime_identity": "llama.cpp-v0.4.1-b29c606-cpu-x86_64"
+  },
+  "tools_enabled": false,
+  "unresolved_settings": [
+    "context_window",
+    "max_output_tokens",
+    "temperature",
+    "seed",
+    "final_runtime_seconds"
+  ],
+  "zero_cost_required": false
+}

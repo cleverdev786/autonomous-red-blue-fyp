@@ -229,16 +229,20 @@ def test_reconnaissance_and_planning_views_are_separate_and_narrow(
     for option in catalog_dump["options"]:
         assert set(option) == {
             "test_id",
+            "target_id",
             "vulnerability_class",
             "endpoint_id",
+            "path",
+            "method",
             "allowed_parameter_names",
+            "request_template_id",
+            "oracle_id",
+            "resource_cost",
             "safe_description",
         }
 
     serialized_catalog = catalog.model_dump_json()
     for forbidden in (
-        "request_template_id",
-        "success_evidence_rule_id",
         "hostname",
         "port",
         "source_root",

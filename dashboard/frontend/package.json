@@ -1,21 +1,45 @@
 {
-  "name": "fyp-red-blue-dashboard",
+  "name": "mars-security-dashboard",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "test:evidence": "node check-development-evidence.cjs",
+    "test:routes": "node check-routes.cjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:ui": "node check-ui.cjs",
+    "test:overview": "node check-overview.cjs",
+    "test:bento": "node check-bento.cjs",
+    "test:reports": "node check-reports.cjs",
+    "test:api": "node check-api.cjs",
+    "test:red-dashboard": "node check-red-dashboard.cjs",
+    "test:red-assessment": "node check-red-assessment.cjs",
+    "test:red-workspace": "node check-red-workspace.cjs",
+    "test:keyboard": "node check-keyboard.cjs",
+    "test:sidebar": "node check-sidebar.cjs",
+    "test:theme": "node check-theme.cjs",
+    "test:login": "node check-login.cjs",
+    "test:foundation": "node check-ui-foundation.cjs",
+    "test": "npm run test:routes && npm run test:login && npm run test:keyboard && npm run test:sidebar && npm run test:theme && npm run test:foundation && npm run test:ui && npm run test:overview && npm run test:bento && npm run test:reports && npm run test:api && npm run test:red-dashboard && npm run test:red-assessment && npm run test:red-workspace && npm run test:evidence"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.5.1",
+    "lucide-react": "^1.65.0",
+    "radix-ui": "^1.8.1",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.6",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",
     "@vitejs/plugin-react": "4.3.4",
+    "axe-core": "^4.14.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "5.7.2",
     "vite": "6.0.5"
   }

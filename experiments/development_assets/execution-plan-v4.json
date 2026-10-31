@@ -1,0 +1,70 @@
+{
+  "candidate_ids": [
+    "l3-qwen2.5-coder-7b-instruct-q4-k-m",
+    "l4-gemma3-12b-it-q4-k-m",
+    "c4-gemini-3.1-flash-lite-free"
+  ],
+  "candidate_manifest_id": "m20-feasibility-candidates",
+  "f2_fixture_ids": [
+    "dev-sqli-member-lookup-01",
+    "dev-sqli-invoice-load-02",
+    "dev-xss-badge-preview-01",
+    "dev-xss-note-render-02",
+    "dev-path-export-download-01",
+    "dev-path-asset-open-02",
+    "dev-benign-product-lookup-01",
+    "dev-benign-safe-document-02"
+  ],
+  "f2_logical_call_slots": 30,
+  "f2_patch_fixture_ids": [
+    "dev-sqli-member-lookup-01",
+    "dev-sqli-invoice-load-02",
+    "dev-xss-badge-preview-01",
+    "dev-xss-note-render-02",
+    "dev-path-export-download-01",
+    "dev-path-asset-open-02"
+  ],
+  "f3_fixture_ids": [
+    "dev-sqli-member-lookup-01",
+    "dev-xss-badge-preview-01",
+    "dev-path-export-download-01",
+    "dev-benign-product-lookup-01"
+  ],
+  "f3_logical_call_slots": 45,
+  "f3_patch_fixture_ids": [
+    "dev-sqli-member-lookup-01",
+    "dev-xss-badge-preview-01",
+    "dev-path-export-download-01"
+  ],
+  "final_evaluation_forbidden": true,
+  "final_setting_derivation_deferred": true,
+  "fixture_set_id": "m20-feasibility-fixtures",
+  "fixture_set_version": "v1",
+  "generation_settings": {
+    "automatic_retries": 0,
+    "context_window": 8192,
+    "grounding_enabled": false,
+    "max_output_tokens": 4096,
+    "request_timeout_seconds": 600,
+    "seed": null,
+    "streaming": false,
+    "temperature": 0.7,
+    "tools_enabled": false,
+    "top_k": 20,
+    "top_p": 0.8
+  },
+  "generation_settings_sha256": "57953bfcfd8ea9e60276bfc1047a4b16e2011ee967745efe47ed2f30d42981f1",
+  "logical_call_slots_per_candidate": 75,
+  "plan_id": "m20-feasibility-gate-v4",
+  "prompt_manifest_id": "m20-feasibility-prompts-v1",
+  "prompt_set_id": "m20-feasibility-prompts",
+  "prompt_set_version": "v1",
+  "provider_selection_deferred": true,
+  "run_type": "development",
+  "stages": [
+    "f1_integration",
+    "f2_semantic",
+    "f3_stability",
+    "f4_resource"
+  ]
+}

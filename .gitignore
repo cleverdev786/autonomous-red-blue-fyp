@@ -51,3 +51,6 @@ experiment-results/
 
 # Dummy-app generated scenario runtime files
 dummy_apps/vulnerable_store/scenario_files/
+
+# Local inference weights and metadata (all extensions).
+/models/

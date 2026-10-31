@@ -3,12 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from hashlib import sha256
+import json
 
 from orchestrator.limits import RunLimitTracker
 from schemas.common import (
     HttpMethod,
+    VulnerabilityClass,
     PolicyReasonCode,
     WorkflowState,
+)
+from schemas.red_team import (
+    RedPolicyOperation,
+    RedPolicyUsage,
+    RedScopeReference,
+    RedStandardAuthorization,
+    RedStandardBudget,
 )
 from schemas.verification import PolicyDecision
 from services.target_registry import (
@@ -488,6 +498,71 @@ class PolicyEngine:
             f"Transition {current.value!r} -> {requested.value!r} is permitted."
         )
 
+    def validate_no_patch_termination(
+        self,
+        *,
+        analysis: "BlueTeamAnalysisResult",
+        result: "RemediationAttemptResult",
+    ) -> PolicyDecision:
+        """Separate, tightly scoped non-patch gate; does not alter normal transitions."""
+        from schemas.common import ClassificationLabel
+        from schemas.remediation import RemediationDisposition, NoActionReason
+
+        def invalid(message: str) -> PolicyDecision:
+            return self._deny(PolicyReasonCode.INVALID_STATE, message)
+
+        if result.run_id != analysis.run_id or result.target_id != analysis.target_id:
+            return invalid("run/target identity mismatch")
+        if not self.validate_target(analysis.target_id).allowed:
+            return self._deny(PolicyReasonCode.UNKNOWN_TARGET, "unregistered target")
+        if analysis.triage.run_id != analysis.run_id:
+            return invalid("triage run identity mismatch")
+        if analysis.code_finding is not None and analysis.code_finding.run_id != analysis.run_id:
+            return invalid("code finding run identity mismatch")
+        if result.disposition == RemediationDisposition.PREPARED:
+            return invalid("prepared patches must use ordinary verification")
+        benign = (
+            analysis.triage.classification == ClassificationLabel.BENIGN
+            and analysis.final_state == WorkflowState.TRIAGE
+            and analysis.code_finding is None
+        )
+        actionable = (
+            analysis.triage.classification in {
+                ClassificationLabel.SQL_INJECTION,
+                ClassificationLabel.XSS,
+                ClassificationLabel.PATH_TRAVERSAL,
+            }
+            and analysis.final_state == WorkflowState.CODE_ANALYSIS
+            and analysis.code_finding is not None
+            and bool(analysis.code_finding.supporting_lines)
+        )
+        if result.disposition == RemediationDisposition.NO_ACTION:
+            if benign:
+                if result.decision is not None and result.decision.no_action_reason != NoActionReason.BENIGN:
+                    return invalid("benign decision reason mismatch")
+            elif actionable:
+                if result.decision is None or result.decision.no_action_reason != NoActionReason.INSUFFICIENT_EVIDENCE:
+                    return invalid("malicious no-patch requires explicit insufficient-evidence refusal")
+            else:
+                return invalid("no-patch requires supported benign or actionable analysis")
+        elif result.disposition == RemediationDisposition.UNSUPPORTED:
+            if not actionable:
+                return invalid("unsupported requires actionable malicious analysis")
+        elif result.disposition in {
+            RemediationDisposition.COMPILER_REJECTED,
+            RemediationDisposition.INVALID_OUTPUT,
+            RemediationDisposition.PROVIDER_FAILED,
+            RemediationDisposition.POLICY_BLOCKED,
+        }:
+            if not actionable:
+                return invalid("remediation error requires actionable malicious analysis")
+        else:
+            return invalid("unrecognized terminal remediation disposition")
+        if result.decision is not None and result.decision.vulnerability_class is not None:
+            if result.decision.vulnerability_class.value != analysis.triage.classification.value:
+                return invalid("decision vulnerability class disagrees with triage")
+        return self._allow("Bounded remediation termination with no patch is permitted")
+
     def validate_strategy_selection(
         self,
         *,
@@ -580,3 +655,145 @@ class PolicyEngine:
                 "HTTP-request budget would be exceeded.",
             )
         return self._allow("HTTP-request budget is available.")
+
+
+class StandardRedPolicy:
+    """T03 immutable policy preflight against the fixed, registered Docker lab.
+
+    Policy decisions alone never authorize dispatch: later tasks bind real
+    operator approval and atomic budget consumption to each operation.
+    """
+
+    def __init__(self, *, registry: TargetRegistry, budget_file: Path) -> None:
+        self.registry = registry
+        self.budget = RedStandardBudget.model_validate(
+            json.loads(budget_file.read_text(encoding="utf-8"))
+        )
+        self.base = PolicyEngine(registry=registry, project_root=budget_file.parent)
+
+    def freeze(
+        self,
+        *,
+        assessment_id: str,
+        approval_id: str,
+        target_id: str,
+        allowed_methods: set[str] | frozenset[str] | None = None,
+        allowed_classes: set[str] | frozenset[str] | None = None,
+    ) -> RedStandardAuthorization:
+        if target_id != "vulnerable-store":
+            raise ValueError("target not enabled for Red v1")
+        target = self.registry.get_target(target_id)
+        methods = frozenset(allowed_methods if allowed_methods is not None else ("GET", "POST"))
+        classes = frozenset(
+            allowed_classes if allowed_classes is not None
+            else tuple(v.value for v in VulnerabilityClass)
+        )
+        allowed_method_values = {"GET", "POST"}
+        allowed_class_values = {v.value for v in VulnerabilityClass}
+        if not methods or not methods.issubset(allowed_method_values):
+            raise ValueError("method not approved for Standard Red assessment")
+        if not classes or not classes.issubset(allowed_class_values):
+            raise ValueError("class not approved for Standard Red assessment")
+
+        target_fp = sha256(target.model_dump_json().encode("utf-8")).hexdigest()
+        body = {
+            "assessment_id": assessment_id,
+            "approval_id": approval_id,
+            "target_id": target_id,
+            "target_fingerprint": target_fp,
+            "scheme": target.scheme,
+            "hostname": target.hostname,
+            "port": target.port,
+            "budget": self.budget.model_dump(mode="json"),
+            "allowed_methods": sorted(methods),
+            "allowed_classes": sorted(classes),
+        }
+        auth_fp = sha256(
+            json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return RedStandardAuthorization(
+            scope=RedScopeReference(
+                assessment_id=assessment_id, target_id=target_id,
+                target_fingerprint=target_fp,
+                authorization_fingerprint=auth_fp,
+            ),
+            approval_id=approval_id,
+            scheme=target.scheme,
+            hostname=target.hostname,
+            port=target.port,
+            budget=self.budget,
+            allowed_methods=methods,
+            allowed_classes=classes,
+        )
+
+    def check(
+        self,
+        snapshot: RedStandardAuthorization,
+        operation: RedPolicyOperation,
+        usage: RedPolicyUsage,
+    ) -> PolicyDecision:
+        """Fail closed on tampering, unregistered operations and exhausted limits."""
+        deny = self.base._deny
+        try:
+            current = self.freeze(
+                assessment_id=snapshot.scope.assessment_id,
+                approval_id=snapshot.approval_id,
+                target_id=snapshot.scope.target_id,
+                allowed_methods={v.value for v in snapshot.allowed_methods},
+                allowed_classes={v.value for v in snapshot.allowed_classes},
+            )
+        except (ValueError, TypeError, KeyError):
+            return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Invalid approval snapshot.")
+        if current != snapshot or operation.scope != snapshot.scope:
+            return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Approval or target fingerprint mismatch.")
+        target = self.registry.get_target(snapshot.scope.target_id)
+        decision = self.base.validate_network_destination(
+            target_id=target.target_id, scheme=operation.scheme,
+            hostname=operation.hostname, port=operation.port,
+        )
+        if not decision.allowed:
+            return decision
+        if operation.method not in snapshot.allowed_methods:
+            return deny(PolicyReasonCode.METHOD_NOT_ALLOWED, "HTTP method outside approval.")
+        if operation.retry_number > snapshot.budget.max_retries:
+            return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Retries exceed Standard limit.")
+        if operation.depth > snapshot.budget.max_depth:
+            return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Crawl depth exceeds Standard limit.")
+        if usage.elapsed_seconds >= snapshot.budget.max_runtime_seconds:
+            return deny(PolicyReasonCode.TIME_LIMIT_REACHED, "Standard runtime exhausted.")
+        if usage.active_operations >= snapshot.budget.max_parallel_operations:
+            return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Standard concurrency exhausted.")
+        if usage.http_requests + operation.requests > snapshot.budget.max_http_requests:
+            return deny(PolicyReasonCode.REQUEST_LIMIT_REACHED, "Standard request budget exhausted.")
+
+        endpoint = self.base.validate_http_method(
+            target_id=target.target_id, endpoint_id=operation.endpoint_id,
+            method=operation.method,
+        )
+        if not endpoint.allowed:
+            return endpoint
+        if operation.kind == "crawl":
+            if operation.method.value != "GET" or operation.test_id is not None or operation.vulnerability_class is not None:
+                return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Crawl is limited to GET without test payloads.")
+            if usage.crawl_requests + operation.requests > snapshot.budget.max_crawl_requests:
+                return deny(PolicyReasonCode.REQUEST_LIMIT_REACHED, "Standard crawl budget exhausted.")
+        elif operation.kind == "test":
+            if usage.tests_started >= snapshot.budget.max_tests:
+                return deny(PolicyReasonCode.ATTEMPT_LIMIT_REACHED, "Standard test budget exhausted.")
+            if operation.vulnerability_class not in snapshot.allowed_classes:
+                return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Vulnerability class outside approval.")
+            if operation.test_id is None:
+                return deny(PolicyReasonCode.UNKNOWN_TEST, "A registered test is required.")
+            decision = self.base.validate_security_test(
+                target_id=target.target_id, endpoint_id=operation.endpoint_id,
+                test_id=operation.test_id,
+            )
+            if not decision.allowed:
+                return decision
+            registered = self.registry.get_security_test(operation.test_id)
+            if (registered.method != operation.method
+                    or registered.vulnerability_class != operation.vulnerability_class):
+                return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Test metadata differs from registered policy.")
+        else:
+            return deny(PolicyReasonCode.PROHIBITED_OPERATION, "Unknown Standard operation.")
+        return self.base._allow("Operation is within frozen Standard assessment bounds.")
