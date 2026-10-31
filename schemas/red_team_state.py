@@ -538,6 +538,7 @@ class RedAssessmentListItemDTO(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     assessment_id: Identifier
+    assessment_number: int = Field(ge=1)
     target_id: Identifier
     mode: Literal["manual", "autonomous"]
     profile: Literal["standard"]

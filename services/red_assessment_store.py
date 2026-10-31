@@ -51,6 +51,10 @@ class RedAssessmentStore:
                     assessment_json TEXT NOT NULL,
                     authorization_json TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS red_history_deletions (
+                    assessment_id TEXT PRIMARY KEY REFERENCES red_assessments(assessment_id),
+                    deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
                 CREATE TABLE IF NOT EXISTS red_candidates (
                     assessment_id TEXT NOT NULL,
                     candidate_id TEXT NOT NULL,
@@ -406,8 +410,10 @@ class RedAssessmentStore:
         status: str | None = None,
         offset: int = 0,
         limit: int | None = 50,
+        include_deleted: bool = True,
+        oldest_first: bool = False,
     ) -> tuple[tuple[RedAssessmentDetailDTO, ...], int]:
-        """Return validated assessment snapshots in newest-first creation order."""
+        """Return validated snapshots in creation order, newest first by default."""
         clauses = []
         parameters: list[object] = []
         if target_id is not None:
@@ -416,8 +422,13 @@ class RedAssessmentStore:
         if status is not None:
             clauses.append("json_extract(assessment_json, '$.status')=?")
             parameters.append(status)
-        where = " WHERE " + " AND ".join(clauses) if clauses else ""
         with self._connect() as db:
+            # Older databases stay readable without creating a table during a GET.
+            if not include_deleted and db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='red_history_deletions'"
+            ).fetchone():
+                clauses.append("assessment_id NOT IN (SELECT assessment_id FROM red_history_deletions)")
+            where = " WHERE " + " AND ".join(clauses) if clauses else ""
             total = db.execute(
                 "SELECT COUNT(*) FROM red_assessments" + where,
                 parameters,
@@ -425,7 +436,7 @@ class RedAssessmentStore:
             query = (
                 "SELECT assessment_id FROM red_assessments"
                 + where
-                + " ORDER BY rowid DESC"
+                + (" ORDER BY rowid ASC" if oldest_first else " ORDER BY rowid DESC")
             )
             page_parameters = [*parameters]
             if limit is not None:
@@ -436,3 +447,42 @@ class RedAssessmentStore:
                 page_parameters.append(offset)
             rows = db.execute(query, page_parameters).fetchall()
         return tuple(self.load(row["assessment_id"])[0] for row in rows), total
+
+    def delete_history(self, assessment_ids: list[str]) -> tuple[str, ...]:
+        """Atomically remove terminal records from history; preserve auditable state/evidence."""
+        if self.read_only or not 1 <= len(assessment_ids) <= 50:
+            raise ValueError("history deletion requires 1 to 50 records and a writable store")
+        ids = tuple(dict.fromkeys(_ID.validate_python(value) for value in assessment_ids))
+        with self._connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            has_queue = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='red_queue_jobs'"
+            ).fetchone()
+            for assessment_id in ids:
+                assessment, _ = self._load_assessment(db, assessment_id)
+                if assessment.status not in {"completed", "completed_with_limitations", "failed", "cancelled", "blocked"}:
+                    raise StoreConflict("assessment is not terminal")
+                active_stage = db.execute(
+                    "SELECT 1 FROM red_stages WHERE assessment_id=? "
+                    "AND json_extract(payload, '$.status') IN ('queued','running') LIMIT 1",
+                    (assessment_id,),
+                ).fetchone()
+                active_job = has_queue and db.execute(
+                    "SELECT 1 FROM red_queue_jobs WHERE assessment_id=? "
+                    "AND status IN ('queued','running') LIMIT 1", (assessment_id,),
+                ).fetchone()
+                if active_stage or active_job:
+                    raise StoreConflict("assessment has active work")
+            db.executemany(
+                "INSERT OR IGNORE INTO red_history_deletions(assessment_id) VALUES (?)",
+                ((assessment_id,) for assessment_id in ids),
+            )
+        return ids
+
+    def assessment_number(self, assessment_id: str) -> int:
+        # Assessment rows are retained after history deletion, so creation numbers do not shift.
+        with self._connect() as db:
+            row = db.execute("SELECT rowid FROM red_assessments WHERE assessment_id=?", (assessment_id,)).fetchone()
+        if row is None:
+            raise StoreConflict("unknown assessment")
+        return row[0]

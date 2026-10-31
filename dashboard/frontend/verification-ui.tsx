@@ -19,7 +19,7 @@ const target: RedTarget = { target_id:"fixture-target-with-a-long-registered-nam
   supported_classes:["sql_injection","xss","path_traversal"],limitations:["unauthenticated_only"],
   standard_budget:{profile:"standard",max_http_requests:24,max_crawl_requests:12,max_tests:3,max_runtime_seconds:180,
     max_parallel_operations:1,max_depth:2,max_retries:0,max_cpu_cores:.5,max_memory_mb:512} };
-const assessment = {assessment_id:"fixture-assessment",target_id:target.target_id,mode:"manual" as const,
+const assessment = {assessment_id:"fixture-assessment",assessment_number:1,target_id:target.target_id,mode:"manual" as const,
   profile:"standard" as const,status:"queued" as const,workflow_complete:false,
   coverage:{eligible:3,executed:1,completed:1,blocked:1,skipped:1,observed_candidate_gaps:1,unresolved_observations:1,coverage_complete:false},
   current_plan_version:"plan-1",current_surface_revision:"surface-1",
@@ -50,16 +50,21 @@ function QA(){
   const [mode,setMode]=useState<"manual"|"autonomous">("manual");
   const [selected,setSelected]=useState("");
   const [result,setResult]=useState("Not run");
+  const [deletedHistory,setDeletedHistory]=useState<string[]>([]);
+  const historyRows=[assessment,
+    {...assessment,assessment_id:"fixture-completed",assessment_number:2,status:"completed" as const,stage_statuses:{}},
+    {...assessment,assessment_id:"fixture-cancelled",assessment_number:3,status:"cancelled" as const,stage_statuses:{}}]
+    .filter(item=>!deletedHistory.includes(item.assessment_id));
   useEffect(()=>{ document.documentElement.dataset.theme=theme; },[theme]);
   useEffect(()=>{
     const audited = new WeakSet<Element>();
     const observer = new MutationObserver(async()=>{
       const overlay=document.querySelector('[role="dialog"],[role="listbox"]');
-      if (!overlay || (overlay.getAttribute("role")==="dialog" && !overlay.querySelector(".evidence-content")) || audited.has(overlay)) return;
+      if (!overlay || (overlay.getAttribute("role")==="dialog" && !overlay.querySelector(".evidence-content") && !overlay.classList.contains("history-delete-dialog")) || audited.has(overlay)) return;
       audited.add(overlay);
       await Promise.allSettled(overlay.getAnimations({subtree:true}).filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished));
       const audit=await axe.run(overlay,{runOnly:{type:"tag",values:["wcag2a","wcag2aa","wcag21a","wcag21aa"]}});
-      setResult(JSON.stringify({surface:overlay.getAttribute("role")==="dialog"?"evidence-dialog":"dropdown",theme:document.documentElement.dataset.theme??"light",viewport:innerWidth,
+      setResult(JSON.stringify({surface:overlay.classList.contains("history-delete-dialog")?"history-delete-dialog":overlay.getAttribute("role")==="dialog"?"evidence-dialog":"dropdown",theme:document.documentElement.dataset.theme??"light",viewport:innerWidth,
         violations:audit.violations.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)})),
         incomplete:audit.incomplete.map(v=>({id:v.id,nodes:v.nodes.length,details:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),passes:audit.passes.length},null,2));
     });
@@ -72,7 +77,7 @@ function QA(){
     <p>No live assessments or backend writes. Evidence data is synthetic.</p>
     <div className="qa-controls">
       <label>Surface <select value={surface} onChange={e=>setSurface(e.target.value)}>
-        {["workspace","autonomous","setup","empty","error","loading","dashboard","overview","login"].map(item=><option key={item}>{item}</option>)}
+        {["workspace","autonomous","setup","empty","error","loading","dashboard","history-delete","history-delete-error","overview","login"].map(item=><option key={item}>{item}</option>)}
       </select></label>
       <label>Theme <select value={theme} onChange={e=>{setTheme(e.target.value);document.documentElement.dataset.theme=e.target.value;}}>
         <option>light</option><option>dark</option>
@@ -91,8 +96,12 @@ function QA(){
         surface==="setup"?<NewAssessmentView targets={[target]} targetId={selected} mode={mode} phase={phase as "setup"|"review"} busy={false} error={null} assessmentId={null}
           onTargetChange={setSelected} onModeChange={setMode} onReview={()=>setPhase("review")} onCreate={noop} onAuthorize={noop} onStart={noop} onCancel={noop} onEdit={()=>setPhase("setup")} onReset={noop}/>:
         surface==="overview"?<RedOverviewView state={{kind:"error",denied:true}} onRetry={noop}/>:
-        ["empty","error","loading","dashboard"].includes(surface)?<RedDashboardView targets={[target]} targetId="" status="" state={surface==="loading"?{kind:"loading"}:surface==="error"?{kind:"error",message:"Fixture service unavailable."}:{kind:"ready",summary,assessments:surface==="empty"?[]:[assessment],total:surface==="empty"?0:1,offset:0,limit:25}}
-          onTargetChange={noop} onStatusChange={noop} onRefresh={noop} onPageChange={noop} onInspect={noop}/>:
+        ["empty","error","loading","dashboard","history-delete","history-delete-error"].includes(surface)?<RedDashboardView targets={[target]} targetId="" status="" state={surface==="loading"?{kind:"loading"}:surface==="error"?{kind:"error",message:"Fixture service unavailable."}:{kind:"ready",summary,assessments:surface.startsWith("history-delete")?historyRows:surface==="empty"?[]:[assessment],total:surface.startsWith("history-delete")?historyRows.length:surface==="empty"?0:1,offset:0,limit:25}}
+          onTargetChange={noop} onStatusChange={noop} onRefresh={noop} onPageChange={noop} onInspect={noop}
+          onDelete={surface.startsWith("history-delete")?async ids=>{
+            if(surface==="history-delete-error") throw new Error("Synthetic deletion failure");
+            setDeletedHistory(current=>[...current,...ids]);
+          }:undefined}/>:
         <AssessmentWorkspaceView data={surface==="autonomous"?{...bundle,workspace:{...bundle.workspace,assessment:{...assessment,mode:"autonomous",status:"running"}}}:bundle}
           token="" busy={null} commandError={null} onClose={noop} onRefresh={noop} onRunStage={noop} onCancel={noop}/>}
     </section>

@@ -13,6 +13,7 @@ from orchestrator.policy_engine import StandardRedPolicy
 from schemas.red_team import RedEndpointCandidate
 from schemas.red_team_state import (
     AssessmentDTO,
+    AssessmentState,
     CoverageDTO,
     CoverageGapDTO,
     FindingDTO,
@@ -196,6 +197,99 @@ def _get(app, path: str):
     return asyncio.run(request())
 
 
+def _delete_history(app, ids, *, csrf=True, authenticated=True, origin=ORIGIN):
+    async def request():
+        session = next(item.kwargs["sessions"] for item in app.user_middleware
+                       if item.cls is RequireLocalSession)
+        headers = {"Origin": origin}
+        if authenticated:
+            headers["Cookie"] = f"mars_session={session.create()}"
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=ORIGIN) as client:
+            if csrf:
+                challenge = await client.get("/api/red/operator/csrf", headers=headers)
+                headers["X-Red-CSRF"] = challenge.json().get("csrf_token", "")
+            return await client.post("/api/red/assessments/delete-history", headers=headers,
+                                     json={"assessment_ids": ids})
+    return asyncio.run(request())
+
+
+def test_history_delete_is_idempotent_and_retains_workspace(site):
+    app, state_db, _, _ = site
+    before = RedAssessmentStore(state_db).load("as-cancelled")
+    numbers = {row["assessment_id"]: row["assessment_number"] for row in _get(app, "/api/red/assessments").json()["items"]}
+    for _ in range(2):
+        result = _delete_history(app, ["as-cancelled"])
+        assert result.status_code == 200
+        assert result.json() == {"assessment_ids": ["as-cancelled"]}
+    assert _get(app, "/api/red/assessments").json()["pagination"]["total"] == 1
+    remaining = _get(app, "/api/red/assessments").json()["items"][0]
+    assert remaining["assessment_number"] == numbers[remaining["assessment_id"]]
+    assert _get(app, "/api/red/summary").json()["assessment_count"] == 1
+    assert _get(app, "/api/red/assessments/as-cancelled").status_code == 200
+    assert RedAssessmentStore(state_db).load("as-cancelled") == before
+
+
+def test_bulk_history_delete_rejects_active_or_missing_records_atomically(site):
+    app, _, _, _ = site
+    for ids in (["as-cancelled", "as-active"], ["as-cancelled", "missing"]):
+        assert _delete_history(app, ids).status_code == 409
+        assert _get(app, "/api/red/assessments").json()["pagination"]["total"] == 2
+
+
+def test_bulk_history_delete_keeps_evidence_and_audit_links(site):
+    app, state_db, _, _ = site
+    store = RedAssessmentStore(state_db)
+    snapshot, _ = store.load("as-active")
+    terminal = snapshot.assessment.model_copy(update={"status": AssessmentState.CANCELLED, "workflow_complete": True})
+    with store._connect() as db:
+        db.execute("UPDATE red_assessments SET assessment_json=? WHERE assessment_id=?",
+                   (terminal.model_dump_json(), "as-active"))
+    evidence_path = Path(str(state_db) + ".evidence")
+    evidence_before = {path.relative_to(evidence_path): path.read_bytes() for path in evidence_path.rglob("*") if path.is_file()}
+    result = _delete_history(app, ["as-active", "as-cancelled"])
+    assert result.status_code == 200
+    assert _get(app, "/api/red/assessments").json()["pagination"]["total"] == 0
+    assert _get(app, "/api/red/summary").json()["assessment_count"] == 0
+    assert _get(app, "/api/red/findings/finding-xss").status_code == 200
+    assert _get(app, "/api/red/assessments/as-active").status_code == 200
+    assert {path.relative_to(evidence_path): path.read_bytes() for path in evidence_path.rglob("*") if path.is_file()} == evidence_before
+
+
+def test_history_delete_rejects_terminal_record_with_running_queue_lease(site):
+    app, state_db, _, _ = site
+    with RedAssessmentStore(state_db)._connect() as db:
+        db.execute("CREATE TABLE red_queue_jobs(assessment_id TEXT, status TEXT, stage TEXT, sequence INTEGER)")
+        db.execute("INSERT INTO red_queue_jobs VALUES ('as-cancelled','running','execution',1)")
+    assert _delete_history(app, ["as-cancelled"]).status_code == 409
+    assert _get(app, "/api/red/assessments").json()["pagination"]["total"] == 2
+
+
+def test_old_database_history_reads_do_not_create_deletion_metadata(site):
+    app, state_db, _, _ = site
+    store = RedAssessmentStore(state_db)
+    with store._connect() as db:
+        db.execute("DROP TABLE red_history_deletions")
+    before = state_db.read_bytes()
+    assert _get(app, "/api/red/assessments").json()["pagination"]["total"] == 2
+    assert state_db.read_bytes() == before
+
+
+@pytest.mark.parametrize("options,code", [
+    ({"authenticated": False, "csrf": False}, 401),
+    ({"csrf": False}, 403),
+    ({"origin": "https://untrusted.example", "csrf": False}, 403),
+])
+def test_history_delete_preserves_auth_and_csrf(site, options, code):
+    app, _, _, _ = site
+    assert _delete_history(app, ["as-cancelled"], **options).status_code == code
+
+
+@pytest.mark.parametrize("ids", [[], ["bad/id"], ["as-cancelled"] * 51])
+def test_history_delete_validates_bounded_selection(site, ids):
+    app, _, _, _ = site
+    assert _delete_history(app, ids).status_code == 422
+
+
 def test_targets_and_assessment_index_are_typed_filtered_and_paginated(site):
     app, state_db, active, _ = site
     before = state_db.read_bytes()
@@ -232,6 +326,7 @@ def test_targets_and_assessment_index_are_typed_filtered_and_paginated(site):
     assert assessments.json() == {
         "items": [{
             "assessment_id": "as-active",
+            "assessment_number": 1,
             "target_id": "vulnerable-store",
             "mode": "autonomous",
             "profile": "standard",
@@ -245,7 +340,7 @@ def test_targets_and_assessment_index_are_typed_filtered_and_paginated(site):
         "pagination": {"offset": 0, "limit": 1, "total": 1},
     }
     assert assessments.json()["items"][0]["assessment_id"] == active.assessment_id
-    assert second_page.json()["items"][0]["assessment_id"] == "as-active"
+    assert second_page.json()["items"][0]["assessment_id"] == "as-cancelled"
     assert second_page.json()["pagination"] == {"offset": 1, "limit": 1, "total": 2}
     assert targets.headers["cache-control"] == "no-store"
     assert assessments.headers["cache-control"] == "no-store"
@@ -590,3 +685,18 @@ def test_missing_state_database_is_not_created_by_reads(tmp_path, monkeypatch):
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "storage_unavailable"
     assert not missing.exists()
+
+
+def test_history_search_sort_and_page_clamp(site):
+    app, *_ = site
+    tied = _get(app, "/api/red/assessments?sort_by=target&direction=desc").json()
+    assert [item["assessment_id"] for item in tied["items"]] == ["as-active", "as-cancelled"]
+    first = _get(app, "/api/red/assessments?limit=1").json()
+    assert first["items"][0]["assessment_id"] == "as-active"
+    descending = _get(app, "/api/red/assessments?limit=1&sort_by=assessment&direction=desc").json()
+    assert descending["items"][0]["assessment_id"] == "as-cancelled"
+    matched = _get(app, "/api/red/assessments?q=CANCELLED&offset=10&limit=1").json()
+    assert matched["pagination"] == {"offset": 0, "limit": 1, "total": 1}
+    assert matched["items"][0]["assessment_id"] == "as-cancelled"
+    assert _get(app, "/api/red/assessments?q=not-a-match").json()["items"] == []
+    assert _get(app, "/api/red/assessments?sort_by=untrusted").status_code == 422

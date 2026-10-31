@@ -30,10 +30,10 @@ export function LoginScreen({ checking, onSignedIn }: { checking: boolean; onSig
     try { window.localStorage.setItem("mars-theme", theme); } catch { /* Storage is optional. */ }
   }, [theme]);
   return <main className="login-page">
-    <section className="login-card" aria-labelledby="login-title">
       <div className="login-utilities"><button type="button" className="login-icon" aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
         onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
         {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}</button></div>
+    <section className="login-card" aria-labelledby="login-title">
       <div className="login-brand"><MarsMark className="login-mark" />
         <span className="eyebrow">MARS security workspace</span></div>
       <h1 id="login-title">Welcome back</h1>

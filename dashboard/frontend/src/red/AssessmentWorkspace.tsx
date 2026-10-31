@@ -3,9 +3,10 @@ import { ApiRequestError } from "../api";
 import { ActionButton, EmptyState, LoadingState, Notice, notify } from "../ui";
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { assessmentPath } from "../routes";
 import {
-  cancelRedAssessment, loadRedFindingDetail, loadRedFindingPage, loadRedWorkspace, runRedStage, startRedAssessment,
+  assessmentLabel, cancelRedAssessment, loadRedFindingDetail, loadRedFindingPage, loadRedWorkspace, runRedStage, startRedAssessment,
   type RedEvent, type RedFinding, type RedFindingDetail, type RedWorkspaceBundle,
 } from "./api";
 
@@ -107,7 +108,7 @@ export function AssessmentWorkspaceView({ data, busy, commandError, onClose, onR
       <div>
         <span className="eyebrow">Assessment workspace</span>
         <h2 id="red-workspace-title">{assessment.target_id}</h2>
-        <p>{assessment.mode} · Standard assessment</p>
+        <p>{assessmentLabel(assessment)} · {assessment.mode} · Standard assessment</p>
         <details className="technical-reference"><summary>Technical reference</summary><code>{assessment.assessment_id}</code></details></div>
       <div className="red-workspace-actions">
         <span className={`red-status red-status--${assessment.status}`}>{label(assessment.status)}</span>
@@ -156,16 +157,17 @@ function ManualPanels({ data, busy, onRunStage }: { data: RedWorkspaceBundle;
         <div className="red-agent-index">0{index + 1}</div>
         <div className="red-agent-title"><h4>{agentName(stage)}</h4>
           <span className={`red-status red-status--${status}`}>{label(status)}</span></div>
-        <dl><div><dt>Last action</dt><dd>{last ? `${eventLabel(last)} · ${formatTime(last.occurred_at)}` : "No recorded action"}</dd></div>
+        <dl><div><dt>Last action</dt><dd>{last ? eventLabel(last) : "No recorded action"}</dd></div>
           <div><dt>Task count</dt><dd>{stageTaskCount(stage, data)}</dd></div>
           <div><dt>Failure state</dt><dd>{["failed", "blocked"].includes(status) ? label(status) : "None"}</dd></div></dl>
         {reason && <p className="red-disabled-reason" id={`${stage}-reason`}>{reason}</p>}
         <div className="red-agent-actions">
           {(stage === "execution" || stage === "verification") && operations.length > 0 &&
             <label className="operation-picker">Registered operation
-              <select value={operationId} onChange={event => setSelectedOperation(event.target.value)} disabled={busy !== null || anyRunning}>
-                {operations.map((item, i) => <option key={item.operation_id} value={item.operation_id}>Operation {i + 1} · {item.test_id ?? "Registered test"}</option>)}
-              </select></label>}
+              <Select value={operationId} onValueChange={setSelectedOperation} disabled={busy !== null || anyRunning}>
+                <SelectTrigger aria-label={`Registered operation for ${agentName(stage)}`}><SelectValue /></SelectTrigger>
+                <SelectContent>{operations.map((item, i) => <SelectItem key={item.operation_id} value={item.operation_id}>Operation {i + 1} · {item.test_id ?? "Registered test"}</SelectItem>)}</SelectContent>
+              </Select></label>}
           <ActionButton disabled={Boolean(reason) || busy !== null} aria-disabled={Boolean(reason) || busy !== null}
             aria-describedby={reason ? `${stage}-reason` : undefined}
             onClick={() => { if (!reason) onRunStage(stage, stage === "execution" || stage === "verification" ? operationId : undefined); }}>
@@ -253,9 +255,12 @@ function FindingsPanel({ token, findings, coverage, total }: { token: string;
   return <section className="red-findings surface-card" aria-labelledby="red-findings-title">
     <div className="red-section-head"><div><span className="eyebrow">Verification outcomes</span>
       <h3 id="red-findings-title">Findings &amp; coverage</h3></div>
-      <label>Status <select value={filter} onChange={event => { setFilter(event.target.value); setOffset(0); }}>
-        <option value="all">All outcomes</option>{["confirmed", "suspected", "not_confirmed", "inconclusive"].map(item =>
-          <option value={item} key={item}>{label(item)}</option>)}</select></label></div>
+      <div className="filter-field"><span id="finding-status-label">Status</span>
+        <Select value={filter} onValueChange={value => { setFilter(value); setOffset(0); }}>
+          <SelectTrigger aria-labelledby="finding-status-label"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All outcomes</SelectItem>{["confirmed", "suspected", "not_confirmed", "inconclusive"].map(item =>
+            <SelectItem value={item} key={item}>{label(item)}</SelectItem>)}</SelectContent>
+        </Select></div></div>
     {findings.some(item => item.status === "suspected") && <Notice title="Suspected observations">
       Suspected results require independent verification; they are not confirmed findings.
     </Notice>}
@@ -267,7 +272,7 @@ function FindingsPanel({ token, findings, coverage, total }: { token: string;
       <div className="table-wrap" role="region" aria-label="Finding outcomes" tabIndex={0}><table><thead><tr><th scope="col">Outcome</th><th scope="col">Severity</th><th scope="col">Category</th>
         <th scope="col">Route</th><th scope="col">Evidence</th><th scope="col"><span className="sr-only">Inspect</span></th></tr></thead>
         <tbody>{visible.map(item => <tr key={item.finding_id}><td><span className={`red-status red-status--${item.status}`}>{label(item.status)}</span></td>
-          <td>{item.severity ? label(item.severity) : "Unrated"}</td><td>{categoryLabel(item.category)}</td>
+          <td><span className={`red-severity red-severity--${item.severity ?? "unrated"}`}>{item.severity ? label(item.severity) : "Unrated"}</span></td><td>{categoryLabel(item.category)}</td>
           <td><code>{item.route ?? "Registered target"}</code></td><td>{item.has_evidence ? "Stored metadata" : "No stored evidence"}</td>
           <td>{auditId ? <Button variant="outline" asChild>
             <a href={assessmentPath(coverage.assessment_id) + "?finding=" + encodeURIComponent(item.finding_id)}

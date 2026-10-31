@@ -72,7 +72,7 @@ multiple.workspace.planned_operation_count = 3;
 multiple.workspace.operations = [1,2,3].map(i => ({operation_id:`op-${i}`,plan_version:"plan-1",test_id:`test-${i}`,status:"approved"}));
 const multipleHtml = renderToStaticMarkup(React.createElement(ui.AssessmentWorkspaceView,
   {data:multiple,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},onCancel(){},token:""}));
-assert(multipleHtml.includes("Operation 3") && !multipleHtml.includes("Execution requires one approved operation"));
+assert(multipleHtml.includes("Registered operation for Execution agent") && !multipleHtml.includes("Execution requires one approved operation"));
 multiple.workspace.operations.forEach(item => item.status = "blocked");
 const deniedHtml = renderToStaticMarkup(React.createElement(ui.AssessmentWorkspaceView,
   {data:multiple,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},onCancel(){},token:""}));

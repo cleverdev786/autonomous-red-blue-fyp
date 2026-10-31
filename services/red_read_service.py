@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
+
 from schemas.red_team import RedStandardBudget
 from schemas.red_team_state import (
     AssessmentState,
@@ -88,17 +91,53 @@ class RedReadService:
         status: str | None = None,
         offset: int,
         limit: int,
+        query: str = "",
+        sort_by: str | None = None,
+        direction: str = "asc",
     ) -> RedAssessmentPageDTO:
         if target_id is not None:
             self.registry.get_target(target_id)
-        snapshots, total = self.store.list_assessments(
+        snapshots, _ = self.store.list_assessments(
             target_id=target_id,
             status=status,
-            offset=offset,
-            limit=limit,
+            offset=0,
+            limit=None,
+            include_deleted=False,
+            oldest_first=True,
         )
+        items = [self._assessment_item(snapshot) for snapshot in snapshots]
+
+        def values(item):
+            active = next((f"{stage} {state.value}" for stage, state in item.stage_statuses.items()
+                           if state in {StageState.QUEUED, StageState.RUNNING}), "None")
+            return {
+                "assessment": item.assessment_number, "target": item.target_id,
+                "mode": item.mode, "status": item.status.value.replace("_", " "),
+                "coverage": item.coverage.executed / max(1, item.coverage.eligible),
+                "stage": active.replace("_", " "),
+            }
+
+        needle = query.strip().casefold()
+        if needle:
+            items = [item for item in items if needle in " ".join([
+                f"Assessment {item.assessment_number:02d}", f"{item.profile} profile",
+                f"{item.coverage.executed} / {item.coverage.eligible}",
+                *(str(value) for value in values(item).values()),
+            ]).casefold()]
+        if sort_by:
+            def key(item):
+                value = values(item)[sort_by]
+                if isinstance(value, (float, int)):
+                    return value
+                text = "".join(c for c in unicodedata.normalize("NFKD", value.casefold())
+                               if not unicodedata.combining(c))
+                return tuple((1, int(part)) if part.isdigit() else (0, part)
+                             for part in re.split(r"(\d+)", text))
+            items.sort(key=key, reverse=direction == "desc")
+        total = len(items)
+        offset = min(offset, max(0, (total - 1) // limit * limit))
         return RedAssessmentPageDTO(
-            items=tuple(self._assessment_item(snapshot) for snapshot in snapshots),
+            items=tuple(items[offset:offset + limit]),
             pagination=RedPaginationDTO(offset=offset, limit=limit, total=total),
         )
 
@@ -306,6 +345,7 @@ class RedReadService:
             status=status,
             offset=0,
             limit=None,
+            include_deleted=False,
         )
         findings = tuple(
             finding
@@ -361,6 +401,7 @@ class RedReadService:
         current_surface = snapshot.surfaces[-1] if snapshot.surfaces else None
         return RedAssessmentListItemDTO(
             assessment_id=assessment.scope.assessment_id,
+            assessment_number=self.store.assessment_number(assessment.scope.assessment_id),
             target_id=assessment.scope.target_id,
             mode=assessment.mode,
             profile=assessment.profile,

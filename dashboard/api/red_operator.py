@@ -13,7 +13,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from schemas.common import Identifier
 from schemas.red_team_state import (
@@ -80,6 +80,11 @@ class StageCommand(AssessmentCommand):
     operation_id: Identifier | None = None
 
 
+class DeleteHistoryCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    assessment_ids: list[Identifier] = Field(min_length=1, max_length=50)
+
+
 def _error(status: int, code: str, message: str) -> JSONResponse:
     return JSONResponse(
         status_code=status,
@@ -135,7 +140,7 @@ def register_red_operator(
         total = 0
         async for chunk in request.stream():
             total += len(chunk)
-            if total > 2048:
+            if total > (12288 if model is DeleteHistoryCommand else 2048):
                 return None, _error(413, "oversized_request", "Command is too large.")
             chunks.append(chunk)
         try:
@@ -307,6 +312,19 @@ def register_red_operator(
         except (OSError, ValueError, sqlite3.DatabaseError):
             return _error(503, "storage_unavailable", "Cancellation could not be recorded.")
 
+    @router.post("/assessments/delete-history")
+    async def delete_history(request: Request) -> JSONResponse:
+        data, blocked = await authenticated_command(request, DeleteHistoryCommand)
+        if blocked is not None:
+            return blocked
+        try:
+            ids = RedAssessmentStore(state_db).delete_history(data.assessment_ids)
+            return JSONResponse({"assessment_ids": list(ids)}, headers={"Cache-Control": "no-store"})
+        except StoreConflict:
+            return _error(409, "history_conflict", "Records are unavailable or have active work. Stop active assessments and refresh before deleting history.")
+        except (OSError, ValueError, sqlite3.DatabaseError):
+            return _error(503, "storage_unavailable", "History could not be deleted.")
+
     @router.get("/targets", response_model=RedTargetPageDTO)
     async def targets(
         request: Request,
@@ -327,7 +345,10 @@ def register_red_operator(
         target_id: str | None = None,
         status: str | None = None,
         offset: int = Query(default=0, ge=0),
-        limit: int = Query(default=50, ge=1, le=200),
+        limit: int = Query(default=10, ge=1, le=200),
+        q: str = Query(default="", max_length=200),
+        sort_by: Literal["assessment", "target", "mode", "status", "coverage", "stage"] | None = None,
+        direction: Literal["asc", "desc"] = "asc",
     ) -> JSONResponse:
         blocked = authorize(request, mutation=False)
         if blocked is not None:
@@ -349,6 +370,9 @@ def register_red_operator(
                     status=status,
                     offset=offset,
                     limit=limit,
+                    query=q,
+                    sort_by=sort_by,
+                    direction=direction,
                 )
             )
         except TargetRegistryError:

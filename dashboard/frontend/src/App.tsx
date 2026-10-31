@@ -27,7 +27,7 @@ import { AssessmentsPanel } from "./assessments/AssessmentsPanel";
 import { ModelStatus } from "./system/ModelStatus";
 import type { LocalModelSession } from "./api";
 import { RedDashboard } from "./red/RedDashboard";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 type RunsState =
   | { kind: "loading"; runs: RunItem[] }
@@ -238,6 +238,23 @@ export default function App() {
     ["Patch verification", `${BASE_PATH}/remediation/patch-verification`],
   ] : [];
 
+  const accountActions = <>
+            <button type="button" className="account-icon" aria-label={signingOut ? "Signing out" : "Sign out"}
+              title="Sign out" disabled={signingOut} onClick={() => {
+              setSigningOut(true);
+              void fetch("/api/auth/logout", { method: "POST", credentials: "include" })
+                .then(response => {
+                  if (!response.ok) throw new Error("Logout rejected");
+                  window.location.reload();
+                }).catch(() => { setError("Sign out failed. Your session may still be active."); setSigningOut(false); });
+            }}><LogOut size={18} aria-hidden="true" /></button>
+            <button type="button" className="theme-toggle"
+              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+              aria-pressed={theme === "dark"} onClick={() => setTheme(current => current === "light" ? "dark" : "light")}>
+              {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
+            </button>
+  </>;
+
   return (
     <>
       <a className="skip-to-content" href="#main-content">Skip to main content</a>
@@ -252,19 +269,18 @@ export default function App() {
         onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }} />}
       <div className={railCollapsed ? "shell rail-collapsed" : "shell"}>
         <Sidebar open={menuOpen}>
-          <button type="button" className="rail-toggle" aria-controls="mars-navigation"
-            aria-expanded={!railCollapsed} aria-label={railCollapsed ? "Expand navigation" : "Collapse navigation"}
-            onClick={() => setRailCollapsed(value => !value)}>{railCollapsed ? "→" : "←"}</button>
           <button type="button" className="sidebar-close" aria-label="Close navigation"
             onClick={() => { setMenuOpen(false); menuToggle.current?.focus(); }}>
-            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
-              strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-              <path d="M5 5l14 14M19 5L5 19" />
-            </svg>
+            <X size={21} aria-hidden="true" />
           </button>
-          <div className="sidebar-brand">
+          <div className="sidebar-header">
+            <div className="sidebar-brand">
             <MarsMark className="brand-mark" />
             <div className="brand-type"><strong>MARS</strong><p>Security workspace</p></div>
+            </div>
+            <button type="button" className="rail-toggle" aria-controls="mars-navigation"
+            aria-expanded={!railCollapsed} aria-label={railCollapsed ? "Expand navigation" : "Collapse navigation"}
+            onClick={() => setRailCollapsed(value => !value)}>{railCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}</button>
           </div>
           <div className="sidebar-workspace-label">WORKSPACE</div>
           <nav aria-label="Primary navigation" ref={navigation}>
@@ -293,6 +309,7 @@ export default function App() {
             </div>
           )}
           <div className="sidebar-footer">
+            <div className="mobile-account-actions" aria-label="Account controls">{accountActions}</div>
             <a href="/dashboard/system" title="System" aria-label="System"
               className={route.section === "System" ? "sidebar-system active" : "sidebar-system"}
               aria-current={route.section === "System" ? "page" : undefined}
@@ -302,23 +319,10 @@ export default function App() {
           </div>
         </Sidebar>
         <main id="main-content" tabIndex={-1} aria-hidden={menuOpen ? true : undefined}>
-          <div className="utility-bar">
+          <header className="utility-bar">
             <span className="utility-path">Workspace <span className="utility-separator">/</span> {route.section ?? "Page"}</span>
-            <button type="button" className="account-icon" aria-label={signingOut ? "Signing out" : "Sign out"}
-              title="Sign out" disabled={signingOut} onClick={() => {
-              setSigningOut(true);
-              void fetch("/api/auth/logout", { method: "POST", credentials: "include" })
-                .then(response => {
-                  if (!response.ok) throw new Error("Logout rejected");
-                  window.location.reload();
-                }).catch(() => { setError("Sign out failed. Your session may still be active."); setSigningOut(false); });
-            }}><LogOut size={18} aria-hidden="true" /></button>
-            <button type="button" className="theme-toggle"
-              aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-              aria-pressed={theme === "dark"} onClick={() => setTheme(current => current === "light" ? "dark" : "light")}>
-              {theme === "light" ? <Moon size={18} aria-hidden="true" /> : <Sun size={18} aria-hidden="true" />}
-            </button>
-          </div>
+            {accountActions}
+          </header>
           <header className="page-header">
             <div>
               <h1>{route.title === "Overview" ? "Workspace overview" : route.title}</h1>

@@ -40,6 +40,10 @@
 
 **Phase 3 evidence:** `ui_phase3_report.md` records route/recovery tests, live read-only browser checks, captures, owner-directed Overview changes, and DTO limitations. UI-19 uses available status/coverage fields; the API does not supply per-row finding counts or timestamps.
 
+**Assessment history follow-up (2026-10-31):** Ascending stable numbers, full-history search, keyboard tri-state sorting, compact sticky table, 10/25/50 numbered pagination and selection-only deletion are implemented. Direct live checks and exact limitations are recorded in `ui_table_live_report.md`; wider human acceptance remains open.
+
+**Audit hardening follow-up (2026-10-31):** Search requests are isolated from dashboard metadata; pagination CSS overrides, highlight layout and confirmed shell/login/manual/findings defects were repaired. `ui_audit_followup_report.md` records each audit disposition, live checks, regression results and remaining human acceptance limits.
+
 ## Phase 4 — Live stages, findings and evidence
 
 - [x] **UI-20 · Four-stage operational timeline.** Compact rows based on supplied reference; show accurate stage status, last event, tasks completed, error, permitted inspect/cancel/rerun. Rename “Live” to “Assessment timeline” after terminal state. **Acceptance:** all queue/blocked/stale/cancelled states, Manual vs Autonomous, no fake progress, reduced motion.

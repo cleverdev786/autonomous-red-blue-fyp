@@ -51,6 +51,7 @@ export type RedDashboardSummary = {
 
 export type RedAssessment = {
   assessment_id: string;
+  assessment_number?: number;
   target_id: string;
   mode: "manual" | "autonomous";
   profile: "standard";
@@ -66,7 +67,7 @@ export type RedAssessment = {
   stage_statuses: Partial<Record<"reconnaissance" | "planning" | "execution" | "verification", RedStageStatus>>;
 };
 
-type Page<T> = {
+export type Page<T> = {
   items: T[];
   pagination: { offset: number; limit: number; total: number };
 };
@@ -100,7 +101,9 @@ export type RedWorkspace = { assessment: RedAssessment;
 export type RedWorkspaceBundle = { workspace: RedWorkspace; events: RedEvent[];
   findings: RedFinding[]; findingTotal: number; coverage: RedCoverage };
 
-export const assessmentPageSize = 25;
+export const assessmentPageSize = 10;
+export const assessmentLabel = (assessment: RedAssessment) => assessment.assessment_number
+  ? `Assessment ${String(assessment.assessment_number).padStart(2, "0")}` : "Assessment";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
@@ -155,6 +158,7 @@ function isCoverageCounts(value: unknown): value is RedAssessment["coverage"] {
 
 function isAssessment(value: unknown): value is RedAssessment {
   if (!isRecord(value) || !isText(value.assessment_id) || !isText(value.target_id) ||
+      !(value.assessment_number === undefined || (isCount(value.assessment_number) && Number(value.assessment_number) > 0)) ||
       !["manual", "autonomous"].includes(String(value.mode)) || value.profile !== "standard" ||
       !assessmentStatuses.includes(value.status as RedAssessmentStatus) ||
       typeof value.workflow_complete !== "boolean" || !isCoverageCounts(value.coverage) ||
@@ -242,22 +246,33 @@ export function listRedTargets(token: string, signal?: AbortSignal): Promise<Pag
     value => isPage(value, isTarget), signal);
 }
 
-export async function loadRedDashboard(
-  token: string,
-  filters: { targetId: string; status: string; offset?: number },
-  signal?: AbortSignal,
-): Promise<{ summary: RedDashboardSummary; assessments: Page<RedAssessment> }> {
+type HistoryFilters = { targetId: string; status: string; offset?: number; limit?: number; query?: string;
+  sort?: { key: string; direction: "asc" | "desc" } | null };
+
+function historyFilters(filters: HistoryFilters) {
   const query = new URLSearchParams();
   if (filters.targetId) query.set("target_id", filters.targetId);
   if (filters.status) query.set("status", filters.status);
-  const suffix = query.toString() ? `?${query}` : "";
-  const assessmentQuery = new URLSearchParams(query);
-  assessmentQuery.set("offset", String(filters.offset ?? 0));
-  assessmentQuery.set("limit", String(assessmentPageSize));
+  return query;
+}
+
+export function readRedSummary(token: string, filters: HistoryFilters, signal?: AbortSignal) {
+  const query = historyFilters(filters).toString();
+  return redGet(`/api/red/summary${query ? `?${query}` : ""}`, token, isSummary, signal);
+}
+
+export function listRedAssessments(token: string, filters: HistoryFilters, signal?: AbortSignal): Promise<Page<RedAssessment>> {
+  const query = historyFilters(filters);
+  query.set("offset", String(filters.offset ?? 0));
+  query.set("limit", String(filters.limit ?? assessmentPageSize));
+  if (filters.query) query.set("q", filters.query);
+  if (filters.sort) { query.set("sort_by", filters.sort.key); query.set("direction", filters.sort.direction); }
+  return redGet(`/api/red/assessments?${query}`, token, value => isPage(value, isAssessment), signal);
+}
+
+export async function loadRedDashboard(token: string, filters: HistoryFilters, signal?: AbortSignal) {
   const [summary, assessments] = await Promise.all([
-    redGet(`/api/red/summary${suffix}`, token, isSummary, signal),
-    redGet(`/api/red/assessments?${assessmentQuery}`,
-      token, value => isPage(value, isAssessment), signal),
+    readRedSummary(token, filters, signal), listRedAssessments(token, filters, signal),
   ]);
   return { summary, assessments };
 }
@@ -292,6 +307,20 @@ export function createRedAssessment(token: string, command: {
     request_id: command.requestId, target_id: command.targetId,
     mode: command.mode, approval_id: command.approvalId,
   }, ["awaiting_authorization"]);
+}
+
+export async function deleteRedHistory(token: string, assessmentIds: string[]): Promise<void> {
+  const ids = [...new Set(assessmentIds)];
+  if (!ids.length || ids.length > 50) throw new Error("Select 1 to 50 history records.");
+  const challenge = await redGet("/api/red/operator/csrf", token,
+    (value): value is { csrf_token: string } => isRecord(value) && isText(value.csrf_token));
+  const value = await requestJson<unknown>("/api/red/assessments/delete-history", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Red-CSRF": challenge.csrf_token },
+    body: JSON.stringify({ assessment_ids: ids }),
+  });
+  const returned = isRecord(value) ? value.assessment_ids : null;
+  if (!Array.isArray(returned) || returned.length !== ids.length || !ids.every(id => returned.includes(id)))
+    throw new ApiRequestError("schema", "History deletion response did not match the selected records.");
 }
 
 export function authorizeRedAssessment(token: string, assessmentId: string, command: {
