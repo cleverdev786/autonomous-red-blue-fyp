@@ -10,9 +10,8 @@ export type OverviewState =
 export function OverviewPanel(_props: { state: OverviewState }) {
   return <div className="workspace-overview">
     <section className="workspace-hero">
-      <span className="eyebrow">MARS security workspace</span>
-      <h2>A clear view of your security workflow.</h2>
-      <p>Choose a team workspace to review assessments, follow progress and inspect evidence.</p>
+      <h2>Controlled assessments. Traceable evidence.</h2>
+      <p>Review authorized Red Team assessments in the isolated lab, follow agent progress and inspect verified findings.</p>
       <Button asChild><a href="/dashboard/red-team">Review Red assessments</a></Button>
     </section>
     <RedOverview />

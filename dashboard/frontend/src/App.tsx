@@ -323,10 +323,10 @@ export default function App() {
             <span className="utility-path">Workspace <span className="utility-separator">/</span> {route.section ?? "Page"}</span>
             {accountActions}
           </header>
-          <header className="page-header">
+          <header className={`page-header${["Overview", "Red Team"].includes(route.section ?? "") ? " page-header--operator" : ""}`}>
             <div>
               <h1>{route.title === "Overview" ? "Workspace overview" : route.title}</h1>
-              <p className="page-description">{({
+              {!["Overview", "Red Team"].includes(route.section ?? "") && <p className="page-description">{({
                 Overview: "Your security workspace at a glance.",
                 "Red Team": "Red Team workspace.",
                 "Blue Team": "Blue Team workspace.",
@@ -335,7 +335,7 @@ export default function App() {
                 Remediation: "Run offline security verification and review trusted fixes.",
                 Reports: "Saved runs, evidence and reports.",
                 System: "Services, configuration and runtime status.",
-              } as Record<string, string>)[route.section ?? ""] ?? "Workspace"}</p>
+              } as Record<string, string>)[route.section ?? ""] ?? "Workspace"}</p>}
             </div>
             {view === "Trusted Preview" && <span className="safety-badge">Isolated sandbox only</span>}
           </header>

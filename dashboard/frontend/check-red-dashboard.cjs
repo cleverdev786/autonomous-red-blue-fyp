@@ -92,12 +92,15 @@ const assessment = {
     onTargetChange() {}, onStatusChange() {}, onRefresh() {},
     onPageChange() {},
   }));
-  for (const label of ["Verified findings", "Endpoint coverage", "Active assessments",
+  for (const label of ["Verified findings", "Tests executed", "Active assessments",
     "Agent activity", "Target", "Assessment status", "Assessment history",
     "Next"]) {
     assert(html.includes(label), "missing dashboard label: " + label);
   }
   assert(html.includes("2 confirmed") && html.includes("3 / 4") && html.includes("as-dashboard"));
+  assert(!html.includes("Endpoint coverage"), "test totals must not claim endpoint coverage");
+  assert(html.includes("executed / eligible tests"));
+  assert(html.includes("1 open coverage gap") && !html.includes("1 open coverage gaps"));
   assert(!html.includes("Page content will be added later"));
   assert.match(html, /<th[^>]*aria-sort="none"[^>]*>Assessment/s);
   assert(html.includes('type="search"') && html.includes('aria-live="polite"'));

@@ -49,9 +49,23 @@ const html = renderToStaticMarkup(React.createElement(ui.AssessmentWorkspaceView
   { data:bundle,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},
     onCancel(){},token:"operator-token" }));
 for (const text of ["Four bounded agents","Recon agent","Planning agent","Execution agent",
-  "Verification agent","Last action","Task count","Failure state","Findings &amp; coverage",
+  "Verification agent","Findings &amp; coverage",
   "authentication required","Open reports"]) assert(html.includes(text), text);
 assert(html.includes("Run") && html.includes("Inspect"));
+assert(html.includes('aria-label="Run Execution agent"') && html.includes('aria-label="Inspect Execution agent"'));
+assert(html.includes("Discover endpoints within the authorized scope."));
+assert(html.includes("Choose vetted tests and record coverage gaps."));
+assert(!html.includes("Failure state"), "healthy stages should not repeat empty failure diagnostics");
+assert(!html.includes("Last action"), "routine diagnostics belong in Inspect");
+const blocked = structuredClone(bundle);
+blocked.workspace.stages[2].status = "blocked";
+let inspectionHook = 0;
+const inspectedUi = compile("src/red/AssessmentWorkspace.tsx", {...React,
+  useState: initial => [inspectionHook++ === 0 ? "execution" : initial, () => {}]});
+const blockedHtml = renderToStaticMarkup(React.createElement(inspectedUi.AssessmentWorkspaceView,
+  {data:blocked,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},onCancel(){},token:""}));
+assert(blockedHtml.includes("Failure state</dt><dd>blocked"), "real blocked states must remain visible");
+assert(blockedHtml.includes("Last action") && blockedHtml.includes("Task count"), "Inspect retains diagnostics");
 assert(html.includes('<h2 id="red-workspace-title">'), "workspace hierarchy must start below the page h1");
 assert(html.includes('aria-label="Finding outcomes" tabindex="0"'), "findings overflow must be keyboard reachable");
 assert(html.includes("&lt;script&gt;alert(1)&lt;/script&gt;") && !html.includes("<script>alert"));
@@ -100,6 +114,23 @@ const completedHtml = renderToStaticMarkup(React.createElement(ui.AssessmentWork
 assert(completedHtml.includes("Assessment timeline") && !completedHtml.includes("Live assessment timeline"));
 assert(!completedHtml.includes("stage-transition"));
 assert(completedHtml.includes("Security coverage"));
+assert(completedHtml.includes("<strong>Recon agent</strong><p>3 recorded items</p>"), "timeline summary must not repeat stage identity and outcome");
+const activity = structuredClone(completed);
+activity.events.push({event_id:"activity",stage:"reconnaissance",action:"surface_recorded",status:"succeeded",occurred_at:"2026-10-31T09:00:00Z"});
+const activityHtml = renderToStaticMarkup(React.createElement(ui.AssessmentWorkspaceView,
+  {data:activity,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},onCancel(){},token:""}));
+assert(activityHtml.includes("3 recorded items · surface recorded"), "meaningful latest activity must remain in the summary");
+assert(completedHtml.includes("Only unauthenticated routes were assessed."));
+for (const [status,message] of [["completed","Assessment completed"],
+  ["completed_with_limitations","Assessment completed with limitations"],
+  ["failed","Assessment failed"],["cancelled","Assessment cancelled"],["blocked","Assessment blocked"]]) {
+  const state = structuredClone(completed);
+  state.workspace.assessment.status = status;
+  const output = renderToStaticMarkup(React.createElement(ui.AssessmentWorkspaceView,
+    {data:state,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},onCancel(){},token:""}));
+  assert(output.includes(`${message} · automatic updates stopped`));
+  if (["failed","cancelled","blocked"].includes(status)) assert(!output.includes("Assessment completed"));
+}
 for (const status of ["queued","running","failed","blocked","cancelled","stale","not_started"]) {
   const state = structuredClone(completed);
   state.workspace.stages[0].status = status;
@@ -121,7 +152,7 @@ const autoHtml = renderToStaticMarkup(React.createElement(ui.AssessmentWorkspace
   { data:autonomous,busy:null,commandError:null,onClose(){},onRefresh(){},onRunStage(){},
     onCancel(){},token:"operator-token" }));
 assert(autoHtml.includes("Live assessment timeline") && autoHtml.includes("mode locked") &&
-  autoHtml.includes("Stop assessment") && autoHtml.includes("Polling every 3 seconds"));
+  autoHtml.includes("Stop assessment") && autoHtml.includes("Updates automatically every 3 seconds"));
 const source = fs.readFileSync("src/red/AssessmentWorkspace.tsx", "utf8");
 const apiSource = fs.readFileSync("src/red/api.ts", "utf8");
 const css = fs.readFileSync("src/product.css", "utf8");

@@ -129,17 +129,16 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
   const metrics = [
     { label: "Verified findings", value: summary.confirmed_findings,
       detail: `${summary.confirmed_findings} confirmed · ${summary.suspected_findings} suspected` },
-    { label: "Endpoint coverage", value: `${summary.tested} / ${summary.eligible}`,
-      detail: `${summary.coverage_gaps} open coverage gaps` },
+    { label: "Tests executed", value: `${summary.tested} / ${summary.eligible}`,
+      detail: `executed / eligible tests · ${summary.coverage_gaps} open coverage gap${summary.coverage_gaps === 1 ? "" : "s"}` },
     { label: "Active assessments", value: summary.active_assessments,
       detail: `${summary.queued_assessments} queued` },
     { label: "Agent activity", value: summary.active_stages,
       detail: `${summary.active_stages} queued or running stages` },
   ];
   return <>
-    <p className="text-sm text-muted-foreground">Totals span assessments in history and can include repeated findings. Workflow completion does not establish target safety.</p>
     {assessments.find(item => ["queued", "running", "awaiting_authorization"].includes(item.status)) &&
-      <section className="surface-card p-4"><h2>Continue an assessment</h2>
+      <section className="red-continue"><h2>Continue an assessment</h2>
         {assessments.filter(item => ["queued", "running", "awaiting_authorization"].includes(item.status)).map(item =>
           <Button key={item.assessment_id} variant="outline" asChild><a href={assessmentPath(item.assessment_id)}
             onClick={event => { if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
@@ -151,10 +150,11 @@ function ReadyDashboard({ summary, assessments, total, offset, limit, onPageChan
         <span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.detail}</small>
       </article>)}
     </section>
+    <p className="red-metrics-note text-sm text-muted-foreground">Totals span assessments and may repeat findings or tests. Workflow completion does not establish target safety.</p>
     <section className="surface-card red-history" aria-labelledby="red-history-title">
       <div className="red-history-head">
         <div><h2 id="red-history-title" tabIndex={-1}>Assessment history</h2>
-          <p>Server-authoritative Red assessments matching the selected filters.</p></div>
+          <p>Saved assessments matching your filters and search.</p></div>
 
       </div>
       {filters}

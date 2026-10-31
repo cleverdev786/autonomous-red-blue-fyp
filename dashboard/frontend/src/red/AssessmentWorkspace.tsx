@@ -106,7 +106,6 @@ export function AssessmentWorkspaceView({ data, busy, commandError, onClose, onR
       }} className="dashboard-button">Dashboard</a></Button></nav>
     <header className="red-workspace-header surface-card">
       <div>
-        <span className="eyebrow">Assessment workspace</span>
         <h2 id="red-workspace-title">{assessment.target_id}</h2>
         <p>{assessmentLabel(assessment)} · {assessment.mode} · Standard assessment</p>
         <details className="technical-reference"><summary>Technical reference</summary><code>{assessment.assessment_id}</code></details></div>
@@ -126,7 +125,11 @@ export function AssessmentWorkspaceView({ data, busy, commandError, onClose, onR
       <span>{coverage.coverage.executed} / {coverage.coverage.eligible} eligible tests executed</span>
       <span>{coverage.gaps.length} recorded gaps</span>
       <p>Workflow completion does not establish target safety.</p>
-      {coverage.warnings.map(warning => <span key={warning}>{label(warning)}</span>)}
+      {coverage.warnings.map(warning => <span key={warning}>{({
+        unauthenticated_only_coverage: "Only unauthenticated routes were assessed.",
+        unsupported_vulnerability_classes: "Some vulnerability classes are outside the supported scope.",
+        incomplete_or_uncertain_coverage: "Coverage is incomplete or uncertain. Review the findings and coverage gaps.",
+      } as Record<string, string>)[warning] ?? label(warning)}</span>)}
     </section>
     {assessment.mode === "manual" ? <ManualPanels data={data} busy={busy}
       onRunStage={onRunStage} /> : <AutonomousTimeline data={data} />}
@@ -156,10 +159,13 @@ function ManualPanels({ data, busy, onRunStage }: { data: RedWorkspaceBundle;
       return <article className={`red-agent-card red-agent-card--${status}`} key={stage}>
         <div className="red-agent-index">0{index + 1}</div>
         <div className="red-agent-title"><h4>{agentName(stage)}</h4>
+          <p className="red-stage-purpose">{({
+            reconnaissance: "Discover endpoints within the authorized scope.",
+            planning: "Choose vetted tests and record coverage gaps.",
+            execution: "Run approved tests within the fixed limits.",
+            verification: "Check execution evidence and classify outcomes.",
+          })[stage]}</p>
           <span className={`red-status red-status--${status}`}>{label(status)}</span></div>
-        <dl><div><dt>Last action</dt><dd>{last ? eventLabel(last) : "No recorded action"}</dd></div>
-          <div><dt>Task count</dt><dd>{stageTaskCount(stage, data)}</dd></div>
-          <div><dt>Failure state</dt><dd>{["failed", "blocked"].includes(status) ? label(status) : "None"}</dd></div></dl>
         {reason && <p className="red-disabled-reason" id={`${stage}-reason`}>{reason}</p>}
         <div className="red-agent-actions">
           {(stage === "execution" || stage === "verification") && operations.length > 0 &&
@@ -169,13 +175,20 @@ function ManualPanels({ data, busy, onRunStage }: { data: RedWorkspaceBundle;
                 <SelectContent>{operations.map((item, i) => <SelectItem key={item.operation_id} value={item.operation_id}>Operation {i + 1} · {item.test_id ?? "Registered test"}</SelectItem>)}</SelectContent>
               </Select></label>}
           <ActionButton disabled={Boolean(reason) || busy !== null} aria-disabled={Boolean(reason) || busy !== null}
+            aria-label={`${rerun ? "Rerun" : "Run"} ${agentName(stage)}`}
             aria-describedby={reason ? `${stage}-reason` : undefined}
             onClick={() => { if (!reason) onRunStage(stage, stage === "execution" || stage === "verification" ? operationId : undefined); }}>
             {busy?.startsWith(`run-${stage}`) ? "Queuing…" : rerun ? "Rerun" : "Run"}</ActionButton>
           <ActionButton variant="secondary" onClick={() => setInspected(inspected === stage ? null : stage)}
+            aria-label={`Inspect ${agentName(stage)}`}
             aria-expanded={inspected === stage}>Inspect</ActionButton>
         </div>
-        {inspected === stage && <StageHistory stage={stage} events={events} plan={record?.plan_version ?? null} />}
+        {inspected === stage && <div className="red-stage-inspection">
+          <dl><div><dt>Last action</dt><dd>{last ? eventLabel(last) : "No recorded action"}</dd></div>
+            <div><dt>Task count</dt><dd>{stageTaskCount(stage, data)}</dd></div>
+            {["failed", "blocked"].includes(status) && <div><dt>Failure state</dt><dd>{label(status)}</dd></div>}</dl>
+          <StageHistory stage={stage} events={events} plan={record?.plan_version ?? null} />
+        </div>}
       </article>;
     })}</div>
     {workspace.plans.some(plan => plan.status === "stale") && <Notice title="Plan is stale" tone="warning">
@@ -186,17 +199,21 @@ function ManualPanels({ data, busy, onRunStage }: { data: RedWorkspaceBundle;
 
 function AutonomousTimeline({ data }: { data: RedWorkspaceBundle }) {
   const { workspace, events } = data;
+  const outcome = ({ completed: "Assessment completed", completed_with_limitations: "Assessment completed with limitations",
+    failed: "Assessment failed", cancelled: "Assessment cancelled", blocked: "Assessment blocked" } as Record<string, string>)[workspace.assessment.status];
   return <section className="red-timeline surface-card" aria-labelledby="autonomous-title">
-    <div className="red-section-head"><div><span className="eyebrow">Autonomous run · {terminal.has(workspace.assessment.status) ? "terminal record" : "mode locked"}</span>
+    <div className="red-section-head"><div><span className="eyebrow">Autonomous run · {terminal.has(workspace.assessment.status) ? "saved assessment" : "mode locked"}</span>
       <h3 id="autonomous-title">{terminal.has(workspace.assessment.status) ? "Assessment timeline" : "Live assessment timeline"}</h3></div>
       <span>{terminal.has(workspace.assessment.status)
-        ? "Terminal state · polling stopped" : "Polling every 3 seconds while non-terminal"}</span></div>
+        ? `${outcome} · automatic updates stopped` : "Updates automatically every 3 seconds"}</span></div>
     <ol>{stages.map(stage => {
       const status = workspace.stages.find(item => item.stage === stage)?.status ?? "not_started";
       const event = [...events].reverse().find(item => item.stage === stage);
+      const count = stageTaskCount(stage, data);
       return <li key={stage} className={`red-timeline-step red-timeline-step--${status}`}>
         <span className="red-timeline-node" aria-hidden="true" />
-        <div><strong>{agentName(stage)}</strong><p>{event ? eventLabel(event) : "Awaiting prerequisite"} · {stageTaskCount(stage, data)} recorded items</p>
+        <div><strong>{agentName(stage)}</strong><p>{count} recorded {count === 1 ? "item" : "items"}
+          {event && event.action !== "stage-transition" && <> · {eventLabel(event)}</>}</p>
           <details className="stage-disclosure"><summary>Stage history</summary>
             <StageHistory stage={stage} events={events}
               plan={workspace.stages.find(item => item.stage === stage)?.plan_version ?? null} />
@@ -347,10 +364,10 @@ function stageReason(stage: typeof stages[number], data: RedWorkspaceBundle, any
     item.surface_revision === workspace.assessment.current_surface_revision && item.status === "approved");
   const approvedOperations = workspace.operations?.filter(item => item.plan_version === workspace.assessment.current_plan_version && item.status === "approved");
   if ((stage === "execution" || stage === "verification") && (!currentPlan || (approvedOperations ? approvedOperations.length === 0 : workspace.planned_operation_count !== 1)))
-    return "Execution requires one approved operation on the current plan.";
+    return "Execution requires one approved operation on the current plan. Run Planning again if the plan is missing or stale; inspect its history if no operations were approved.";
   const execution = workspace.stages.find(item => item.stage === "execution");
   if (stage === "verification" && execution?.status !== "succeeded")
-    return "Verification requires a completed execution receipt.";
+    return "Verification requires a completed execution receipt. Run Execution first, then inspect its history if it did not succeed.";
   return null;
 }
 

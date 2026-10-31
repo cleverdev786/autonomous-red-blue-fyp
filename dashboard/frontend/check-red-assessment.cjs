@@ -109,6 +109,10 @@ const target = {
   missingReview.props.onClick();
   assert.equal(reviews, 1, "A missing registered target must not reach scope review");
   assert(setup.includes("New assessment") && setup.includes("Review Standard scope"));
+  assert(setup.includes('aria-describedby="red-mode-help"') && setup.includes("within the scope you authorize"));
+  const manualSetup = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
+    {...base, phase:"setup", mode:"manual"}));
+  assert(manualSetup.includes("run each stage yourself after authorizing the fixed scope"));
   assert(!setup.includes("Start autonomous assessment"));
   const review = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
     { ...base, phase: "review" }));
@@ -116,6 +120,7 @@ const target = {
     "3 registered tests", "2 levels", "Retries", "Edit target or mode",
     "Create authorization draft"]) assert(review.includes(text));
   assert(!review.includes("Mode locked"));
+  for (const heading of ["Requests and tests", "Runtime and resources"]) assert(review.includes(heading));
   const awaiting = renderToStaticMarkup(React.createElement(redUi.NewAssessmentView,
     { ...base, phase: "awaiting_authorization", assessmentId: "assessment-t29",
       error: "Authorization was rejected by the server." }));

@@ -14,8 +14,8 @@
 .utility-bar>button { border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--foreground); padding:8px 12px; cursor:pointer; }
 .utility-path { margin-right:auto; }
 .workspace-overview { max-width:1440px; margin-inline:auto; }
-.workspace-hero { padding:clamp(24px,4vw,48px); background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:24px; }
-.workspace-hero h2 { max-width:22ch; font-size:clamp(28px,4vw,44px); line-height:1.15; margin:12px 0 16px; letter-spacing:-.035em; }
+.workspace-hero { padding:clamp(24px,3vw,32px); background:var(--card); border:1px solid var(--border); border-radius:12px; margin-bottom:24px; }
+.workspace-hero h2 { max-width:28ch; font-size:clamp(28px,3vw,36px); line-height:1.15; margin:0 0 12px; letter-spacing:-.035em; }
 .workspace-hero p,.team-card p { color:var(--muted-foreground); max-width:60ch; line-height:1.6; }
 .team-card { padding:clamp(20px,3vw,32px); min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:12px; background:var(--card); border:1px solid var(--border); border-radius:12px; }
 .team-card h2 { font-size:24px; }

@@ -16,6 +16,8 @@ assert.match(render({kind:"error",denied:true}),/Session access required.*Sign i
 const summary = {confirmed_findings:4,tested:2,eligible:3,active_assessments:1,coverage_gaps:1};
 const ready = {kind:"ready",summary,targets:[],assessments:[]};
 const empty = render(ready);
+assert.match(empty,/Blue Team workspace is not yet available/);
+assert.doesNotMatch(empty,/Blue Team functionality is deferred/);
 assert.match(empty,/No registered targets available/);
 assert.match(empty,/1 active assessment/);
 assert.doesNotMatch(empty,/tools coming later|Browse assessments/);

@@ -69,7 +69,7 @@ main > .panel { margin-bottom:16px; }
 .ui-button--primary:hover:not(:disabled), .preview-controls .ui-button--primary:hover:not(:disabled) { background:var(--color-action-hover); border-color:var(--color-action-hover); }
 .ui-button--secondary, .runtime-refresh.ui-button--secondary { background:var(--color-surface); border:1px solid #dce3ec; color:#263750; }
 .ui-button--secondary:hover:not(:disabled) { background:#eaf3ff; }
-.ui-notice { border:1px solid #e1e6f0; border-left:3px solid #9aa5ea; background:var(--color-surface-low); color:#27344c; border-radius:9px; padding:15px 17px; }
+.ui-notice { border:1px solid #e1e6f0; border-left:1px solid #9aa5ea; background:var(--color-surface-low); color:#27344c; border-radius:9px; padding:15px 17px; }
 .ui-notice strong { color:#26344e; font-size:13px; }
 .ui-notice__detail { color:#5b6a84; font-size:12px; margin-top:7px; line-height:1.65; }
 .ui-notice--warning { border-left-color:#c48b2b; background:#fffaf0; border-color:#f1dfba; }

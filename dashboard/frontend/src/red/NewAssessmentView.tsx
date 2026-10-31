@@ -52,11 +52,14 @@ export function NewAssessmentView({ targets, targetId, mode, phase, busy, error,
         {!targets.length && <p role="status">No registered target is available. Refresh the dashboard to retry.</p>}
       </div>
       <div><span id="red-mode-label">Assessment mode</span>
-        <RadioGroup aria-labelledby="red-mode-label" value={mode} disabled={busy}
+        <RadioGroup aria-labelledby="red-mode-label" aria-describedby="red-mode-help" value={mode} disabled={busy}
           onValueChange={value => { if (value === "manual" || value === "autonomous") onModeChange(value); }}>
           <div className="flex items-center gap-2"><RadioGroupItem id="red-manual" value="manual" /><label htmlFor="red-manual">Manual</label></div>
           <div className="flex items-center gap-2"><RadioGroupItem id="red-autonomous" value="autonomous" /><label htmlFor="red-autonomous">Autonomous</label></div>
         </RadioGroup>
+        <p id="red-mode-help" className="red-mode-help">{mode === "manual"
+          ? "Manual: run each stage yourself after authorizing the fixed scope."
+          : "Autonomous: agents advance through stages within the scope you authorize."}</p>
       </div>
       <ActionButton type="button" disabled={busy} aria-disabled={!target || busy}
         onClick={() => { if (target) { onReview(); notify("Standard scope ready for review."); }
@@ -125,16 +128,19 @@ function ScopeReview({ target, mode }: { target: RedTarget; mode: RedMode }) {
     <div><strong>Registered classes</strong><ul>
       {target.supported_classes.map(item => <li key={item}>{classLabel(item)}</li>)}
     </ul></div>
-    <dl className="red-budget-grid">
+    <div className="red-budget-groups">
+    <section aria-labelledby="scope-requests"><h4 id="scope-requests">Requests and tests</h4><dl className="red-budget-grid">
       <div><dt>HTTP budget</dt><dd>{budget.max_http_requests} HTTP requests</dd></div>
       <div><dt>Crawl budget</dt><dd>{budget.max_crawl_requests} crawl requests</dd></div>
       <div><dt>Test budget</dt><dd>{budget.max_tests} registered tests</dd></div>
+      <div><dt>Traversal depth</dt><dd>{budget.max_depth} levels</dd></div>
+    </dl></section>
+    <section aria-labelledby="scope-resources"><h4 id="scope-resources">Runtime and resources</h4><dl className="red-budget-grid">
       <div><dt>Runtime</dt><dd>{budget.max_runtime_seconds} seconds</dd></div>
       <div><dt>Concurrency</dt><dd>{budget.max_parallel_operations} operation</dd></div>
-      <div><dt>Traversal depth</dt><dd>{budget.max_depth} levels</dd></div>
       <div><dt>Retries</dt><dd>{budget.max_retries}</dd></div>
       <div><dt>Resources</dt><dd>{budget.max_cpu_cores} CPU · {budget.max_memory_mb} MB</dd></div>
-    </dl>
+    </dl></section></div>
     <p className="red-scope-caution" role="status">{mode === "autonomous" ? "Authorize to start autonomous assessment." : "Draft first. Authorize before execution."}</p>
   </div>;
 }

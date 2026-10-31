@@ -160,7 +160,7 @@ button, select, input { min-height: 40px; }
 .ui-notice {
   margin-block: var(--space-base); border: 1px solid var(--color-border);
   background: var(--color-surface-low); border-radius: var(--radius-card);
-  padding: var(--space-base); border-inline-start: 4px solid var(--color-link);
+  padding: var(--space-base); border-inline-start: 1px solid var(--color-link);
 }
 .ui-notice strong, .ui-empty strong { display: block; font-size: 1rem; color: var(--color-text); }
 .ui-notice__detail { margin-top: var(--space-xs); color: var(--color-muted); overflow-wrap: anywhere; }

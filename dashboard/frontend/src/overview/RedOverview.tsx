@@ -47,7 +47,7 @@ export function RedOverviewView({ state, onRetry }: { state: RedOverviewState; o
     <article className="team-card" aria-labelledby="blue-entry-title">
       <span className="eyebrow">Remediation workspace</span>
       <h2 id="blue-entry-title">Blue Team</h2>
-      <p>Blue Team functionality is deferred. This entry remains available for the next product phase.</p>
+      <p>The Blue Team workspace is not yet available. Evidence analysis and remediation tools already exist elsewhere in MARS.</p>
       <Button variant="outline" asChild><a href="/dashboard/blue-team">Open Blue Team</a></Button>
     </article>
   </div>;
